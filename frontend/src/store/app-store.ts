@@ -2,14 +2,9 @@
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import type { HistoryItem } from "@/types/history";
 
 export type ThemeMode = "light" | "dark" | "system";
-
-export type HistoryItem = {
-  name: string;
-  url: string;
-  updatedAt: string;
-};
 
 type UserInfo = {
   user_id?: string;

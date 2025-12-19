@@ -1,6 +1,4 @@
-import * as React from "react";
-import { Database, Settings, type LucideIcon } from "lucide-react";
-
+import type { SettingsOption } from "@/types/settings";
 import {
   Sidebar,
   SidebarContent,
@@ -24,41 +22,45 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useTheme } from "@/app/providers/ThemeProvider";
-import { useTranslation } from "react-i18next";
+import { useSettingsDialog } from "@/hooks/use-settings-dialog";
 
-const languages = [
-  { code: "en", name: "English" },
-  { code: "ja", name: "日本語" },
-];
+type GeneralSettingsProps = {
+  languageOptions: SettingsOption[];
+  themeOptions: SettingsOption[];
+  selectedLanguage: string;
+  selectedTheme: string;
+  onLanguageChange: (value: string) => void;
+  onThemeChange: (value: string) => void;
+  t: (key: string) => string;
+};
 
-const themes = ["system", "light", "dark"];
-
-function GeneralSettings() {
-  const { i18n, t } = useTranslation();
-  const { theme, setTheme } = useTheme();
-
+/**
+ * Displays the general settings section UI.
+ */
+function GeneralSettings({
+  languageOptions,
+  themeOptions,
+  selectedLanguage,
+  selectedTheme,
+  onLanguageChange,
+  onThemeChange,
+  t,
+}: GeneralSettingsProps) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <label className="text-sm font-medium" htmlFor="language-select">
           {t("language")}
         </label>
-        <div className="min-w-[180px] flex-1 sm:max-w-[240px]">
-          <Select
-            onValueChange={(value) => {
-              i18n.changeLanguage(value);
-              localStorage.setItem("language", value);
-            }}
-            value={i18n.language}
-          >
+        <div className="min-w-45 flex-1 sm:max-w-60">
+          <Select onValueChange={onLanguageChange} value={selectedLanguage}>
             <SelectTrigger className="w-full" id="language-select">
               <SelectValue placeholder="Select language" />
             </SelectTrigger>
             <SelectContent>
-              {languages.map((lang) => (
-                <SelectItem key={lang.code} value={lang.code}>
-                  {lang.name}
+              {languageOptions.map((lang) => (
+                <SelectItem key={lang.value} value={lang.value}>
+                  {lang.label}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -69,15 +71,15 @@ function GeneralSettings() {
         <label className="text-sm font-medium" htmlFor="theme-select">
           {t("theme")}
         </label>
-        <div className="min-w-[180px] flex-1 sm:max-w-[240px]">
-          <Select onValueChange={setTheme} value={theme}>
+        <div className="min-w-45 flex-1 sm:max-w-60">
+          <Select onValueChange={onThemeChange} value={selectedTheme}>
             <SelectTrigger className="w-full" id="theme-select">
               <SelectValue placeholder="Select theme" />
             </SelectTrigger>
             <SelectContent>
-              {themes.map((theme) => (
-                <SelectItem key={theme} value={theme}>
-                  {t(theme)}
+              {themeOptions.map((theme) => (
+                <SelectItem key={theme.value} value={theme.value}>
+                  {t(theme.label)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -88,6 +90,9 @@ function GeneralSettings() {
   );
 }
 
+/**
+ * Placeholder UI for data control settings.
+ */
 function DataControlSettings() {
   return (
     <div className="space-y-4">
@@ -99,25 +104,6 @@ function DataControlSettings() {
   );
 }
 
-type SettingsNavItem = {
-  id: string;
-  number?: number;
-  icon: LucideIcon;
-};
-
-const NAV_ITEMS: SettingsNavItem[] = [
-  {
-    id: "general",
-    number: 1,
-    icon: Settings,
-  },
-  {
-    id: "dataControl",
-    number: 2,
-    icon: Database,
-  },
-];
-
 export function SettingsDialog({
   open,
   onOpenChange,
@@ -125,14 +111,23 @@ export function SettingsDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const [activeNumber, setActiveNumber] =
-    React.useState<SettingsNavItem["number"]>(1);
-  const { t } = useTranslation();
+  const {
+    activeNumber,
+    activeItem,
+    t,
+    languageOptions,
+    themeOptions,
+    selectedLanguage,
+    selectedTheme,
+    settingsNavItems,
+    onActiveNumberChange,
+    onLanguageChange,
+    onThemeChange,
+  } = useSettingsDialog();
 
-  const activeItem = NAV_ITEMS.find((item) => item.number === activeNumber);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="overflow-hidden p-0 md:max-h-[500px] md:max-w-[800px]">
+      <DialogContent className="overflow-hidden p-0 md:max-h-125 md:max-w-200">
         <DialogTitle className="sr-only">{t("settings")}</DialogTitle>
         <DialogDescription className="sr-only">
           Manage application settings
@@ -144,11 +139,11 @@ export function SettingsDialog({
               <SidebarGroup>
                 <SidebarGroupContent className="pt-12">
                   <SidebarMenu>
-                    {NAV_ITEMS.map((item) => (
+                    {settingsNavItems.map((item) => (
                       <SidebarMenuItem key={item.id}>
                         <SidebarMenuButton
                           isActive={item.number === activeNumber}
-                          onClick={() => setActiveNumber(item.number)}
+                          onClick={() => onActiveNumberChange(item.number)}
                         >
                           <item.icon />
                           <span>{t(item.id)}</span>
@@ -162,7 +157,7 @@ export function SettingsDialog({
           </Sidebar>
 
           {/* ===== right content ===== */}
-          <main className="flex h-[480px] flex-1 flex-col overflow-hidden">
+          <main className="flex h-120 flex-1 flex-col overflow-hidden">
             {/* header: selected menu name */}
             <header className="flex h-16 shrink-0 items-center px-4 ">
               <div className="w-full items-center border-b">
@@ -174,7 +169,17 @@ export function SettingsDialog({
 
             {/* content switch */}
             <div className="flex flex-1 flex-col overflow-y-auto p-4 pt-0">
-              {activeNumber === 1 && <GeneralSettings />}
+              {activeNumber === 1 && (
+                <GeneralSettings
+                  languageOptions={languageOptions}
+                  themeOptions={themeOptions}
+                  selectedLanguage={selectedLanguage}
+                  selectedTheme={selectedTheme}
+                  onLanguageChange={onLanguageChange}
+                  onThemeChange={onThemeChange}
+                  t={t}
+                />
+              )}
               {activeNumber === 2 && <DataControlSettings />}
             </div>
           </main>

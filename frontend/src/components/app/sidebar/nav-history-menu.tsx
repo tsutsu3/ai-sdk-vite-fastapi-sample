@@ -24,17 +24,14 @@ import {
 } from "@/components/ui/tooltip";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
+import type { HistoryItem } from "@/types/history";
 
 export function NavHistoryMenu({
   label,
   items,
 }: {
   label?: string;
-  items: {
-    name: string;
-    url: string;
-    updatedAt: string;
-  }[];
+  items: HistoryItem[];
 }) {
   const { isMobile } = useSidebar();
   const { t } = useTranslation();

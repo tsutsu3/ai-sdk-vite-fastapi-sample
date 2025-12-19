@@ -21,32 +21,7 @@ import Avatar from "boring-avatars";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppStore } from "@/store/app-store";
 import { useTranslation } from "react-i18next";
-
-const avatarColors = ["#92A1C6", "#146A7C", "#F0AB3D", "#C271B4", "#C20D90"];
-
-function hexToRgb(hex: string) {
-  const v = hex.replace("#", "");
-  const r = parseInt(v.slice(0, 2), 16);
-  const g = parseInt(v.slice(2, 4), 16);
-  const b = parseInt(v.slice(4, 6), 16);
-  return { r, g, b };
-}
-
-function rgbToHex(r: number, g: number, b: number) {
-  return "#" + [r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("");
-}
-
-function toMonotone(hex: string, amount = 0.75): string {
-  const { r, g, b } = hexToRgb(hex);
-
-  const gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
-
-  const mix = (c: number) => Math.round(c * (1 - amount) + gray * amount);
-
-  return rgbToHex(mix(r), mix(g), mix(b));
-}
-
-const monotoneAvatarColors = avatarColors.map((c) => toMonotone(c, 0.65));
+import { monotoneAvatarColors } from "@/config/avatar";
 
 export function NavUser({
   user,

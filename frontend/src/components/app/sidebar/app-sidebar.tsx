@@ -1,4 +1,4 @@
-import * as React from "react";
+import type { ComponentProps } from "react";
 import { Command } from "lucide-react";
 
 import { NavNestedMenu } from "@/components/app/sidebar/nav-nested-menu";
@@ -16,44 +16,13 @@ import { NavMenu } from "./nav-menu";
 import { NavHistoryMenu } from "./nav-history-menu";
 import { Separator } from "@radix-ui/react-separator";
 import { Link } from "react-router";
-import {
-  navMainItems,
-  navToolGroups,
-  navLinkGroups,
-} from "@/config/navigation";
-import { useAppStore } from "@/store/app-store";
+import { navMainItems, navLinkGroups } from "@/config/navigation";
 import { useTranslation } from "react-i18next";
+import { useSidebarData } from "@/hooks/use-sidebar-data";
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const authz = useAppStore((state) => state.authz);
-  const fetchAuthz = useAppStore((state) => state.fetchAuthz);
-  const history = useAppStore((state) => state.history);
-  const fetchHistory = useAppStore((state) => state.fetchHistory);
-  const activeToolIds = useAppStore((state) => state.activeToolIds);
+export function AppSidebar({ ...props }: ComponentProps<typeof Sidebar>) {
+  const { authz, history, visibleToolGroups, user } = useSidebarData();
   const { t } = useTranslation();
-
-  React.useEffect(() => {
-    if (authz.status === "idle") {
-      fetchAuthz();
-    }
-  }, [authz.status, fetchAuthz]);
-
-  React.useEffect(() => {
-    if (history.status === "idle") {
-      fetchHistory();
-    }
-  }, [history.status, fetchHistory]);
-
-  const visibleToolGroups = React.useMemo(
-    () =>
-      navToolGroups
-        .filter((group) => authz.tools.includes(group.id))
-        .map((group) => ({
-          ...group,
-          isActive: activeToolIds.includes(group.id) || group.isActive,
-        })),
-    [authz.tools, activeToolIds]
-  );
 
   return (
     <Sidebar {...props}>
@@ -93,14 +62,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarContent>
       <Separator className="h-px bg-sidebar-border" />
       <SidebarFooter>
-        <NavUser
-          user={{
-            name: authz.user?.first_name
-              ? `${authz.user.first_name} ${authz.user?.last_name ?? ""}`.trim()
-              : authz.user?.email ?? "",
-            email: authz.user?.email ?? "",
-          }}
-        />
+        <NavUser user={user} />
       </SidebarFooter>
     </Sidebar>
   );

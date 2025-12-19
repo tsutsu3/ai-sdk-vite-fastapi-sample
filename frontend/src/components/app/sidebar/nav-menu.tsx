@@ -1,7 +1,5 @@
 "use client";
 
-import { type LucideIcon } from "lucide-react";
-
 import {
   SidebarGroup,
   SidebarGroupLabel,
@@ -11,17 +9,14 @@ import {
 } from "@/components/ui/sidebar";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
+import type { NavMainItem } from "@/types/ui";
 
 export function NavMenu({
   label,
   items,
 }: {
   label?: string;
-  items: {
-    id: string;
-    url: string;
-    icon: LucideIcon;
-  }[];
+  items: NavMainItem[];
 }) {
   const { t } = useTranslation();
 
