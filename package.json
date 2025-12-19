@@ -6,12 +6,15 @@
   "private": true,
   "scripts": {
     "dev": "concurrently \"pnpm --dir frontend dev\" \"pnpm --dir backend dev\"",
+    "dev:msw": "cross-env VITE_MSW=true pnpm --dir frontend dev",
+    "dev:spa": "pnpm --dir frontend build && pnpm --dir backend dev",
     "dev:frontend": "pnpm --dir frontend dev",
     "dev:backend": "pnpm --dir backend dev",
     "build": "pnpm --dir frontend build"
   },
   "devDependencies": {
-    "concurrently": "^8.2.0"
+    "concurrently": "^8.2.0",
+    "cross-env": "^7.0.3"
   },
   "keywords": [
     "ai-sdk",
@@ -22,5 +25,10 @@
     "shadcn"
   ],
   "author": "tsutsu3",
-  "packageManager": "pnpm@10.15.0"
+  "packageManager": "pnpm@10.15.0",
+  "msw": {
+    "workerDirectory": [
+      "frontend\\public"
+    ]
+  }
 }
