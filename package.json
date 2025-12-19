@@ -5,6 +5,7 @@
   "main": "index.js",
   "private": true,
   "scripts": {
+    "bootstrap": "concurrently \"pnpm --dir frontend bootstrap\" \"pnpm --dir backend bootstrap\"",
     "dev": "concurrently \"pnpm --dir frontend dev\" \"pnpm --dir backend dev\"",
     "dev:msw": "cross-env VITE_MSW=true pnpm --dir frontend dev",
     "dev:spa": "pnpm --dir frontend build && pnpm --dir backend dev",

@@ -2,6 +2,7 @@
   "name": "backend",
   "private": true,
   "scripts": {
-    "dev": "uvicorn app.main:app --reload --port 8000"
+    "bootstrap": "pip install -e .[dev]",
+    "dev": "uvicorn app.main:app --reload --port 8000 --env-file .env"
   }
 }
