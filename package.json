@@ -1,0 +1,26 @@
+{
+  "name": "ai-sdk-vite-fastapi-sample",
+  "version": "0.1.0",
+  "description": "AI SDK and AI Elements sample without Next.js, built on Vite + React with a FastAPI backend.",
+  "main": "index.js",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"pnpm --dir frontend dev\" \"pnpm --dir backend dev\"",
+    "dev:frontend": "pnpm --dir frontend dev",
+    "dev:backend": "pnpm --dir backend dev",
+    "build": "pnpm --dir frontend build"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  },
+  "keywords": [
+    "ai-sdk",
+    "as-elements",
+    "vite",
+    "fastapi",
+    "sample",
+    "shadcn"
+  ],
+  "author": "tsutsu3",
+  "packageManager": "pnpm@10.15.0"
+}
