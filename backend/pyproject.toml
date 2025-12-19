@@ -2,7 +2,10 @@
 name = "ai-sdk-fastapi-chat-backend"
 version = "0.1.0"
 requires-python = ">=3.11"
-dependencies = ["fastapi", "uvicorn[standard]", "pydantic", "openai"]
+dependencies = ["fastapi", "uvicorn[standard]", "pydantic", "openai", "python-dotenv"]
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-asyncio", "black", "isort", "flake8", "mypy"]
 
 [tool.uvicorn]
 factory = false

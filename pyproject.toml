@@ -3,3 +3,7 @@ line-length = 88
 
 [tool.isort]
 profile = "black"
+
+[tool.mypy]
+strict = true
+show_error_codes = true
