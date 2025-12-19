@@ -6,13 +6,20 @@ from typing import AsyncIterator
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from app.logging_config import LOGGING_CONFIG
-from app.startup import load_repo_config
+from app.logging_config import build_logging_config
+from app.startup import load_repo_config, load_app_config
 from app.features.authz import authz_api
 from app.features.chat import chat_api
 from app.features.conversations import conversations_api
 from app.features.health import health_api
 from app.features.spa import spa_api
+
+from app.features.authz.repository.memory_authz_repository import MemoryAuthzRepository
+from app.features.authz.repository.dummy_authz_repository import DummyAuthzRepository
+from app.features.conversations.repository.memory_conversation_repository import (
+    MemoryConversationRepository,
+)
+from app.features.chat.stream_service import ChatStreamService
 
 
 @asynccontextmanager
@@ -21,7 +28,35 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     logger.info("<*> Application startup begin")
 
-    app.state.repo_config = load_repo_config()
+    repo_config = load_repo_config()
+    app.state.repo_config = repo_config
+
+    app.state.app_config = load_app_config()
+
+    # ===== authz repository =====
+    match repo_config.authz_repository:
+        case "memory":
+            app.state.authz_repository = MemoryAuthzRepository()
+        case "dummy":
+            app.state.authz_repository = DummyAuthzRepository()
+        case _:
+            raise RuntimeError("unreachable")
+
+    # ===== conversation repository =====
+    match repo_config.conversation_repository:
+        case "memory":
+            app.state.conversation_repository = MemoryConversationRepository()
+        case _:
+            raise RuntimeError("unreachable")
+
+    # ===== chat stream service =====
+    match repo_config.chat_stream_service:
+        case "memory":
+            app.state.chat_stream_service = ChatStreamService()
+        case _:
+            raise RuntimeError("unreachable")
+
+    logger.info("Log level set to %s", app.state.app_config.log_level.value)
 
     logger.info(
         "Repository config loaded: authz=%s conversation=%s chat=%s",
@@ -36,7 +71,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app() -> FastAPI:
-    logging.config.dictConfig(LOGGING_CONFIG)
+    log_level = load_app_config().log_level
+    logging.config.dictConfig(build_logging_config(log_level=log_level.value))
     logger = logging.getLogger(__name__)
 
     frontend_dist_path = Path(__file__).resolve().parents[2] / "frontend" / "dist"

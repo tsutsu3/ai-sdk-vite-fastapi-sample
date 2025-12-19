@@ -1,9 +1,9 @@
 import os
 
-from app.core.config import RepoConfig
+from app.core.config import RepoConfig, AppConfig, LogLevelEnum
 
 SUPPORTED = {
-    "authz_repository": {"memory"},
+    "authz_repository": {"memory", "dummy"},
     "conversation_repository": {"memory"},
     "chat_stream_service": {"memory"},
 }
@@ -15,6 +15,11 @@ def getenv_with_default(key: str, default: str) -> str:
         return default
     value = value.strip()
     return value or default
+
+
+def load_app_config() -> AppConfig:
+    log_level = getenv_with_default("LOG_LEVEL", "INFO").upper()
+    return AppConfig(log_level=LogLevelEnum(log_level))
 
 
 def load_repo_config() -> RepoConfig:
