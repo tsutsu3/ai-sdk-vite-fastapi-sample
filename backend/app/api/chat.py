@@ -15,9 +15,9 @@ from app.features.conversations.ports import ConversationRepository
 from app.features.messages.ports import MessageRepository
 from app.features.run.service import RunService
 from app.features.usage.ports import UsageRepository
-from app.shared.request_context import get_tenant_id, get_user_id
+from app.shared.request_context import require_request_context
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_request_context)])
 
 
 # def error_stream(message: str) -> Iterator[str]:
@@ -50,8 +50,6 @@ async def chat(
         repo,
         message_repo,
         usage_repo,
-        get_tenant_id(request),
-        get_user_id(request),
     )
 
     response = StreamingResponse(stream, media_type="text/event-stream")

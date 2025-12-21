@@ -1,25 +1,31 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends
 
 from app.dependencies import get_authz_repository
-from app.features.authz.identity import parse_user_from_headers
 from app.features.authz.models import AuthorizationResponse, UserInfo
 from app.features.authz.repository.authz_repository import AuthzRepository
-from app.shared.request_context import get_tenant_id
+from app.shared.request_context import (
+    get_current_authz_record,
+    get_current_user_info,
+    require_request_context,
+)
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_request_context)])
 
 
 @router.get("/authz", response_model=AuthorizationResponse)
 async def get_authorization(
-    request: Request,
     repo: AuthzRepository = Depends(get_authz_repository),
 ) -> AuthorizationResponse:
     """
     Return access control for the current user.
     In production, this should query a NoSQL/AuthZ store using the user_id.
     """
-    user = parse_user_from_headers(request)
-    record = await repo.get_authz(get_tenant_id(request), user.user_id)
+    user = get_current_user_info()
+    record = get_current_authz_record()
+    if user is None:
+        raise RuntimeError("User info is not set in request context")
+    if record is None:
+        record = await repo.get_authz(user.user_id)
     tools = record.tools if record else []
 
     return AuthorizationResponse(

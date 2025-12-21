@@ -12,6 +12,7 @@ from app.features.title.title_generator import TitleGenerator
 from app.features.usage.models import UsageRecord
 from app.features.usage.ports import UsageRepository
 from app.shared.constants import DEFAULT_CHAT_TITLE
+from app.shared.request_context import get_current_tenant_id, get_current_user_id
 
 
 def extract_messages(payload: dict[str, Any]) -> list[dict]:
@@ -227,9 +228,9 @@ class RunService:
         conversation_repo: ConversationRepository,
         message_repo: MessageRepository,
         usage_repo: UsageRepository,
-        tenant_id: str,
-        user_id: str,
     ) -> AsyncIterator[str]:
+        tenant_id = get_current_tenant_id()
+        user_id = get_current_user_id()
         conversation_id, messages, title, should_generate_title = (
             await self._prepare_conversation(
                 payload,

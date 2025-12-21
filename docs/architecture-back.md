@@ -31,6 +31,52 @@ flowchart TD
   Repos --> Storage[Memory/Local/Azure]
 ```
 
+## Module interaction map
+
+```mermaid
+flowchart LR
+  subgraph API[API Routers]
+    Chat[/api/chat/]
+    Convos[/api/conversations/]
+    Messages["/api/conversations/{id}/messages/"]
+    Authz[/api/authz/]
+  end
+
+  subgraph Services[Services]
+    RunService
+    ConversationService
+  end
+
+  subgraph Repos[Repositories]
+    AuthzRepo
+    ConversationRepo
+    MessageRepo
+    UsageRepo
+  end
+
+  subgraph Infra[Infra]
+    Streamers
+    Storage[(Memory/Local/Cosmos)]
+  end
+
+  Chat --> RunService
+  Convos --> ConversationService
+  Messages --> MessageRepo
+  Authz --> AuthzRepo
+
+  RunService --> Streamers
+  RunService --> ConversationRepo
+  RunService --> MessageRepo
+  RunService --> UsageRepo
+  ConversationService --> ConversationRepo
+  ConversationService --> MessageRepo
+
+  AuthzRepo --> Storage
+  ConversationRepo --> Storage
+  MessageRepo --> Storage
+  UsageRepo --> Storage
+```
+
 ## Core modules
 
 - `features/run`: orchestrates chat streaming and persistence.
@@ -44,6 +90,57 @@ flowchart TD
 - `memory`: in-process store (non-persistent).
 - `local`: JSON files under `backend/.local-data/`.
 - `azure`: Cosmos DB + blob storage (when configured).
+
+## Tenant scoping
+
+- Tenant resolution happens per request and is stored in request context.
+- Service-layer code uses tenant-scoped adapters to avoid passing `tenant_id` into every call while keeping infra repositories request-agnostic.
+
+## Dependency injection flow
+
+```mermaid
+flowchart TD
+  App[FastAPI app startup] --> State[app.state.* registrations]
+  State --> AuthzRepo[authz_repository]
+  State --> ConversationRepo[conversation_repository]
+  State --> MessageRepo[message_repository]
+  State --> UsageRepo[usage_repository]
+  State --> RunService[run_service]
+
+  Request[HTTP request] --> Router[FastAPI router]
+  Router --> Depends["Depends resolution"]
+  Depends --> State
+  Depends --> RequestContext[require_request_context]
+  RequestContext --> AuthzRepo
+  Router --> Handler[Endpoint handler]
+  Handler --> RunService
+  Handler --> ConversationRepo
+  Handler --> MessageRepo
+  Handler --> UsageRepo
+```
+
+## Access control flow
+
+```mermaid
+sequenceDiagram
+  participant Client
+  participant Router as FastAPI Router
+  participant Ctx as require_request_context
+  participant AuthzRepo
+  participant Service
+  participant Repo
+
+  Client->>Router: Request
+  Router->>Ctx: Depends(require_request_context)
+  Ctx->>AuthzRepo: get_authz(user_id)
+  AuthzRepo-->>Ctx: AuthzRecord(tenant_id, tools, user)
+  Ctx-->>Router: set request context
+  Router->>Service: call handler/service
+  Service->>Repo: repo methods (tenant scoped)
+  Repo-->>Service: data
+  Service-->>Router: response
+  Router-->>Client: response
+```
 
 ## Streaming flow
 
@@ -61,4 +158,3 @@ flowchart TD
 - `/api/conversations/{id}/messages`
 - `/api/file` (blob upload)
 - `/api/capabilities`, `/api/authz`, `/health`
-

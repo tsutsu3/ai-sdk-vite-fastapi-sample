@@ -1,18 +1,17 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends
 
 from app.dependencies import get_message_repository
 from app.features.messages.models import MessagesResponse
 from app.features.messages.ports import MessageRepository
-from app.shared.request_context import get_tenant_id
+from app.shared.request_context import get_current_tenant_id, require_request_context
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_request_context)])
 
 
 @router.get("/conversations/{conversation_id}/messages", response_model=MessagesResponse)
 async def list_messages(
-    request: Request,
     conversation_id: str,
     repo: MessageRepository = Depends(get_message_repository),
 ) -> MessagesResponse:
-    messages = await repo.list_messages(get_tenant_id(request), conversation_id)
+    messages = await repo.list_messages(get_current_tenant_id(), conversation_id)
     return MessagesResponse(messages=messages)
