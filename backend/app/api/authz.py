@@ -4,12 +4,13 @@ from app.dependencies import get_authz_repository
 from app.features.authz.identity import parse_user_from_headers
 from app.features.authz.models import AuthorizationResponse, UserInfo
 from app.features.authz.repository.authz_repository import AuthzRepository
+from app.shared.request_context import get_tenant_id
 
 router = APIRouter()
 
 
-@router.get("/api/authz", response_model=AuthorizationResponse)
-def get_authorization(
+@router.get("/authz", response_model=AuthorizationResponse)
+async def get_authorization(
     request: Request,
     repo: AuthzRepository = Depends(get_authz_repository),
 ) -> AuthorizationResponse:
@@ -18,7 +19,7 @@ def get_authorization(
     In production, this should query a NoSQL/AuthZ store using the user_id.
     """
     user = parse_user_from_headers(request)
-    record = repo.get_authz(user.user_id)
+    record = await repo.get_authz(get_tenant_id(request), user.user_id)
     tools = record.tools if record else []
 
     return AuthorizationResponse(

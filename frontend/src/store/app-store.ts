@@ -5,6 +5,7 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import type { HistoryItem } from "@/types/history";
 
 export type ThemeMode = "light" | "dark" | "system";
+export type PaletteMode = "default" | "warm" | "cool" | "mint";
 
 type UserInfo = {
   user_id?: string;
@@ -31,6 +32,9 @@ type AppState = {
   theme: ThemeMode;
   setTheme: (theme: ThemeMode) => void;
 
+  palette: PaletteMode;
+  setPalette: (palette: PaletteMode) => void;
+
   activeToolIds: string[];
   setActiveToolIds: (toolIds: string[]) => void;
   addActiveToolId: (toolId: string) => void;
@@ -40,7 +44,9 @@ type AppState = {
   fetchAuthz: () => Promise<void>;
 
   history: HistoryState;
-  fetchHistory: () => Promise<void>;
+  fetchHistory: (force?: boolean, merge?: boolean) => Promise<void>;
+  upsertHistoryItem: (item: HistoryItem) => void;
+  removeHistoryItem: (url: string) => void;
 };
 
 export const useAppStore = create<AppState>()(
@@ -49,6 +55,10 @@ export const useAppStore = create<AppState>()(
       theme: "system",
       setTheme: (theme) =>
         set((state) => (state.theme === theme ? state : { theme })),
+
+      palette: "default",
+      setPalette: (palette) =>
+        set((state) => (state.palette === palette ? state : { palette })),
 
       activeToolIds: [],
       setActiveToolIds: (toolIds) =>
@@ -100,9 +110,12 @@ export const useAppStore = create<AppState>()(
         status: "idle",
         items: [],
       },
-      fetchHistory: async () => {
+      fetchHistory: async (force = false, merge = true) => {
         const { history } = get();
-        if (history.status === "loading" || history.status === "success") {
+        if (
+          !force &&
+          (history.status === "loading" || history.status === "success")
+        ) {
           return;
         }
         set({
@@ -120,10 +133,23 @@ export const useAppStore = create<AppState>()(
             url: `/chat/c/${conversation.id ?? crypto.randomUUID()}`,
             updatedAt: conversation.updatedAt ?? new Date().toISOString(),
           }));
+          const known = history.items;
+          const merged = merge
+            ? [
+                ...mapped,
+                ...known.filter(
+                  (item) => !mapped.some((entry) => entry.url === item.url)
+                ),
+              ].sort(
+                (a, b) =>
+                  new Date(b.updatedAt).getTime() -
+                  new Date(a.updatedAt).getTime()
+              )
+            : mapped;
           set({
             history: {
               status: "success",
-              items: mapped,
+              items: merged,
             },
           });
         } catch (error) {
@@ -134,12 +160,41 @@ export const useAppStore = create<AppState>()(
           });
         }
       },
+      upsertHistoryItem: (item) => {
+        set((state) => {
+          const existingIndex = state.history.items.findIndex(
+            (entry) => entry.url === item.url
+          );
+          const items = [...state.history.items];
+          if (existingIndex >= 0) {
+            items[existingIndex] = item;
+          } else {
+            items.unshift(item);
+          }
+          return {
+            history: {
+              ...state.history,
+              items,
+              status: state.history.status === "idle" ? "success" : state.history.status,
+            },
+          };
+        });
+      },
+      removeHistoryItem: (url) => {
+        set((state) => ({
+          history: {
+            ...state.history,
+            items: state.history.items.filter((item) => item.url !== url),
+          },
+        }));
+      },
     }),
     {
       name: "app-store",
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         theme: state.theme,
+        palette: state.palette,
         activeToolIds: state.activeToolIds,
       }),
     }

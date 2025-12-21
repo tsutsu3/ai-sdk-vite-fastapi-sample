@@ -16,3 +16,10 @@ export type SettingsNavItem = {
   number: number;
   icon: LucideIcon;
 };
+
+export type ArchivedConversation = {
+  id: string;
+  title: string;
+  updatedAt: string;
+  createdAt?: string | null;
+};

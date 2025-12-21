@@ -19,6 +19,16 @@ export const themeOptions: SettingsOption[] = [
 ];
 
 /**
+ * Palette options available in the settings dialog.
+ */
+export const paletteOptions: SettingsOption[] = [
+  { value: "default", label: "default" },
+  { value: "warm", label: "warm" },
+  { value: "cool", label: "cool" },
+  { value: "mint", label: "mint" },
+];
+
+/**
  * Navigation items for the settings dialog sidebar.
  */
 export const settingsNavItems: SettingsNavItem[] = [

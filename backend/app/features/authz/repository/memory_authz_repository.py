@@ -1,5 +1,5 @@
+import asyncio
 import random
-import time
 
 from app.features.authz.repository.authz_repository import (
     AuthzRecord,
@@ -30,11 +30,11 @@ class MemoryAuthzRepository(AuthzRepository):
             },
         }
 
-    def get_authz(self, user_id: str) -> AuthzRecord | None:
+    async def get_authz(self, tenant_id: str, user_id: str) -> AuthzRecord | None:
         row = self._authz_table.get(user_id)
         if not row:
             return None
-        time.sleep(random.random() * 2)
+        await asyncio.sleep(random.random() * 2)
         return AuthzRecord(
             tools=row.get("tools", []),
             first_name=row.get("first_name"),

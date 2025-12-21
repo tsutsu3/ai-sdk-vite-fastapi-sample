@@ -5,6 +5,7 @@ class ConversationMetadata(BaseModel, frozen=True):
     id: str
     title: str
     updatedAt: str
+    createdAt: str | None = None
 
 
 class ConversationsResponse(BaseModel, frozen=True):
@@ -16,3 +17,8 @@ class ConversationResponse(BaseModel, frozen=True):
     title: str
     messages: list[dict]
     updatedAt: str
+
+
+class ConversationUpdateRequest(BaseModel):
+    archived: bool | None = None
+    title: str | None = None

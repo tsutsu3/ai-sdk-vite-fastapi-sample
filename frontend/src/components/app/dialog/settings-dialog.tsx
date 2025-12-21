@@ -1,4 +1,3 @@
-import type { SettingsOption } from "@/types/settings";
 import {
   Sidebar,
   SidebarContent,
@@ -15,94 +14,10 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useSettingsDialog } from "@/hooks/use-settings-dialog";
-
-type GeneralSettingsProps = {
-  languageOptions: SettingsOption[];
-  themeOptions: SettingsOption[];
-  selectedLanguage: string;
-  selectedTheme: string;
-  onLanguageChange: (value: string) => void;
-  onThemeChange: (value: string) => void;
-  t: (key: string) => string;
-};
-
-/**
- * Displays the general settings section UI.
- */
-function GeneralSettings({
-  languageOptions,
-  themeOptions,
-  selectedLanguage,
-  selectedTheme,
-  onLanguageChange,
-  onThemeChange,
-  t,
-}: GeneralSettingsProps) {
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <label className="text-sm font-medium" htmlFor="language-select">
-          {t("language")}
-        </label>
-        <div className="min-w-45 flex-1 sm:max-w-60">
-          <Select onValueChange={onLanguageChange} value={selectedLanguage}>
-            <SelectTrigger className="w-full" id="language-select">
-              <SelectValue placeholder="Select language" />
-            </SelectTrigger>
-            <SelectContent>
-              {languageOptions.map((lang) => (
-                <SelectItem key={lang.value} value={lang.value}>
-                  {lang.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <label className="text-sm font-medium" htmlFor="theme-select">
-          {t("theme")}
-        </label>
-        <div className="min-w-45 flex-1 sm:max-w-60">
-          <Select onValueChange={onThemeChange} value={selectedTheme}>
-            <SelectTrigger className="w-full" id="theme-select">
-              <SelectValue placeholder="Select theme" />
-            </SelectTrigger>
-            <SelectContent>
-              {themeOptions.map((theme) => (
-                <SelectItem key={theme.value} value={theme.value}>
-                  {t(theme.label)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/**
- * Placeholder UI for data control settings.
- */
-function DataControlSettings() {
-  return (
-    <div className="space-y-4">
-      <h3 className="text-sm font-medium">Data Control</h3>
-      <p className="text-sm text-muted-foreground">
-        Data control and privacy related settings.
-      </p>
-    </div>
-  );
-}
+import { cn } from "@/lib/utils";
+import { GeneralSettings } from "@/components/app/dialog/settings/general-settings";
+import { DataControlSettings } from "@/components/app/dialog/settings/data-control-settings";
 
 export function SettingsDialog({
   open,
@@ -117,12 +32,15 @@ export function SettingsDialog({
     t,
     languageOptions,
     themeOptions,
+    paletteOptions,
     selectedLanguage,
     selectedTheme,
+    selectedPalette,
     settingsNavItems,
     onActiveNumberChange,
     onLanguageChange,
     onThemeChange,
+    onPaletteChange,
   } = useSettingsDialog();
 
   return (
@@ -144,6 +62,7 @@ export function SettingsDialog({
                         <SidebarMenuButton
                           isActive={item.number === activeNumber}
                           onClick={() => onActiveNumberChange(item.number)}
+                          className={cn("data-[active=true]:bg-primary data-[active=true]:text-primary-foreground")}
                         >
                           <item.icon />
                           <span>{t(item.id)}</span>
@@ -173,14 +92,17 @@ export function SettingsDialog({
                 <GeneralSettings
                   languageOptions={languageOptions}
                   themeOptions={themeOptions}
+                  paletteOptions={paletteOptions}
                   selectedLanguage={selectedLanguage}
                   selectedTheme={selectedTheme}
+                  selectedPalette={selectedPalette}
                   onLanguageChange={onLanguageChange}
                   onThemeChange={onThemeChange}
+                  onPaletteChange={onPaletteChange}
                   t={t}
                 />
               )}
-              {activeNumber === 2 && <DataControlSettings />}
+              {activeNumber === 2 && <DataControlSettings t={t} />}
             </div>
           </main>
         </SidebarProvider>

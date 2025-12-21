@@ -1,8 +1,9 @@
 [tool.black]
-line-length = 88
+line-length = 98
 
 [tool.isort]
 profile = "black"
+known_first_party = ["app"]
 
 [tool.mypy]
 strict = true

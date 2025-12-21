@@ -11,6 +11,6 @@ class AuthzRecord:
 
 
 class AuthzRepository(Protocol):
-    def get_authz(self, user_id: str) -> AuthzRecord | None:
+    async def get_authz(self, tenant_id: str, user_id: str) -> AuthzRecord | None:
         """Return authorization data for the provided user id."""
         raise NotImplementedError

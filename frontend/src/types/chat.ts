@@ -6,6 +6,12 @@ export type ChatModel = {
   id: string;
   /** Human-readable label displayed in the UI. */
   name: string;
+  /** Grouping label shown in the selector. */
+  chef: string;
+  /** Logo slug for the primary provider. */
+  chefSlug: string;
+  /** Providers that can serve the model. */
+  providers: string[];
 };
 
 /**

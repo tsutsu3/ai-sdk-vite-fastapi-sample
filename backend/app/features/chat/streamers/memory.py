@@ -1,17 +1,14 @@
-import json
+import asyncio
 import random
-import time
-import uuid
-from collections.abc import Iterator
+from collections.abc import AsyncIterator
+from typing import Any
+
+from app.features.chat.streamers.base import BaseStreamer
 
 
-def sse(payload: dict[str, object]) -> str:
-    """Vercel AI SDK DataStream format."""
-    return f"data: {json.dumps(payload, separators=(',', ':'))}\n\n"
-
-
-class ChatStreamService:
+class MemoryStreamer(BaseStreamer):
     def __init__(self) -> None:
+        super().__init__()
         self._responses = [
             """
 # React Hooks Guide (Detailed)
@@ -103,49 +100,12 @@ By following these rules, React can reliably manage component state and updates.
 """,
         ]
 
-    def stream(self) -> Iterator[str]:
-        message_id = f"msg-{uuid.uuid4().hex}"
-        text_id = "text-1"
-
-        yield sse(
-            {
-                "type": "start",
-                "messageId": message_id,
-            }
-        )
-
-        yield sse(
-            {
-                "type": "text-start",
-                "id": text_id,
-            }
-        )
-
-        text = random.choice(self._responses)
-        for token in text.split(" "):
-            yield sse(
-                {
-                    "type": "text-delta",
-                    "id": text_id,
-                    "delta": token + " ",
-                }
-            )
-            time.sleep(random.uniform(0.0, 0.1))
-
-        yield sse(
-            {
-                "type": "text-end",
-                "id": text_id,
-            }
-        )
-
-        yield sse(
-            {
-                "type": "finish",
-                "messageMetadata": {
-                    "finishReason": "stop",
-                },
-            }
-        )
-
-        yield "data: [DONE]\n\n"
+    async def stream_chat(
+        self,
+        messages: list[dict[str, Any]],
+        model_id: str | None,
+    ) -> AsyncIterator[str]:
+        response_text = random.choice(self._responses)
+        for token in response_text.split(" "):
+            await asyncio.sleep(random.uniform(0.0, 0.05))
+            yield token + " "
