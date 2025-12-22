@@ -1,14 +1,6 @@
-from dataclasses import dataclass
 from typing import Protocol
 
-
-@dataclass(frozen=True)
-class AuthzRecord:
-    tenant_id: str
-    tools: list[str]
-    first_name: str | None
-    last_name: str | None
-    email: str | None
+from app.features.authz.models import AuthzRecord
 
 
 class AuthzRepository(Protocol):

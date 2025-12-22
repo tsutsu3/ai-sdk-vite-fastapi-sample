@@ -4,8 +4,8 @@ from typing import cast
 
 from fastapi import HTTPException, Request
 from app.features.authz.identity import parse_user_from_headers
-from app.features.authz.models import UserInfo
-from app.features.authz.repository.authz_repository import AuthzRecord, AuthzRepository
+from app.features.authz.models import AuthzRecord, UserInfo
+from app.features.authz.repository.authz_repository import AuthzRepository
 
 _tenant_id_ctx: ContextVar[str | None] = ContextVar("tenant_id", default=None)
 _user_id_ctx: ContextVar[str | None] = ContextVar("user_id", default=None)

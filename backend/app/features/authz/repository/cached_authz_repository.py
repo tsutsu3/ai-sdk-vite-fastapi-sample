@@ -1,13 +1,13 @@
 import asyncio
 import time
 from collections import OrderedDict
-from dataclasses import dataclass
+from pydantic import BaseModel
 
-from app.features.authz.repository.authz_repository import AuthzRecord, AuthzRepository
+from app.features.authz.models import AuthzRecord
+from app.features.authz.repository.authz_repository import AuthzRepository
 
 
-@dataclass(frozen=True)
-class _CacheEntry:
+class _CacheEntry(BaseModel, frozen=True):
     expires_at: float
     value: AuthzRecord | None
 

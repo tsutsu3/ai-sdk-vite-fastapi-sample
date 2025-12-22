@@ -1,4 +1,5 @@
-from app.features.authz.repository.authz_repository import AuthzRecord, AuthzRepository
+from app.features.authz.models import AuthzRecord
+from app.features.authz.repository.authz_repository import AuthzRepository
 
 
 class DummyAuthzRepository(AuthzRepository):
