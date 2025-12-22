@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 
 from app.dependencies import get_conversation_repository, get_message_repository
 from app.features.conversations.models import (
+    ConversationMetadata,
     ConversationResponse,
     ConversationsResponse,
     ConversationUpdateRequest,
@@ -33,13 +34,9 @@ async def conversation_history(
         message_repo,
     )
     if archived:
-        conversations = await service.list_archived_conversations(
-            get_current_user_id()
-        )
+        conversations = await service.list_archived_conversations(get_current_user_id())
     else:
-        conversations = await service.list_conversations(
-            get_current_user_id()
-        )
+        conversations = await service.list_conversations(get_current_user_id())
     return ConversationsResponse(conversations=conversations)
 
 
@@ -79,9 +76,13 @@ async def update_conversation(
 ) -> ConversationResponse:
     if payload.archived is None and payload.title is None:
         raise HTTPException(status_code=400, detail="No updates provided")
+
     updated_at = datetime.now(timezone.utc).isoformat()
     scoped_repo = TenantScopedConversationRepository(get_current_tenant_id(), repo)
     user_id = get_current_user_id()
+
+    updated: ConversationMetadata | None = None
+
     if payload.archived is not None:
         updated = await scoped_repo.archive_conversation(
             user_id,
@@ -91,6 +92,7 @@ async def update_conversation(
         )
         if updated is None:
             raise HTTPException(status_code=404, detail="Conversation not found")
+
     if payload.title is not None:
         updated = await scoped_repo.update_title(
             user_id,
@@ -100,7 +102,12 @@ async def update_conversation(
         )
         if updated is None:
             raise HTTPException(status_code=404, detail="Conversation not found")
+
+    if updated is None:
+        raise HTTPException(status_code=500, detail="Failed to update conversation")
+
     messages = await message_repo.list_messages(scoped_repo.tenant_id, conversation_id)
+
     return ConversationResponse(
         id=updated.id,
         title=updated.title,

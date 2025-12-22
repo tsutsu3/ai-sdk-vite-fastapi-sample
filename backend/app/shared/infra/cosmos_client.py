@@ -1,5 +1,5 @@
 from azure.cosmos import PartitionKey
-from azure.cosmos.aio import CosmosClient
+from azure.cosmos.aio import CosmosClient, ContainerProxy
 
 from app.core.config import AppConfig
 
@@ -36,7 +36,7 @@ async def ensure_cosmos_resources(config: AppConfig) -> None:
     )
 
 
-def get_cosmos_container(config: AppConfig, container_name: str):
+def get_cosmos_container(config: AppConfig, container_name: str) -> ContainerProxy:
     client = get_cosmos_client(config)
     database = client.get_database_client(config.cosmos_database)
     return database.get_container_client(container_name)

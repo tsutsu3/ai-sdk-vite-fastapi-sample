@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from app.core.config import AppConfig
+from app.features.messages.models import ChatMessage
 from app.features.messages.ports import MessageRepository
 from app.shared.infra.cosmos_client import get_cosmos_container
 
@@ -18,7 +19,7 @@ class CosmosMessageRepository(MessageRepository):
     def __init__(self, config: AppConfig) -> None:
         self._container = get_cosmos_container(config, config.cosmos_messages_container)
 
-    async def list_messages(self, tenant_id: str, conversation_id: str) -> list[dict]:
+    async def list_messages(self, tenant_id: str, conversation_id: str) -> list[ChatMessage]:
         pk = message_partition(tenant_id, conversation_id)
         query = (
             "SELECT * FROM c WHERE c.conversationId = @conversationId " "ORDER BY c.createdAt ASC"
@@ -30,25 +31,31 @@ class CosmosMessageRepository(MessageRepository):
         )
         results = []
         async for item in items:
-            results.append(item.get("message", {}))
+            message = item.get("message")
+            if not isinstance(message, dict):
+                continue
+            try:
+                results.append(ChatMessage.model_validate(message))
+            except Exception:
+                continue
         return results
 
     async def upsert_messages(
         self,
         tenant_id: str,
         conversation_id: str,
-        messages: list[dict],
+        messages: list[ChatMessage],
     ) -> None:
         pk = message_partition(tenant_id, conversation_id)
         for message in messages:
-            message_id = message.get("id")
+            message_id = message.id
             if not message_id:
                 continue
             doc: dict[str, Any] = {
                 "id": str(message_id),
                 "tenantId": {"convId": pk},
                 "conversationId": conversation_id,
-                "message": message,
+                "message": message.model_dump(by_alias=True, exclude_none=True),
                 "createdAt": current_timestamp(),
             }
             await self._container.upsert_item(doc)

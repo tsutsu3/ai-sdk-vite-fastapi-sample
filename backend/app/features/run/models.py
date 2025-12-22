@@ -1,9 +1,18 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
+
+from app.features.messages.models import ChatMessage
+
+
+class OpenAIMessage(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    role: str
+    content: str
 
 
 class RunRequest(BaseModel):
     id: str | None = None
-    messages: list[dict] = []
+    messages: list[ChatMessage] = []
     model: str | None = None
     webSearch: bool | None = None
 
@@ -19,8 +28,8 @@ class StreamContext(BaseModel):
     title: str
     should_generate_title: bool
 
-    messages: list[dict]
-    openai_messages: list[dict]
+    messages: list[ChatMessage]
+    openai_messages: list[OpenAIMessage]
 
     class Config:
         arbitrary_types_allowed = True

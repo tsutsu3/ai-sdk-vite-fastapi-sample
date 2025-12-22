@@ -11,21 +11,22 @@ def current_timestamp() -> str:
 
 class MemoryConversationRepository(ConversationRepository):
     def __init__(self) -> None:
-        self._conversation_store = {
-            "conv-quickstart": {
-                "id": "conv-quickstart",
-                "title": "Project kickoff chat",
-                "updatedAt": current_timestamp(),
-                "createdAt": current_timestamp(),
-                "archived": False,
-            },
-            "conv-rag": {
-                "id": "conv-rag",
-                "title": "RAG tuning ideas",
-                "updatedAt": current_timestamp(),
-                "createdAt": current_timestamp(),
-                "archived": False,
-            },
+        now = current_timestamp()
+        self._conversation_store: dict[str, ConversationMetadata] = {
+            "conv-quickstart": ConversationMetadata(
+                id="conv-quickstart",
+                title="Project kickoff chat",
+                archived=False,
+                updatedAt=now,
+                createdAt=now,
+            ),
+            "conv-rag": ConversationMetadata(
+                id="conv-rag",
+                title="RAG tuning ideas",
+                archived=False,
+                updatedAt=now,
+                createdAt=now,
+            ),
         }
 
     async def list_conversations(
@@ -35,13 +36,13 @@ class MemoryConversationRepository(ConversationRepository):
     ) -> list[ConversationMetadata]:
         return [
             ConversationMetadata(
-                id=conv["id"],
-                title=conv.get("title") or DEFAULT_CHAT_TITLE,
-                updatedAt=conv.get("updatedAt") or current_timestamp(),
-                createdAt=conv.get("createdAt"),
+                id=conv.id,
+                title=conv.title or DEFAULT_CHAT_TITLE,
+                updatedAt=conv.updatedAt or current_timestamp(),
+                createdAt=conv.createdAt,
             )
             for conv in self._conversation_store.values()
-            if not conv.get("archived", False)
+            if not conv.archived
         ]
 
     async def list_archived_conversations(
@@ -51,13 +52,13 @@ class MemoryConversationRepository(ConversationRepository):
     ) -> list[ConversationMetadata]:
         return [
             ConversationMetadata(
-                id=conv["id"],
-                title=conv.get("title") or DEFAULT_CHAT_TITLE,
-                updatedAt=conv.get("updatedAt") or current_timestamp(),
-                createdAt=conv.get("createdAt"),
+                id=conv.id,
+                title=conv.title or DEFAULT_CHAT_TITLE,
+                updatedAt=conv.updatedAt or current_timestamp(),
+                createdAt=conv.createdAt,
             )
             for conv in self._conversation_store.values()
-            if conv.get("archived", False)
+            if conv.archived
         ]
 
     async def get_conversation(
@@ -70,10 +71,10 @@ class MemoryConversationRepository(ConversationRepository):
         if not conversation:
             return None
         return ConversationMetadata(
-            id=conversation["id"],
-            title=conversation.get("title") or DEFAULT_CHAT_TITLE,
-            updatedAt=conversation.get("updatedAt") or current_timestamp(),
-            createdAt=conversation.get("createdAt"),
+            id=conversation.id,
+            title=conversation.title or DEFAULT_CHAT_TITLE,
+            updatedAt=conversation.updatedAt or current_timestamp(),
+            createdAt=conversation.createdAt,
         )
 
     async def upsert_conversation(
@@ -86,24 +87,23 @@ class MemoryConversationRepository(ConversationRepository):
     ) -> ConversationMetadata:
         conversation = self._conversation_store.get(conversation_id)
         if conversation is None:
-            conversation = {
-                "id": conversation_id,
-                "title": title or DEFAULT_CHAT_TITLE,
-                "updatedAt": updated_at,
-                "createdAt": updated_at,
-            }
-            self._conversation_store[conversation_id] = conversation
+            conversation = ConversationMetadata(
+                id=conversation_id,
+                title=title or DEFAULT_CHAT_TITLE,
+                archived=False,
+                updatedAt=updated_at,
+                createdAt=updated_at,
+            )
         else:
-            conversation["updatedAt"] = updated_at
-            conversation["title"] = title
-            conversation.setdefault("archived", False)
+            conversation = conversation.model_copy(
+                update={
+                    "title": title or DEFAULT_CHAT_TITLE,
+                    "updatedAt": updated_at,
+                }
+            )
+        self._conversation_store[conversation_id] = conversation
 
-        return ConversationMetadata(
-            id=conversation["id"],
-            title=conversation.get("title") or DEFAULT_CHAT_TITLE,
-            updatedAt=conversation.get("updatedAt") or current_timestamp(),
-            createdAt=conversation.get("createdAt"),
-        )
+        return conversation
 
     async def archive_conversation(
         self,
@@ -116,14 +116,14 @@ class MemoryConversationRepository(ConversationRepository):
         conversation = self._conversation_store.get(conversation_id)
         if not conversation:
             return None
-        conversation["archived"] = archived
-        conversation["updatedAt"] = updated_at
-        return ConversationMetadata(
-            id=conversation["id"],
-            title=conversation.get("title") or DEFAULT_CHAT_TITLE,
-            updatedAt=conversation.get("updatedAt") or current_timestamp(),
-            createdAt=conversation.get("createdAt"),
+        updated = conversation.model_copy(
+            update={
+                "archived": archived,
+                "updatedAt": updated_at,
+            }
         )
+        self._conversation_store[conversation_id] = updated
+        return updated
 
     async def delete_conversation(
         self,
@@ -144,14 +144,14 @@ class MemoryConversationRepository(ConversationRepository):
         conversation = self._conversation_store.get(conversation_id)
         if not conversation:
             return None
-        conversation["title"] = title
-        conversation["updatedAt"] = updated_at
-        return ConversationMetadata(
-            id=conversation["id"],
-            title=conversation.get("title") or DEFAULT_CHAT_TITLE,
-            updatedAt=conversation.get("updatedAt") or current_timestamp(),
-            createdAt=conversation.get("createdAt"),
+        updated = conversation.model_copy(
+            update={
+                "title": title or DEFAULT_CHAT_TITLE,
+                "updatedAt": updated_at,
+            }
         )
+        self._conversation_store[conversation_id] = updated
+        return updated
 
     async def list_all_conversation_ids(
         self,

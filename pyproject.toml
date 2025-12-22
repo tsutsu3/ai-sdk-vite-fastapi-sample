@@ -6,5 +6,8 @@ profile = "black"
 known_first_party = ["app"]
 
 [tool.mypy]
+plugins = [
+  "pydantic.mypy"
+]
 strict = true
 show_error_codes = true

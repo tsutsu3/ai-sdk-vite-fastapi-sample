@@ -1,3 +1,4 @@
+from collections.abc import AsyncGenerator
 from contextvars import ContextVar
 from typing import cast
 
@@ -36,20 +37,20 @@ def get_current_user_info() -> UserInfo | None:
 
 
 def get_tenant_id(request: Request) -> str:
-    tenant_id = getattr(request.state, "tenant_id", None)
+    tenant_id: str | None = getattr(request.state, "tenant_id", None)
     if not tenant_id:
         raise RuntimeError("tenant_id is not set in request.state")
     return tenant_id
 
 
 def get_user_id(request: Request) -> str:
-    user_id = getattr(request.state, "user_id", None)
+    user_id: str | None = getattr(request.state, "user_id", None)
     if not user_id:
         raise RuntimeError("user_id is not set in request.state")
     return user_id
 
 
-async def require_request_context(request: Request) -> None:
+async def require_request_context(request: Request) -> AsyncGenerator[None, None]:
     repo = cast(AuthzRepository, request.app.state.authz_repository)
     user = parse_user_from_headers(request)
     record = await repo.get_authz(user.user_id)

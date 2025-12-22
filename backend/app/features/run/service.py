@@ -4,10 +4,13 @@ from collections.abc import AsyncIterator
 from datetime import datetime, timezone
 from typing import Any
 
+from pydantic import ValidationError
+
 from app.features.chat.streamers import ChatStreamer, sse
 from app.features.conversations.ports import ConversationRepository
+from app.features.messages.models import ChatMessage, MessageMetadata, MessagePart
 from app.features.messages.ports import MessageRepository
-from app.features.run.models import StreamContext
+from app.features.run.models import OpenAIMessage, StreamContext
 from app.features.title.title_generator import TitleGenerator
 from app.features.usage.models import UsageRecord
 from app.features.usage.ports import UsageRepository
@@ -15,10 +18,18 @@ from app.shared.constants import DEFAULT_CHAT_TITLE
 from app.shared.request_context import get_current_tenant_id, get_current_user_id
 
 
-def extract_messages(payload: dict[str, Any]) -> list[dict]:
+def extract_messages(payload: dict[str, Any]) -> list[ChatMessage]:
     messages = payload.get("messages")
     if isinstance(messages, list):
-        return [message for message in messages if isinstance(message, dict)]
+        parsed: list[ChatMessage] = []
+        for message in messages:
+            if not isinstance(message, dict):
+                continue
+            try:
+                parsed.append(ChatMessage.model_validate(message))
+            except ValidationError:
+                continue
+        return parsed
     return []
 
 
@@ -46,21 +57,17 @@ def extract_file_ids(payload: dict[str, Any]) -> list[str]:
     return []
 
 
-def to_openai_messages(messages: list[dict]) -> list[dict]:
-    converted = []
+def to_openai_messages(messages: list[ChatMessage]) -> list[OpenAIMessage]:
+    converted: list[OpenAIMessage] = []
     for message in messages:
-        role = message.get("role")
-        parts = message.get("parts")
-        if not role or not isinstance(parts, list):
-            continue
         text_parts = [
-            part.get("text", "")
-            for part in parts
-            if isinstance(part, dict) and part.get("type") == "text"
+            part.text or ""
+            for part in message.parts
+            if part.type == "text"
         ]
         content = " ".join(part.strip() for part in text_parts if part).strip()
         if content:
-            converted.append({"role": role, "content": content})
+            converted.append(OpenAIMessage(role=message.role, content=content))
     return converted
 
 
@@ -79,7 +86,7 @@ class RunService:
         conversation_repo: ConversationRepository,
         tenant_id: str,
         user_id: str,
-    ) -> tuple[str, list[dict], str, bool]:
+    ) -> tuple[str, list[ChatMessage], str, bool]:
         conversation_id = extract_conversation_id(payload)
         messages = extract_messages(payload)
         existing = await conversation_repo.get_conversation(tenant_id, user_id, conversation_id)
@@ -100,18 +107,22 @@ class RunService:
         message_repo: MessageRepository,
         tenant_id: str,
         conversation_id: str,
-        messages: list[dict],
+        messages: list[ChatMessage],
     ) -> None:
         file_ids = extract_file_ids(payload)
         if file_ids and messages:
-            messages[-1].setdefault("metadata", {})["fileIds"] = file_ids
+            last_message = messages[-1]
+            metadata = last_message.metadata or MessageMetadata()
+            updated_metadata = metadata.model_copy(update={"file_ids": file_ids})
+            updated_message = last_message.model_copy(update={"metadata": updated_metadata})
+            messages = [*messages[:-1], updated_message]
         await message_repo.upsert_messages(tenant_id, conversation_id, messages)
 
     def _build_message_context(
         self,
         payload: dict[str, Any],
-        messages: list[dict],
-    ) -> tuple[str, str | None, list[dict]]:
+        messages: list[ChatMessage],
+    ) -> tuple[str, str | None, list[OpenAIMessage]]:
         message_id = f"msg-{uuid.uuid4().hex}"
         model_id = extract_model_id(payload)
         openai_messages = to_openai_messages(messages)
@@ -149,9 +160,11 @@ class RunService:
             title_task = asyncio.create_task(self._title_generator.generate(context.messages))
         title_sent = False
         try:
-            async for delta in self._streamer.stream_chat(
-                context.openai_messages, context.model_id
-            ):
+            openai_payload = [
+                message.model_dump(by_alias=True, exclude_none=True)
+                for message in context.openai_messages
+            ]
+            async for delta in self._streamer.stream_chat(openai_payload, context.model_id):
                 response_text += delta
                 async for chunk in self._streamer.stream_text_delta(delta, context.message_id):
                     yield chunk
@@ -195,11 +208,11 @@ class RunService:
 
         async for chunk in self._streamer.stream_text_end(context.message_id):
             yield chunk
-        assistant_message = {
-            "id": context.message_id,
-            "role": "assistant",
-            "parts": [{"type": "text", "text": response_text}],
-        }
+        assistant_message = ChatMessage(
+            id=context.message_id,
+            role="assistant",
+            parts=[MessagePart(type="text", text=response_text)],
+        )
         await message_repo.upsert_messages(
             context.tenant_id,
             context.conversation_id,

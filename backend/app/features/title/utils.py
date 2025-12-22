@@ -1,5 +1,7 @@
 from typing import Any
 
+from app.shared.constants import DEFAULT_CHAT_TITLE
+
 
 def extract_message_text(message: dict[str, Any]) -> str:
     parts = message.get("parts")
@@ -18,10 +20,7 @@ def extract_message_text(message: dict[str, Any]) -> str:
     return ""
 
 
-from app.shared.constants import DEFAULT_CHAT_TITLE
-
-
-def generate_fallback_title(messages: list[dict]) -> str:
+def generate_fallback_title(messages: list[dict[str, Any]]) -> str:
     for message in messages:
         if message.get("role") == "user":
             text = extract_message_text(message)

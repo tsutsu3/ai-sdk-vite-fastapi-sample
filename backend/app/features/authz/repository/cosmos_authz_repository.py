@@ -17,7 +17,7 @@ class CosmosAuthzRepository(AuthzRepository):
         user = await self._read_user_item(user_id)
         if not user:
             return None
-        tenant_id = user.get("tenant_id")
+        tenant_id = user.tenant_id
         if not tenant_id:
             return None
         tenant = await self._read_tenant_item(tenant_id)

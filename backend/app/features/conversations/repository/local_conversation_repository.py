@@ -1,4 +1,3 @@
-import json
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -29,19 +28,14 @@ class LocalConversationRepository(ConversationRepository):
         conversations: list[ConversationMetadata] = []
         for path in conversation_dir.glob("*.json"):
             try:
-                payload = json.loads(path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
-                continue
-            if payload.get("archived", False):
-                continue
-            conversations.append(
-                ConversationMetadata(
-                    id=str(payload.get("id") or path.stem),
-                    title=payload.get("title") or DEFAULT_CHAT_TITLE,
-                    updatedAt=payload.get("updatedAt") or current_timestamp(),
-                    createdAt=payload.get("createdAt"),
+                metadata = ConversationMetadata.model_validate_json(
+                    path.read_text(encoding="utf-8")
                 )
-            )
+            except (OSError, ValueError):
+                continue
+            if metadata.archived:
+                continue
+            conversations.append(metadata)
         return conversations
 
     async def list_archived_conversations(
@@ -55,19 +49,14 @@ class LocalConversationRepository(ConversationRepository):
         conversations: list[ConversationMetadata] = []
         for path in conversation_dir.glob("*.json"):
             try:
-                payload = json.loads(path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
-                continue
-            if not payload.get("archived", False):
-                continue
-            conversations.append(
-                ConversationMetadata(
-                    id=str(payload.get("id") or path.stem),
-                    title=payload.get("title") or DEFAULT_CHAT_TITLE,
-                    updatedAt=payload.get("updatedAt") or current_timestamp(),
-                    createdAt=payload.get("createdAt"),
+                metadata = ConversationMetadata.model_validate_json(
+                    path.read_text(encoding="utf-8")
                 )
-            )
+            except (OSError, ValueError):
+                continue
+            if not metadata.archived:
+                continue
+            conversations.append(metadata)
         return conversations
 
     async def get_conversation(
@@ -80,15 +69,9 @@ class LocalConversationRepository(ConversationRepository):
         if not path.exists():
             return None
         try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
+            return ConversationMetadata.model_validate_json(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
             return None
-        return ConversationMetadata(
-            id=str(payload.get("id") or conversation_id),
-            title=payload.get("title") or DEFAULT_CHAT_TITLE,
-            updatedAt=payload.get("updatedAt") or current_timestamp(),
-            createdAt=payload.get("createdAt"),
-        )
 
     async def upsert_conversation(
         self,
@@ -104,24 +87,21 @@ class LocalConversationRepository(ConversationRepository):
         existing_created_at = None
         if path.exists():
             try:
-                existing = json.loads(path.read_text(encoding="utf-8"))
-                existing_created_at = existing.get("createdAt")
-            except (OSError, json.JSONDecodeError):
+                existing = ConversationMetadata.model_validate_json(
+                    path.read_text(encoding="utf-8")
+                )
+                existing_created_at = existing.createdAt
+            except (OSError, ValueError):
                 existing_created_at = None
-        payload = {
-            "id": conversation_id,
-            "title": title or DEFAULT_CHAT_TITLE,
-            "updatedAt": updated_at,
-            "createdAt": existing_created_at or updated_at,
-            "archived": False,
-        }
-        path.write_text(json.dumps(payload, ensure_ascii=True), encoding="utf-8")
-        return ConversationMetadata(
+        metadata = ConversationMetadata(
             id=conversation_id,
-            title=payload["title"],
-            updatedAt=payload["updatedAt"],
-            createdAt=payload.get("createdAt"),
+            title=title or DEFAULT_CHAT_TITLE,
+            archived=False,
+            updatedAt=updated_at,
+            createdAt=existing_created_at or updated_at,
         )
+        path.write_text(metadata.model_dump_json(), encoding="utf-8")
+        return metadata
 
     async def archive_conversation(
         self,
@@ -136,18 +116,14 @@ class LocalConversationRepository(ConversationRepository):
         if not path.exists():
             return None
         try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
+            metadata = ConversationMetadata.model_validate_json(
+                path.read_text(encoding="utf-8")
+            )
+        except (OSError, ValueError):
             return None
-        payload["archived"] = archived
-        payload["updatedAt"] = updated_at
-        path.write_text(json.dumps(payload, ensure_ascii=True), encoding="utf-8")
-        return ConversationMetadata(
-            id=str(payload.get("id") or conversation_id),
-            title=payload.get("title") or DEFAULT_CHAT_TITLE,
-            updatedAt=payload.get("updatedAt") or current_timestamp(),
-            createdAt=payload.get("createdAt"),
-        )
+        updated = metadata.model_copy(update={"archived": archived, "updatedAt": updated_at})
+        path.write_text(updated.model_dump_json(), encoding="utf-8")
+        return updated
 
     async def delete_conversation(
         self,
@@ -177,18 +153,19 @@ class LocalConversationRepository(ConversationRepository):
         if not path.exists():
             return None
         try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
+            metadata = ConversationMetadata.model_validate_json(
+                path.read_text(encoding="utf-8")
+            )
+        except (OSError, ValueError):
             return None
-        payload["title"] = title or DEFAULT_CHAT_TITLE
-        payload["updatedAt"] = updated_at
-        path.write_text(json.dumps(payload, ensure_ascii=True), encoding="utf-8")
-        return ConversationMetadata(
-            id=str(payload.get("id") or conversation_id),
-            title=payload.get("title") or DEFAULT_CHAT_TITLE,
-            updatedAt=payload.get("updatedAt") or current_timestamp(),
-            createdAt=payload.get("createdAt"),
+        updated = metadata.model_copy(
+            update={
+                "title": title or DEFAULT_CHAT_TITLE,
+                "updatedAt": updated_at,
+            }
         )
+        path.write_text(updated.model_dump_json(), encoding="utf-8")
+        return updated
 
     async def list_all_conversation_ids(
         self,

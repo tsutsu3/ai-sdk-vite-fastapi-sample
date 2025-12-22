@@ -33,6 +33,19 @@ class UserDoc(BaseModel, frozen=True):
     updated_at: str | None = None
 
 
+class TenantMemory(BaseModel, frozen=True):
+    tenant_name: str
+    default_tools: list[str] = Field(default_factory=list)
+
+
+class UserMemory(BaseModel, frozen=True):
+    tenant_id: str
+    tool_overrides: ToolOverrides = Field(default_factory=ToolOverrides)
+    first_name: str | None = None
+    last_name: str | None = None
+    email: str | None = None
+
+
 class AuthzRecord(BaseModel, frozen=True):
     tenant_id: str
     tools: list[str]

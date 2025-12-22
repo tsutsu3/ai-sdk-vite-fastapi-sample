@@ -1,8 +1,8 @@
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class ModelCapability(BaseModel, frozen=True):
-    model_config = ConfigDict(populate_by_name=True)
+class ModelCapability(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, frozen=True)
 
     id: str
     name: str

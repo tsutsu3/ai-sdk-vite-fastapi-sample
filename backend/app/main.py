@@ -22,11 +22,13 @@ from app.features.authz.repository.cosmos_authz_repository import (
     CosmosAuthzRepository,
 )
 from app.features.authz.repository.memory_authz_repository import MemoryAuthzRepository
+from app.features.authz.repository.authz_repository import AuthzRepository
 from app.features.chat.streamers import (
     AzureOpenAIStreamer,
     MemoryStreamer,
     MultiChatStreamer,
     OllamaStreamer,
+    ChatStreamer,
 )
 from app.features.conversations.repository.cosmos_conversation_repository import (
     CosmosConversationRepository,
@@ -66,108 +68,100 @@ from app.shared.infra.blob_storage import (
 from app.shared.infra.cosmos_client import ensure_cosmos_resources
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    logger = logging.getLogger(__name__)
+def _local_storage_path(app_config) -> Path:
+    return Path(app_config.local_storage_path).resolve()
 
-    logger.info("<*> Application startup begin")
 
-    settings = Settings()
-
-    app.state.app_config = settings.to_app_config()
-    app.state.storage_capabilities = settings.to_storage_capabilities()
-    app.state.chat_capabilities = settings.to_chat_capabilities()
-
+async def _ensure_cosmos(app_config, storage_caps) -> None:
     if (
-        app.state.app_config.cosmos_database
-        and app.state.app_config.cosmos_endpoint
-        and app.state.app_config.cosmos_key
-        and app.state.storage_capabilities.db_backend == "azure"
+        app_config.cosmos_database
+        and app_config.cosmos_endpoint
+        and app_config.cosmos_key
+        and storage_caps.db_backend == "azure"
     ):
-        await ensure_cosmos_resources(app.state.app_config)
+        await ensure_cosmos_resources(app_config)
 
-    # ===== authz repository =====
-    match app.state.storage_capabilities.db_backend:
+
+def _build_authz_repository(app_config, storage_caps) -> AuthzRepository:
+    match storage_caps.db_backend:
         case "memory":
-            authz_repository = MemoryAuthzRepository()
+            base_repo: AuthzRepository = MemoryAuthzRepository()
         case "azure":
-            authz_repository = CosmosAuthzRepository(app.state.app_config)
+            base_repo = CosmosAuthzRepository(app_config)
         case "local":
-            authz_repository = MemoryAuthzRepository()
+            base_repo = MemoryAuthzRepository()
         case _:
             raise RuntimeError("unreachable")
-
-    app.state.authz_repository = CachedAuthzRepository(
-        authz_repository,
-        ttl_seconds=app.state.app_config.authz_cache_ttl_seconds,
-        max_size=app.state.app_config.authz_cache_max_size,
+    return CachedAuthzRepository(
+        base_repo,
+        ttl_seconds=app_config.authz_cache_ttl_seconds,
+        max_size=app_config.authz_cache_max_size,
     )
 
-    # ===== conversation repository =====
-    match app.state.storage_capabilities.db_backend:
+
+def _build_conversation_repository(app_config, storage_caps):
+    match storage_caps.db_backend:
         case "memory":
-            app.state.conversation_repository = MemoryConversationRepository()
+            return MemoryConversationRepository()
         case "azure":
-            app.state.conversation_repository = CosmosConversationRepository(app.state.app_config)
+            return CosmosConversationRepository(app_config)
         case "local":
-            app.state.conversation_repository = LocalConversationRepository(
-                Path(app.state.app_config.local_storage_path).resolve()
-            )
+            return LocalConversationRepository(_local_storage_path(app_config))
         case _:
             raise RuntimeError("unreachable")
 
-    # ===== message repository =====
-    match app.state.storage_capabilities.db_backend:
+
+def _build_message_repository(app_config, storage_caps):
+    match storage_caps.db_backend:
         case "memory":
-            app.state.message_repository = MemoryMessageRepository()
+            return MemoryMessageRepository()
         case "azure":
-            app.state.message_repository = CosmosMessageRepository(app.state.app_config)
+            return CosmosMessageRepository(app_config)
         case "local":
-            app.state.message_repository = LocalMessageRepository(
-                Path(app.state.app_config.local_storage_path).resolve()
-            )
+            return LocalMessageRepository(_local_storage_path(app_config))
         case _:
             raise RuntimeError("unreachable")
 
-    # ===== usage repository =====
-    match app.state.storage_capabilities.db_backend:
+
+def _build_usage_repository(app_config, storage_caps):
+    match storage_caps.db_backend:
         case "memory":
-            app.state.usage_repository = MemoryUsageRepository()
+            return MemoryUsageRepository()
         case "azure":
-            app.state.usage_repository = CosmosUsageRepository(app.state.app_config)
+            return CosmosUsageRepository(app_config)
         case "local":
-            app.state.usage_repository = LocalUsageRepository(
-                Path(app.state.app_config.local_storage_path).resolve()
-            )
+            return LocalUsageRepository(_local_storage_path(app_config))
         case _:
             raise RuntimeError("unreachable")
 
-    # ===== blob storage =====
-    match app.state.storage_capabilities.blob_backend:
+
+def _build_blob_storage(app_config, storage_caps):
+    match storage_caps.blob_backend:
         case "memory":
-            app.state.blob_storage = MemoryBlobStorage()
+            return MemoryBlobStorage()
         case "azure":
-            app.state.blob_storage = AzureBlobStorage(app.state.app_config)
+            return AzureBlobStorage(app_config)
         case "local":
-            app.state.blob_storage = LocalBlobStorage(app.state.app_config)
+            return LocalBlobStorage(app_config)
         case _:
             raise RuntimeError("unreachable")
 
-    # ===== run service =====
-    provider_streamers = {}
+
+def _build_run_service(app_config, chat_caps) -> RunService:
+    provider_streamers: dict[str, ChatStreamer] = {}
     model_to_provider: dict[str, str] = {}
-    for provider, models in app.state.chat_capabilities.providers.items():
+    for provider, models in chat_caps.providers.items():
         for model_id in models:
             if model_id in model_to_provider:
                 raise RuntimeError(f"Model '{model_id}' is configured for multiple providers.")
             model_to_provider[model_id] = provider
 
-    if app.state.chat_capabilities.has_provider("memory"):
+    if chat_caps.has_provider("memory"):
         provider_streamers["memory"] = MemoryStreamer()
-    if app.state.chat_capabilities.has_provider("azure"):
-        provider_streamers["azure"] = AzureOpenAIStreamer(app.state.app_config)
-    if app.state.chat_capabilities.has_provider("ollama"):
-        provider_streamers["ollama"] = OllamaStreamer(app.state.app_config)
+    if chat_caps.has_provider("azure"):
+        provider_streamers["azure"] = AzureOpenAIStreamer(app_config)
+    if chat_caps.has_provider("ollama"):
+        provider_streamers["ollama"] = OllamaStreamer(app_config)
 
     if not provider_streamers:
         provider_streamers["memory"] = MemoryStreamer()
@@ -182,9 +176,43 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         model_to_provider,
         default_model_id=default_model_id,
     )
-    app.state.run_service = RunService(
+    return RunService(
         streamer,
-        TitleGenerator(app.state.app_config, streamer),
+        TitleGenerator(app_config, streamer),
+    )
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    logger = logging.getLogger(__name__)
+
+    logger.info("<*> Application startup begin")
+
+    settings = Settings()
+
+    app.state.app_config = settings.to_app_config()
+    app.state.storage_capabilities = settings.to_storage_capabilities()
+    app.state.chat_capabilities = settings.to_chat_capabilities()
+
+    await _ensure_cosmos(app.state.app_config, app.state.storage_capabilities)
+
+    app.state.authz_repository = _build_authz_repository(
+        app.state.app_config, app.state.storage_capabilities
+    )
+    app.state.conversation_repository = _build_conversation_repository(
+        app.state.app_config, app.state.storage_capabilities
+    )
+    app.state.message_repository = _build_message_repository(
+        app.state.app_config, app.state.storage_capabilities
+    )
+    app.state.usage_repository = _build_usage_repository(
+        app.state.app_config, app.state.storage_capabilities
+    )
+    app.state.blob_storage = _build_blob_storage(
+        app.state.app_config, app.state.storage_capabilities
+    )
+    app.state.run_service = _build_run_service(
+        app.state.app_config, app.state.chat_capabilities
     )
 
     log_app_configuration(

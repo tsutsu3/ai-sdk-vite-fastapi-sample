@@ -40,6 +40,7 @@ class CosmosConversationRepository(ConversationRepository):
             ConversationMetadata(
                 id=item["id"],
                 title=item.get("title") or DEFAULT_CHAT_TITLE,
+                archived=False,
                 updatedAt=item.get("updatedAt") or current_timestamp(),
                 createdAt=item.get("createdAt"),
             )
@@ -67,6 +68,7 @@ class CosmosConversationRepository(ConversationRepository):
             ConversationMetadata(
                 id=item["id"],
                 title=item.get("title") or DEFAULT_CHAT_TITLE,
+                archived=True,
                 updatedAt=item.get("updatedAt") or current_timestamp(),
                 createdAt=item.get("createdAt"),
             )
@@ -87,6 +89,7 @@ class CosmosConversationRepository(ConversationRepository):
         return ConversationMetadata(
             id=item["id"],
             title=item.get("title") or DEFAULT_CHAT_TITLE,
+            archived=bool(item.get("archived", False)),
             updatedAt=item.get("updatedAt") or current_timestamp(),
             createdAt=item.get("createdAt"),
         )
@@ -119,6 +122,7 @@ class CosmosConversationRepository(ConversationRepository):
         return ConversationMetadata(
             id=conversation_id,
             title=title,
+            archived=False,
             updatedAt=updated_at,
             createdAt=created_at,
         )
@@ -142,6 +146,7 @@ class CosmosConversationRepository(ConversationRepository):
         return ConversationMetadata(
             id=item["id"],
             title=item.get("title") or DEFAULT_CHAT_TITLE,
+            archived=bool(item.get("archived", False)),
             updatedAt=item.get("updatedAt") or current_timestamp(),
             createdAt=item.get("createdAt"),
         )
@@ -194,6 +199,7 @@ class CosmosConversationRepository(ConversationRepository):
         return ConversationMetadata(
             id=item["id"],
             title=item.get("title") or DEFAULT_CHAT_TITLE,
+            archived=bool(item.get("archived", False)),
             updatedAt=item.get("updatedAt") or current_timestamp(),
             createdAt=item.get("createdAt"),
         )

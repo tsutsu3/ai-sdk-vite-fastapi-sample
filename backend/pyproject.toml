@@ -12,7 +12,8 @@ dependencies = [
   "azure-cosmos",
   "azure-storage-blob",
   "python-multipart",
-  "pydantic-settings"
+  "pydantic-settings",
+  "fastapi-ai-sdk"
 ]
 
 [project.optional-dependencies]

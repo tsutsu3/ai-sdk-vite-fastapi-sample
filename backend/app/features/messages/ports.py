@@ -1,8 +1,10 @@
 from typing import Protocol
 
+from app.features.messages.models import ChatMessage
+
 
 class MessageRepository(Protocol):
-    async def list_messages(self, tenant_id: str, conversation_id: str) -> list[dict]:
+    async def list_messages(self, tenant_id: str, conversation_id: str) -> list[ChatMessage]:
         """Return messages in raw ai-sdk format."""
         raise NotImplementedError
 
@@ -10,7 +12,7 @@ class MessageRepository(Protocol):
         self,
         tenant_id: str,
         conversation_id: str,
-        messages: list[dict],
+        messages: list[ChatMessage],
     ) -> None:
         """Replace messages for the conversation."""
         raise NotImplementedError

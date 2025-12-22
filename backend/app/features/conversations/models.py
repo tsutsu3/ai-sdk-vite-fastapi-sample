@@ -1,9 +1,12 @@
 from pydantic import BaseModel
 
+from app.features.messages.models import ChatMessage
+
 
 class ConversationMetadata(BaseModel, frozen=True):
     id: str
     title: str
+    archived: bool = False
     updatedAt: str
     createdAt: str | None = None
 
@@ -15,7 +18,7 @@ class ConversationsResponse(BaseModel, frozen=True):
 class ConversationResponse(BaseModel, frozen=True):
     id: str
     title: str
-    messages: list[dict]
+    messages: list[ChatMessage]
     updatedAt: str
 
 

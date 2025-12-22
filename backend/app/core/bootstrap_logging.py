@@ -48,7 +48,7 @@ def log_app_configuration(
                 parts.append(provider)
         logger.info("Chat providers       : %s", _join(parts))
 
-        parts: list[str] = []
+        parts = []
         for provider, models in sorted(chat_caps.providers.items()):
             names: list[str] = []
             for model in sorted(models):
