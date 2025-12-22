@@ -38,6 +38,7 @@ Purpose: Document local development workflow, conventions, and contribution prac
 - Run frontend: `pnpm dev`
 - Run backend: `uvicorn app.main:app --reload`
 - Update translations: edit `frontend/src/i18n/locales/*/translation.json`
+- Update backend lock file: `pip-compile pyproject.toml -o requirements.lock` (from `backend/`)
 
 ## Testing & checks
 
@@ -49,4 +50,3 @@ Purpose: Document local development workflow, conventions, and contribution prac
 - Keep UI copy in i18n files.
 - Prefer small, focused changes.
 - Update docs when public behavior changes.
-

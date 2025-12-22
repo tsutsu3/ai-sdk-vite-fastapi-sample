@@ -31,6 +31,7 @@ A minimal full-stack chat sample with a React/Vite frontend and a FastAPI backen
    - Frontend: `pnpm dev` (from `frontend/`)
    - Backend: `uvicorn app.main:app --reload` (from `backend/`)
 3. Open the frontend in the browser.
+4. (Optional) Update backend lock file: `pip-compile pyproject.toml -o requirements.lock` (from `backend/`)
 
 ## Docs
 

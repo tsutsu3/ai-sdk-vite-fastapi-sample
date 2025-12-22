@@ -84,12 +84,27 @@ flowchart LR
 - `features/messages`: store and fetch message history.
 - `features/chat/streamers`: provider-specific streaming implementation.
 - `features/title`: title generation (model or fallback).
+- `features/authz`: tenant/user authorization resolution and tool access.
 
 ## Storage backends
 
 - `memory`: in-process store (non-persistent).
 - `local`: JSON files under `backend/.local-data/`.
 - `azure`: Cosmos DB + blob storage (when configured).
+
+## Authorization data flow
+
+- Authz records are resolved per request via `AuthzRepository.get_authz(user_id)`.
+- `CachedAuthzRepository` wraps the backing repository with LRU + TTL caching.
+- Cosmos authz data is composed from two document types:
+  - Tenant document (`id` = tenant UUID) with `default_tools`.
+  - User document (`user_id`, `tenant_id`) with `tool_overrides` (`allow` / `deny`).
+- Effective tools are computed as `default_tools + allow - deny` (deny wins).
+
+## Message/conversation models
+
+- Message payloads are normalized into Pydantic models (`ChatMessage`, `MessagePart`).
+- Local storage persists models as JSON; Cosmos stores per-message documents with a `message` payload.
 
 ## Tenant scoping
 
