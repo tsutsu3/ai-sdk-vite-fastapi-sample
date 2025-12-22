@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-asyncio", "black", "isort", "flake8", "mypy"]
+dev = ["pytest", "pytest-asyncio", "black", "isort", "flake8", "mypy", "pip-tools"]
 
 [tool.uvicorn]
 factory = false
