@@ -20,6 +20,7 @@ from app.core.config import Settings
 from app.features.authz.repository.cosmos_authz_repository import (
     CosmosAuthzRepository,
 )
+from app.features.authz.repository.cached_authz_repository import CachedAuthzRepository
 from app.features.authz.repository.memory_authz_repository import MemoryAuthzRepository
 from app.features.chat.streamers import (
     AzureOpenAIStreamer,
@@ -88,13 +89,19 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # ===== authz repository =====
     match app.state.storage_capabilities.db_backend:
         case "memory":
-            app.state.authz_repository = MemoryAuthzRepository()
+            authz_repository = MemoryAuthzRepository()
         case "azure":
-            app.state.authz_repository = CosmosAuthzRepository(app.state.app_config)
+            authz_repository = CosmosAuthzRepository(app.state.app_config)
         case "local":
-            app.state.authz_repository = MemoryAuthzRepository()
+            authz_repository = MemoryAuthzRepository()
         case _:
             raise RuntimeError("unreachable")
+
+    app.state.authz_repository = CachedAuthzRepository(
+        authz_repository,
+        ttl_seconds=app.state.app_config.authz_cache_ttl_seconds,
+        max_size=app.state.app_config.authz_cache_max_size,
+    )
 
     # ===== conversation repository =====
     match app.state.storage_capabilities.db_backend:

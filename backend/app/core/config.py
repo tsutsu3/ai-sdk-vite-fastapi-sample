@@ -62,6 +62,10 @@ class AppConfig(BaseModel, frozen=True):
     # Local storage
     local_storage_path: str = ".local-data"
 
+    # Authz cache
+    authz_cache_ttl_seconds: int = 3600
+    authz_cache_max_size: int = 1000
+
 
 class StorageCapabilities(BaseModel, frozen=True):
     db_backend: StorageBackend = StorageBackend.memory
@@ -140,6 +144,10 @@ class Settings(BaseSettings):
 
     # Local storage
     local_storage_path: str = ".local-data"
+
+    # Authz cache
+    authz_cache_ttl_seconds: int = 3600
+    authz_cache_max_size: int = 1000
 
     @property
     def chat_providers_set(self) -> Set[str]:
@@ -301,6 +309,8 @@ class Settings(BaseSettings):
             chat_model_chef_slugs=self.chat_model_chef_slugs_dict,
             chat_model_providers=self.chat_model_providers_dict,
             local_storage_path=self.local_storage_path,
+            authz_cache_ttl_seconds=self.authz_cache_ttl_seconds,
+            authz_cache_max_size=self.authz_cache_max_size,
         )
 
     def to_storage_capabilities(self) -> StorageCapabilities:
