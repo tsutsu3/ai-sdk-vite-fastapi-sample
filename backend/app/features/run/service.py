@@ -6,7 +6,8 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from app.features.chat.streamers import ChatStreamer, sse
+from fastapi_ai_sdk.models import AnyStreamEvent, DataEvent
+from app.features.chat.streamers import ChatStreamer
 from app.features.conversations.ports import ConversationRepository
 from app.features.messages.models import ChatMessage, MessageMetadata, MessagePart
 from app.features.messages.ports import MessageRepository
@@ -135,7 +136,7 @@ class RunService:
         user_id: str,
         conversation_id: str,
         generated: str,
-    ) -> str:
+    ) -> AnyStreamEvent:
         await conversation_repo.upsert_conversation(
             tenant_id,
             user_id,
@@ -143,7 +144,7 @@ class RunService:
             generated,
             current_timestamp(),
         )
-        return sse({"type": "data-title", "data": {"title": generated}})
+        return DataEvent.create("title", {"title": generated})
 
     async def _stream_with_persistence(
         self,
@@ -152,7 +153,7 @@ class RunService:
         conversation_repo: ConversationRepository,
         message_repo: MessageRepository,
         usage_repo: UsageRepository,
-    ) -> AsyncIterator[str]:
+    ) -> AsyncIterator[AnyStreamEvent]:
         response_text = ""
         final_title = context.title
         title_task: asyncio.Task[str] | None = None
@@ -241,7 +242,7 @@ class RunService:
         conversation_repo: ConversationRepository,
         message_repo: MessageRepository,
         usage_repo: UsageRepository,
-    ) -> AsyncIterator[str]:
+    ) -> AsyncIterator[AnyStreamEvent]:
         tenant_id = get_current_tenant_id()
         user_id = get_current_user_id()
         conversation_id, messages, title, should_generate_title = (

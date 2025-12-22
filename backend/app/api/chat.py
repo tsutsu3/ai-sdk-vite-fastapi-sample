@@ -1,9 +1,6 @@
-import json
-import uuid
-from collections.abc import Iterator
-
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
+from fastapi_ai_sdk import AIStream, create_ai_stream_response
 
 from app.dependencies import (
     get_conversation_repository,
@@ -51,13 +48,11 @@ async def chat(
         message_repo,
         usage_repo,
     )
-
-    response = StreamingResponse(stream, media_type="text/event-stream")
-
-    response.headers["x-vercel-ai-ui-message-stream"] = "v1"
-    response.headers["x-vercel-ai-protocol"] = "data"
-    response.headers["Cache-Control"] = "no-cache"
-    response.headers["Connection"] = "keep-alive"
-    response.headers["X-Accel-Buffering"] = "no"
-
-    return response
+    ai_stream = AIStream(stream)
+    return create_ai_stream_response(
+        ai_stream,
+        headers={
+            "x-vercel-ai-protocol": "data",
+            "Connection": "keep-alive",
+        },
+    )
