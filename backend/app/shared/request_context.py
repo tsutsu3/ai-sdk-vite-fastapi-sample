@@ -1,8 +1,8 @@
 from contextvars import ContextVar
-
 from typing import cast
 
 from fastapi import HTTPException, Request
+
 from app.features.authz.identity import parse_user_from_headers
 from app.features.authz.models import AuthzRecord, UserInfo
 from app.features.authz.repository.authz_repository import AuthzRepository

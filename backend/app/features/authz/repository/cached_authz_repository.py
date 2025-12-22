@@ -1,6 +1,7 @@
 import asyncio
 import time
 from collections import OrderedDict
+
 from pydantic import BaseModel
 
 from app.features.authz.models import AuthzRecord

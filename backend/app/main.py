@@ -17,10 +17,10 @@ from app.api import messages as messages_api
 from app.api import spa as spa_api
 from app.core.bootstrap_logging import log_app_configuration
 from app.core.config import Settings
+from app.features.authz.repository.cached_authz_repository import CachedAuthzRepository
 from app.features.authz.repository.cosmos_authz_repository import (
     CosmosAuthzRepository,
 )
-from app.features.authz.repository.cached_authz_repository import CachedAuthzRepository
 from app.features.authz.repository.memory_authz_repository import MemoryAuthzRepository
 from app.features.chat.streamers import (
     AzureOpenAIStreamer,
