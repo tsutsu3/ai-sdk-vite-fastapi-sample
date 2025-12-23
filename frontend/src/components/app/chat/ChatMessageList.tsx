@@ -10,17 +10,20 @@ import {
   MessageResponse,
 } from "@/components/ai-elements/message";
 import { useTranslation } from "react-i18next";
-import type { FileUIPart } from "ai";
+import type { ChatStatus, FileUIPart } from "ai";
+import { Reasoning, ReasoningContent, ReasoningTrigger } from "@/components/ai-elements/reasoning";
 
 export type ChatMessageListProps = {
   messages: ChatMessage[];
+  status: ChatStatus;
 };
 
-export const ChatMessageList = ({ messages }: ChatMessageListProps) => {
+export const ChatMessageList = ({ messages, status }: ChatMessageListProps) => {
   const { t } = useTranslation();
+  const lastMessageId = messages.at(-1)?.id;
 
   return (
-    <>
+    <div className="p-6">
       {messages.map((message) => (
         <Message from={message.role} key={message.id}>
           <MessageContent>
@@ -42,13 +45,37 @@ export const ChatMessageList = ({ messages }: ChatMessageListProps) => {
                       {part.text}
                     </MessageResponse>
                   );
+                case "reasoning":
+                  console.log(message.parts);
+                  return (
+                    <Reasoning
+                      key={`${message.id}-${i}`}
+                      className="w-full"
+                      isStreaming={
+                        // web検索完了後、AIレスポンス開始までにしばらく時間があるるのでいい感じにしたい
+                        // status === "streaming" &&
+                        part.state === "streaming" &&
+                        i === message.parts.length - 1 &&
+                        message.id === messages.at(-1)?.id
+                      }
+                    >
+                      <ReasoningTrigger
+                        getThinkingMessage={(isStreaming) =>
+                          isStreaming
+                            ? `${t("webSearchInProgress")}`
+                            : t("webSearchCompleted")
+                        }
+                      />
+                      <ReasoningContent>{part.text}</ReasoningContent>
+                    </Reasoning>
+                  );
                 default:
                   return null;
               }
             })}
           </MessageContent>
           {/* {message.role === "assistant" && message.versions && ( */}
-          {message.role === "assistant" && (
+          {message.role === "assistant" && message.id === lastMessageId &&(
             <MessageActions>
               <MessageAction
                 label="Retry"
@@ -102,6 +129,6 @@ export const ChatMessageList = ({ messages }: ChatMessageListProps) => {
           )}
         </Message>
       ))}
-    </>
+    </div>
   );
 };

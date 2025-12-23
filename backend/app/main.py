@@ -59,6 +59,10 @@ from app.features.usage.repository.local_usage_repository import (
 from app.features.usage.repository.memory_usage_repository import (
     MemoryUsageRepository,
 )
+from app.features.web_search.providers.duckduckgo import DuckDuckGoSearchProvider
+from app.features.web_search.providers.internal import InternalSearchProvider
+from app.features.web_search.providers.base import WebSearchProvider
+from app.features.web_search.service import WebSearchService
 from app.logging_config import build_logging_config
 from app.shared.infra.blob_storage import (
     AzureBlobStorage,
@@ -147,7 +151,7 @@ def _build_blob_storage(app_config, storage_caps):
             raise RuntimeError("unreachable")
 
 
-def _build_run_service(app_config, chat_caps) -> RunService:
+def _build_run_service(app_config, chat_caps, web_search: WebSearchService) -> RunService:
     provider_streamers: dict[str, ChatStreamer] = {}
     model_to_provider: dict[str, str] = {}
     for provider, models in chat_caps.providers.items():
@@ -179,6 +183,31 @@ def _build_run_service(app_config, chat_caps) -> RunService:
     return RunService(
         streamer,
         TitleGenerator(app_config, streamer),
+        web_search,
+        fetch_web_search_content=app_config.web_search_fetch_content,
+    )
+
+
+def _build_web_search_service(settings: Settings) -> WebSearchService:
+    providers: dict[str, WebSearchProvider] = {}
+    if settings.web_search_internal_url:
+        providers["internal"] = InternalSearchProvider(
+            settings.web_search_internal_url,
+            api_key=settings.web_search_internal_api_key,
+            auth_header=settings.web_search_internal_auth_header,
+        )
+    providers["duckduckgo"] = DuckDuckGoSearchProvider()
+
+    if settings.web_search_engines_set:
+        providers = {
+            key: provider
+            for key, provider in providers.items()
+            if key in settings.web_search_engines_set
+        }
+
+    return WebSearchService(
+        providers,
+        default_engine=settings.web_search_default_engine or None,
     )
 
 
@@ -211,8 +240,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.blob_storage = _build_blob_storage(
         app.state.app_config, app.state.storage_capabilities
     )
+    app.state.web_search_service = _build_web_search_service(settings)
     app.state.run_service = _build_run_service(
-        app.state.app_config, app.state.chat_capabilities
+        app.state.app_config,
+        app.state.chat_capabilities,
+        app.state.web_search_service,
     )
 
     log_app_configuration(

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.features.messages.models import ChatMessage
 
@@ -17,6 +17,11 @@ class RunRequest(BaseModel):
     webSearch: bool | None = None
 
 
+class WebSearchRequest(BaseModel):
+    enabled: bool = False
+    engine: str | None = None
+
+
 class StreamContext(BaseModel):
     tenant_id: str
     user_id: str
@@ -30,6 +35,7 @@ class StreamContext(BaseModel):
 
     messages: list[ChatMessage]
     openai_messages: list[OpenAIMessage]
+    web_search: WebSearchRequest = Field(default_factory=WebSearchRequest)
 
     class Config:
         arbitrary_types_allowed = True

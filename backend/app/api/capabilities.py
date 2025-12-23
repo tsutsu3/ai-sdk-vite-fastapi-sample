@@ -1,6 +1,10 @@
 from fastapi import APIRouter, Request
 
-from app.features.chat.capabilities.models import CapabilitiesResponse, ModelCapability
+from app.features.chat.capabilities.models import (
+    CapabilitiesResponse,
+    ModelCapability,
+    WebSearchEngineCapability,
+)
 
 router = APIRouter()
 
@@ -8,6 +12,7 @@ router = APIRouter()
 @router.get("/capabilities", response_model=CapabilitiesResponse)
 def get_capabilities(request: Request) -> CapabilitiesResponse:
     capabilities = request.app.state.chat_capabilities
+    web_search = request.app.state.web_search_service
     models: list[ModelCapability] = []
 
     if capabilities.has_provider("memory"):
@@ -45,4 +50,13 @@ def get_capabilities(request: Request) -> CapabilitiesResponse:
                 )
             )
 
-    return CapabilitiesResponse(models=models)
+    web_search_engines = [
+        WebSearchEngineCapability(id=engine.id, name=engine.name)
+        for engine in web_search.available_engines()
+    ]
+
+    return CapabilitiesResponse(
+        models=models,
+        webSearchEngines=web_search_engines,
+        defaultWebSearchEngine=web_search.default_engine,
+    )

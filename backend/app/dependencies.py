@@ -7,6 +7,7 @@ from app.features.conversations.ports import ConversationRepository
 from app.features.messages.ports import MessageRepository
 from app.features.run.service import RunService
 from app.features.usage.ports import UsageRepository
+from app.features.web_search.service import WebSearchService
 from app.shared.infra.blob_storage import BlobStorage
 
 
@@ -35,3 +36,7 @@ def get_blob_storage(request: Request) -> BlobStorage:
 
 def get_run_service(request: Request) -> RunService:
     return cast(RunService, request.app.state.run_service)
+
+
+def get_web_search_service(request: Request) -> WebSearchService:
+    return cast(WebSearchService, request.app.state.web_search_service)

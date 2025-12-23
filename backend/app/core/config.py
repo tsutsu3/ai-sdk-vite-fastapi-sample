@@ -66,6 +66,13 @@ class AppConfig(BaseModel, frozen=True):
     authz_cache_ttl_seconds: int = 3600
     authz_cache_max_size: int = 1000
 
+    # Web search
+    web_search_default_engine: str = ""
+    web_search_internal_url: str = ""
+    web_search_internal_api_key: str = ""
+    web_search_internal_auth_header: str = "X-API-Key"
+    web_search_fetch_content: bool = False
+
 
 class StorageCapabilities(BaseModel, frozen=True):
     db_backend: StorageBackend = StorageBackend.memory
@@ -92,7 +99,7 @@ class ChatCapabilities(BaseModel, frozen=True):
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(".env", "backend/.env"),
         env_file_encoding="utf-8",
         case_sensitive=False,
     )
@@ -148,6 +155,14 @@ class Settings(BaseSettings):
     # Authz cache
     authz_cache_ttl_seconds: int = 3600
     authz_cache_max_size: int = 1000
+
+    # Web search
+    web_search_engines: Optional[str] = None
+    web_search_default_engine: str = ""
+    web_search_internal_url: str = ""
+    web_search_internal_api_key: str = ""
+    web_search_internal_auth_header: str = "X-API-Key"
+    web_search_fetch_content: bool = False
 
     @property
     def chat_providers_set(self) -> Set[str]:
@@ -235,6 +250,12 @@ class Settings(BaseSettings):
             providers[model.strip().lower()] = items
         return providers
 
+    @property
+    def web_search_engines_set(self) -> Set[str]:
+        if not self.web_search_engines:
+            return set()
+        return {value.strip().lower() for value in self.web_search_engines.split(",") if value.strip()}
+
     @model_validator(mode="after")
     def validate_db(self) -> "Settings":
         if self.db_backend == StorageBackend.azure:
@@ -311,6 +332,11 @@ class Settings(BaseSettings):
             local_storage_path=self.local_storage_path,
             authz_cache_ttl_seconds=self.authz_cache_ttl_seconds,
             authz_cache_max_size=self.authz_cache_max_size,
+            web_search_default_engine=self.web_search_default_engine or "",
+            web_search_internal_url=self.web_search_internal_url,
+            web_search_internal_api_key=self.web_search_internal_api_key,
+            web_search_internal_auth_header=self.web_search_internal_auth_header,
+            web_search_fetch_content=self.web_search_fetch_content,
         )
 
     def to_storage_capabilities(self) -> StorageCapabilities:

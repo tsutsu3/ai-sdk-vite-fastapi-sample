@@ -28,6 +28,9 @@ class ChatStreamer(Protocol):
     def stream_text_end(self, message_id: str) -> AsyncIterator[AnyStreamEvent]:
         raise NotImplementedError
 
+    def ensure_message_start(self, message_id: str) -> AnyStreamEvent | None:
+        raise NotImplementedError
+
     def error_stream(self, message: str) -> AsyncIterator[AnyStreamEvent]:
         raise NotImplementedError
 
@@ -42,6 +45,7 @@ class ChatStreamer(Protocol):
 class BaseStreamer(ChatStreamer):
     def __init__(self) -> None:
         self._started: set[str] = set()
+        self._text_started: set[str] = set()
 
     async def stream_text_delta(
         self, delta: str, message_id: str
@@ -52,12 +56,20 @@ class BaseStreamer(ChatStreamer):
         if message_id not in self._started:
             self._started.add(message_id)
             yield StartEvent(messageId=message_id)
+        if message_id not in self._text_started:
+            self._text_started.add(message_id)
             yield TextStartEvent(id=text_id)
         yield TextDeltaEvent(id=text_id, delta=delta)
 
     async def stream_text_end(self, message_id: str) -> AsyncIterator[AnyStreamEvent]:
         text_id = "text-1"
         yield TextEndEvent(id=text_id)
+
+    def ensure_message_start(self, message_id: str) -> AnyStreamEvent | None:
+        if message_id in self._started:
+            return None
+        self._started.add(message_id)
+        return StartEvent(messageId=message_id)
 
     async def error_stream(self, message: str) -> AsyncIterator[AnyStreamEvent]:
         yield ErrorEvent(errorText=message)

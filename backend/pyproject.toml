@@ -13,11 +13,12 @@ dependencies = [
   "azure-storage-blob",
   "python-multipart",
   "pydantic-settings",
-  "fastapi-ai-sdk"
+  "fastapi-ai-sdk",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest", "pytest-asyncio", "black", "isort", "flake8", "mypy", "pip-tools"]
+duck =["ddgs"]
 
 [tool.uvicorn]
 factory = false

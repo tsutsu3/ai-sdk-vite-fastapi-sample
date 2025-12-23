@@ -15,6 +15,8 @@ export const useChatController = () => {
   const [models, setModels] = useState<ChatModel[]>([]);
   const [model, setModel] = useState<string>("");
   const [useWebSearch, setUseWebSearch] = useState<boolean>(false);
+  const [defaultWebSearchEngine, setDefaultWebSearchEngine] =
+    useState<string>("");
   const [attachmentFileIds, setAttachmentFileIds] = useState<
     Record<string, string>
   >({});
@@ -90,6 +92,9 @@ export const useChatController = () => {
             ? (payload.models as ChatModel[])
             : chatModels;
         applyModels(nextModels);
+        if (typeof payload?.defaultWebSearchEngine === "string") {
+          setDefaultWebSearchEngine(payload.defaultWebSearchEngine);
+        }
       })
       .catch(() => {
         if (mounted) {
@@ -202,9 +207,16 @@ export const useChatController = () => {
 
       // TODO: Use Base64-encoded data for display, and use the storage `fileId` for sending.
       // The `fileId` can be resolved to the actual file from storage when needed.
+      const webSearchEngine = defaultWebSearchEngine.trim();
+      const webSearch = useWebSearch
+        ? {
+            enabled: true,
+            ...(webSearchEngine ? { engine: webSearchEngine } : {}),
+          }
+        : undefined;
       const body = {
         model,
-        webSearch: useWebSearch,
+        ...(webSearch ? { webSearch } : {}),
         ...(fileIds.length ? { fileIds } : {}),
         ...(nextConversationId ? { conversationId: nextConversationId } : {}),
       };
@@ -227,6 +239,7 @@ export const useChatController = () => {
       upsertHistoryItem,
       uploadingAttachments,
       useWebSearch,
+      defaultWebSearchEngine,
     ]
   );
 
