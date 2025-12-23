@@ -24,7 +24,7 @@ export default function AppLayout() {
   return (
     <SidebarProvider>
       <AppSidebar />
-      <SidebarInset className="flex flex-col">
+      <SidebarInset className="flex flex-col min-h-0 min-w-0 h-screen">
         {/* Navbar / Header */}
         <header className="sticky top-0 z-10 flex h-16 items-center gap-2 border-b bg-background">
           <div className="flex items-center gap-2 px-4">
@@ -51,8 +51,8 @@ export default function AppLayout() {
           </div>
         </header>
         {/* Main content (scrollable) */}
-        <main className="flex-1 overflow-hidden px-4">
-          <div className="mx-auto w-full max-w-5xl py-6 h-full">
+        <main className="flex-1 min-h-0 overflow-hidden">
+          <div className="w-full pb-0 h-full min-h-0">
             <Outlet />
           </div>
         </main>
