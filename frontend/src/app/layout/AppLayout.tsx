@@ -13,13 +13,22 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Outlet, useLocation } from "react-router";
-import { Fragment } from "react";
+import { Fragment, useEffect } from "react";
+import { useAppStore } from "@/store/app-store";
 
 export default function AppLayout() {
   const location = useLocation();
+  const capabilities = useAppStore((state) => state.capabilities);
+  const fetchCapabilities = useAppStore((state) => state.fetchCapabilities);
 
   const segments = location.pathname.split("/").filter(Boolean);
   const breadcrumbs = ["Home", ...segments];
+
+  useEffect(() => {
+    if (capabilities.status === "idle") {
+      fetchCapabilities();
+    }
+  }, [capabilities.status, fetchCapabilities]);
 
   return (
     <SidebarProvider>

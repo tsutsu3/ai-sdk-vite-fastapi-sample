@@ -12,8 +12,8 @@ import { DefaultChatTransport, type FileUIPart } from "ai";
  */
 export const useChatController = () => {
   const [text, setText] = useState<string>("");
-  const [models, setModels] = useState<ChatModel[]>([]);
-  const [model, setModel] = useState<string>("");
+  const [models, setModels] = useState<ChatModel[]>(chatModels);
+  const [model, setModel] = useState<string>(chatModels[0]?.id ?? "");
   const [useWebSearch, setUseWebSearch] = useState<boolean>(false);
   const [defaultWebSearchEngine, setDefaultWebSearchEngine] =
     useState<string>("");
@@ -26,6 +26,7 @@ export const useChatController = () => {
   const { id: conversationId } = useParams();
   const navigate = useNavigate();
   const upsertHistoryItem = useAppStore((state) => state.upsertHistoryItem);
+  const capabilities = useAppStore((state) => state.capabilities);
   const [localConversationId, setLocalConversationId] = useState<string | null>(
     null
   );
@@ -72,39 +73,27 @@ export const useChatController = () => {
   }, [activeConversationId]);
 
   useEffect(() => {
-    let mounted = true;
-    const applyModels = (nextModels: ChatModel[]) => {
-      setModels(nextModels);
-      setModel((current) =>
-        nextModels.some((entry) => entry.id === current)
-          ? current
-          : nextModels[0]?.id ?? ""
-      );
-    };
-    fetch("/api/capabilities")
-      .then((response) => (response.ok ? response.json() : null))
-      .then((payload) => {
-        if (!mounted) {
-          return;
-        }
-        const nextModels =
-          payload?.models?.length && Array.isArray(payload.models)
-            ? (payload.models as ChatModel[])
-            : chatModels;
-        applyModels(nextModels);
-        if (typeof payload?.defaultWebSearchEngine === "string") {
-          setDefaultWebSearchEngine(payload.defaultWebSearchEngine);
-        }
-      })
-      .catch(() => {
-        if (mounted) {
-          applyModels(chatModels);
-        }
-      });
-    return () => {
-      mounted = false;
-    };
-  }, []);
+    if (capabilities.status !== "success" && capabilities.status !== "error") {
+      return;
+    }
+    const nextModels =
+      capabilities.status === "success" && capabilities.models.length
+        ? capabilities.models
+        : chatModels;
+    setModels(nextModels);
+    setModel((current) =>
+      nextModels.some((entry) => entry.id === current)
+        ? current
+        : nextModels[0]?.id ?? ""
+    );
+    if (typeof capabilities.defaultWebSearchEngine === "string") {
+      setDefaultWebSearchEngine(capabilities.defaultWebSearchEngine);
+    }
+  }, [
+    capabilities.status,
+    capabilities.models,
+    capabilities.defaultWebSearchEngine,
+  ]);
 
   useEffect(() => {
     messagesRef.current = messages as ChatMessage[];

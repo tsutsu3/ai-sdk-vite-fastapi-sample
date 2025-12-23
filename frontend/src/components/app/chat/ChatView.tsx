@@ -56,7 +56,7 @@ export const ChatView = ({
     <div className="relative size-full h-full min-h-0">
       <div className="flex flex-col h-full min-h-0 overflow-hidden">
         <Conversation className="flex-1 min-h-0 overflow-y-hidden">
-          <ConversationContent className="mx-auto w-full max-w-4xl p-0 px-6 pb-12">
+          <ConversationContent className="mx-auto w-full max-w-4xl px-6 pb-12">
             <ChatMessageList messages={messages} status={status} />
           </ConversationContent>
           <ConversationScrollButton />

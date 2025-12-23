@@ -23,9 +23,9 @@ export const ChatMessageList = ({ messages, status }: ChatMessageListProps) => {
   const lastMessageId = messages.at(-1)?.id;
 
   return (
-    <div className="p-6">
+    <>
       {messages.map((message) => (
-        <Message from={message.role} key={message.id}>
+        <Message from={message.role} key={message.id} className="pt-6">
           <MessageContent>
             {message.parts.map((part, i) => {
               switch (part.type) {
@@ -129,6 +129,6 @@ export const ChatMessageList = ({ messages, status }: ChatMessageListProps) => {
           )}
         </Message>
       ))}
-    </div>
+    </>
   );
 };

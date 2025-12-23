@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { HistoryItem } from "@/types/history";
+import type { ChatModel } from "@/types/chat";
 
 export type ThemeMode = "light" | "dark" | "system";
 export type PaletteMode = "default" | "warm" | "cool" | "mint";
@@ -28,6 +29,19 @@ type HistoryState = {
   error?: string;
 };
 
+type WebSearchEngine = {
+  id: string;
+  name: string;
+};
+
+type CapabilitiesState = {
+  status: "idle" | "loading" | "success" | "error";
+  models: ChatModel[];
+  webSearchEngines: WebSearchEngine[];
+  defaultWebSearchEngine: string;
+  error?: string;
+};
+
 type AppState = {
   theme: ThemeMode;
   setTheme: (theme: ThemeMode) => void;
@@ -47,6 +61,9 @@ type AppState = {
   fetchHistory: (force?: boolean, merge?: boolean) => Promise<void>;
   upsertHistoryItem: (item: HistoryItem) => void;
   removeHistoryItem: (url: string) => void;
+
+  capabilities: CapabilitiesState;
+  fetchCapabilities: () => Promise<void>;
 };
 
 export const useAppStore = create<AppState>()(
@@ -187,6 +204,54 @@ export const useAppStore = create<AppState>()(
             items: state.history.items.filter((item) => item.url !== url),
           },
         }));
+      },
+
+      capabilities: {
+        status: "idle",
+        models: [],
+        webSearchEngines: [],
+        defaultWebSearchEngine: "",
+      },
+      fetchCapabilities: async () => {
+        const { capabilities } = get();
+        if (capabilities.status === "loading" || capabilities.status === "success") {
+          return;
+        }
+        set({
+          capabilities: { ...capabilities, status: "loading", error: undefined },
+        });
+        try {
+          const response = await fetch("/api/capabilities");
+          if (!response.ok) {
+            throw new Error(`Failed to fetch capabilities: ${response.statusText}`);
+          }
+          const payload = await response.json();
+          set({
+            capabilities: {
+              status: "success",
+              models: Array.isArray(payload?.models) ? payload.models : [],
+              webSearchEngines: Array.isArray(payload?.webSearchEngines)
+                ? payload.webSearchEngines
+                : [],
+              defaultWebSearchEngine:
+                typeof payload?.defaultWebSearchEngine === "string"
+                  ? payload.defaultWebSearchEngine
+                  : "",
+            },
+          });
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : "Failed to load capabilities";
+          set({
+            capabilities: {
+              status: "error",
+              models: [],
+              webSearchEngines: [],
+              defaultWebSearchEngine: "",
+              error: message,
+            },
+          });
+        }
       },
     }),
     {
