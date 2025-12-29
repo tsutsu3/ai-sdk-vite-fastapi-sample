@@ -28,6 +28,7 @@ azure = [
   "openai",
   "azure-cosmos",
   "azure-storage-blob",
+  "azure-eventhub",
   "azure-monitor-opentelemetry-exporter",
   "opentelemetry-instrumentation-openai",
 ]
