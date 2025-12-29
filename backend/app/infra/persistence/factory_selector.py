@@ -1,6 +1,8 @@
 from logging import getLogger
 from pathlib import Path
 
+from azure.eventhub.aio import EventHubProducerClient
+
 from app.core.config import AppConfig, StorageCapabilities
 from app.features.authz.models import (
     ProvisioningRecord,
@@ -40,16 +42,18 @@ from app.infra.storage.usage_buffer import create_usage_repository
 logger = getLogger(__name__)
 
 
-class _CosmosRepositoryFactory:
-    """Cosmos DB backed repository factory."""
+class _AzureRepositoryFactory:
+    """Azure backed repository factory."""
 
     def __init__(
         self,
         provider: CosmosClientProvider,
         config: AppConfig,
+        azure_eventhub_producer: EventHubProducerClient | None = None,
     ) -> None:
         self._provider = provider
         self._config = config
+        self._azure_eventhub_producer = azure_eventhub_producer
 
     def authz(self):
         return CosmosAuthzRepository(
@@ -74,7 +78,10 @@ class _CosmosRepositoryFactory:
         )
 
     def usage(self):
-        return create_usage_repository(self._config)
+        return create_usage_repository(
+            self._config,
+            azure_eventhub_producer=self._azure_eventhub_producer,
+        )
 
 
 class _MemoryRepositoryFactory:
@@ -176,6 +183,7 @@ def create_repository_factory(
     storage_caps: StorageCapabilities,
     *,
     cosmos_provider: CosmosClientProvider | None = None,
+    azure_eventhub_producer: EventHubProducerClient | None = None,
     init_tenants: dict[str, TenantRecord] | None = None,
     init_users: dict[str, UserRecord] | None = None,
     init_user_identities: dict[str, UserIdentityRecord] | None = None,
@@ -217,9 +225,10 @@ def create_repository_factory(
             if cosmos_provider is None:
                 raise RuntimeError("CosmosClientProvider is required for azure backend")
 
-            return _CosmosRepositoryFactory(
+            return _AzureRepositoryFactory(
                 provider=cosmos_provider,
                 config=app_config,
+                azure_eventhub_producer=azure_eventhub_producer,
             )
 
         case _:

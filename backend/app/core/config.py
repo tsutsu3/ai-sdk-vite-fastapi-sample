@@ -128,6 +128,10 @@ class AppConfig(BaseModel):
     usage_buffer_blob_prefix: str = "usage/raw"
     usage_buffer_gcs_bucket: str = ""
     usage_buffer_gcs_prefix: str = "usage/raw"
+    usage_eventhub_namespace: str = ""
+    usage_eventhub_key_name: str = ""
+    usage_eventhub_api_key: str = ""
+    usage_eventhub_name: str = ""
 
     # Pagination defaults and max limits
     messages_page_default_limit: int = 30
@@ -296,6 +300,10 @@ class Settings(BaseSettings):
     usage_buffer_blob_prefix: str = "usage/raw"
     usage_buffer_gcs_bucket: str = ""
     usage_buffer_gcs_prefix: str = "usage/raw"
+    usage_eventhub_namespace: str = ""
+    usage_eventhub_key_name: str = ""
+    usage_eventhub_api_key: str = ""
+    usage_eventhub_name: str = ""
 
     # Pagination defaults and max limits
     messages_page_default_limit: int = 30
@@ -603,6 +611,10 @@ class Settings(BaseSettings):
             usage_buffer_blob_prefix=self.usage_buffer_blob_prefix,
             usage_buffer_gcs_bucket=self.usage_buffer_gcs_bucket,
             usage_buffer_gcs_prefix=self.usage_buffer_gcs_prefix,
+            usage_eventhub_namespace=self.usage_eventhub_namespace,
+            usage_eventhub_key_name=self.usage_eventhub_key_name,
+            usage_eventhub_api_key=self.usage_eventhub_api_key,
+            usage_eventhub_name=self.usage_eventhub_name,
             messages_page_default_limit=self.messages_page_default_limit,
             messages_page_max_limit=self.messages_page_max_limit,
             conversations_page_default_limit=self.conversations_page_default_limit,
