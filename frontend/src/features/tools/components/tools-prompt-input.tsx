@@ -14,15 +14,19 @@ import {
   PromptInputTextarea,
   PromptInputTools,
 } from "@/components/ai-elements/prompt-input";
-import { ChatModelSelector } from "@/features/chat/components/chat-model-selector";
 import { ToolsAdvancedSettingsPopover } from "@/features/tools/components/tools-advanced-settings-popover";
 import type { ToolsPromptInputViewModel } from "@/features/tools/hooks/tools-view-model-types";
+import { cn } from "@/lib/utils";
 
 export type ToolsPromptInputProps = {
   viewModel: ToolsPromptInputViewModel;
+  className?: string;
 };
 
-export const ToolsPromptInput = ({ viewModel }: ToolsPromptInputProps) => {
+export const ToolsPromptInput = ({
+  viewModel,
+  className,
+}: ToolsPromptInputProps) => {
   const {
     t,
     text,
@@ -31,14 +35,16 @@ export const ToolsPromptInput = ({ viewModel }: ToolsPromptInputProps) => {
     onTextChange,
     onTranscriptionChange,
     onSubmitPrompt,
-    modelSelector,
     advancedSettings,
   } = viewModel;
 
   return (
     <PromptInput
       onSubmit={onSubmitPrompt}
-      className="bg-background sticky bottom-0 mx-auto w-full max-w-4xl px-3 pb-6"
+      className={cn(
+        "bg-background sticky bottom-0 mx-auto w-full max-w-3xl px-3 pb-6",
+        className,
+      )}
       globalDrop
       multiple
     >
@@ -67,7 +73,6 @@ export const ToolsPromptInput = ({ viewModel }: ToolsPromptInputProps) => {
             onTranscriptionChange={onTranscriptionChange}
             textareaRef={textareaRef}
           />
-          <ChatModelSelector viewModel={modelSelector} />
           <ToolsAdvancedSettingsPopover viewModel={advancedSettings} />
         </PromptInputTools>
         <PromptInputSubmit

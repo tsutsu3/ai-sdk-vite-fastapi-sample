@@ -11,10 +11,7 @@ type UseToolsInputViewModelArgs = {
   sendMessage: ReturnType<typeof useChat>["sendMessage"];
   stop: ReturnType<typeof useChat>["stop"];
   activeConversationId: string;
-  model: string;
-  selectedModelName: string;
   toolId: string;
-  modelSelector: ToolsPromptInputViewModel["modelSelector"];
   advancedSettings: ToolsPromptInputViewModel["advancedSettings"];
 };
 
@@ -24,10 +21,7 @@ export const useToolsInputViewModel = ({
   sendMessage,
   stop,
   activeConversationId,
-  model,
-  selectedModelName,
   toolId,
-  modelSelector,
   advancedSettings,
 }: UseToolsInputViewModelArgs): ToolsPromptInputViewModel => {
   const [text, setText] = useState<string>("");
@@ -50,7 +44,6 @@ export const useToolsInputViewModel = ({
         {
           ...message,
           text: trimmedText,
-          metadata: { modelId: model, modelName: selectedModelName },
         },
         { body },
       );
@@ -60,8 +53,6 @@ export const useToolsInputViewModel = ({
       activeConversationId,
       advancedSettings.hydeEnabled,
       advancedSettings.maxDocuments,
-      model,
-      selectedModelName,
       sendMessage,
       toolId,
     ],
@@ -94,7 +85,6 @@ export const useToolsInputViewModel = ({
     onSubmitPrompt: handleSubmitPrompt,
     onTextChange: handleTextChange,
     onTranscriptionChange: handleTranscriptionChange,
-    modelSelector,
     advancedSettings,
   };
 };

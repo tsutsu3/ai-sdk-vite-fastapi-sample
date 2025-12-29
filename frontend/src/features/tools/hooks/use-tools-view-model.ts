@@ -452,12 +452,26 @@ export const useToolsViewModel = (): ToolsViewModel => {
     sendMessage,
     stop,
     activeConversationId,
-    model: modelSettings.selectedModelId,
-    selectedModelName: modelSettings.selectedModelName,
     toolId: toolId ?? "",
-    modelSelector: modelSettings.modelSelector,
     advancedSettings,
   });
+
+  const toolKey = toolId ?? "default";
+  const toolLabelKey = toolId ? `tool${toolId.replace(/^rag/i, "")}` : "";
+  const toolLabel = toolLabelKey
+    ? t(toolLabelKey, { defaultValue: toolId })
+    : t("toolsEmptyFallbackToolLabel");
+  const toolContent = t(`toolsEmptyContent.${toolKey}`, {
+    returnObjects: true,
+  });
+  const defaultContent = t("toolsEmptyContent.default", {
+    returnObjects: true,
+  });
+  const resolvedContent =
+    toolContent && typeof toolContent === "object" ? toolContent : defaultContent;
+  const samples = Array.isArray(resolvedContent?.samples)
+    ? resolvedContent.samples
+    : [];
 
   return {
     status,
@@ -477,6 +491,18 @@ export const useToolsViewModel = (): ToolsViewModel => {
       getModelIdForMessage: messageList.getModelIdForMessage,
     },
     prompt,
+    emptyState: {
+      eyebrow: t("toolsEmptyEyebrow", { tool: toolLabel }),
+      title:
+        typeof resolvedContent?.title === "string"
+          ? resolvedContent.title
+          : t("toolsEmptyTitle", { tool: toolLabel }),
+      subtitle:
+        typeof resolvedContent?.subtitle === "string"
+          ? resolvedContent.subtitle
+          : t("toolsEmptySubtitle", { tool: toolLabel }),
+      samples: samples.slice(0, 3),
+    },
     chainOfThought: {
       steps: chainSteps,
       open: chainOpen,

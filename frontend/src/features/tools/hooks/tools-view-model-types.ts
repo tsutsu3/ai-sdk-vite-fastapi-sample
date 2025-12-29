@@ -1,7 +1,6 @@
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 import type {
   ChatMessageListViewModel,
-  ChatModelSelectorViewModel,
   ChatScrollViewModel,
 } from "@/features/chat/hooks/chat-view-model-types";
 import type { ChatStatus } from "ai";
@@ -30,7 +29,6 @@ export type ToolsPromptInputViewModel = {
   onSubmitPrompt: (message: PromptInputMessage) => void;
   onTextChange: (value: string) => void;
   onTranscriptionChange: (value: string) => void;
-  modelSelector: ChatModelSelectorViewModel;
   advancedSettings: ToolsAdvancedSettingsViewModel;
 };
 
@@ -58,11 +56,19 @@ export type ToolsSourcesViewModel = {
   items: ToolsSourceItem[];
 };
 
+export type ToolsEmptyStateViewModel = {
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+  samples: string[];
+};
+
 export type ToolsViewModel = {
   status: ChatStatus;
   scroll: ChatScrollViewModel;
   messageList: ChatMessageListViewModel;
   prompt: ToolsPromptInputViewModel;
+  emptyState: ToolsEmptyStateViewModel;
   chainOfThought: ToolsChainOfThoughtViewModel;
   sources: ToolsSourcesViewModel;
 };

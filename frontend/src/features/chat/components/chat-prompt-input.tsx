@@ -44,7 +44,7 @@ export const ChatPromptInput = ({
   return (
     <PromptInput
       onSubmit={onSubmitPrompt}
-      className="bg-background sticky bottom-0 mx-auto w-full max-w-4xl px-3 pb-6"
+      className="bg-background sticky bottom-0 mx-auto w-full max-w-3xl px-3 pb-6"
       globalDrop
       multiple
     >
