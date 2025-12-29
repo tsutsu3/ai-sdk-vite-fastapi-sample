@@ -34,7 +34,7 @@ const ToolCardItem = ({ card, index }: { card: ToolCard; index: number }) => {
               {t(card.labelKey, { defaultValue: card.id })}
             </CardTitle>
             <CardDescription>
-              {t("homeToolDescription")}
+              {t(card.descriptionKey, { defaultValue: t("homeToolDescription") })}
             </CardDescription>
           </div>
         </div>

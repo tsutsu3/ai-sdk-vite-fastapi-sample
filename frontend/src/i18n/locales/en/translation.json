@@ -91,5 +91,115 @@
   "homeSectionToolsLabel": "Tools",
   "homeSectionToolsTitle": "Ask with documents",
   "homeToolLabel": "Tool",
-  "homeToolDescription": "Ask advanced questions using documents or knowledge bases."
+  "homeToolDescription": "Ask advanced questions using documents or knowledge bases.",
+  "homeToolDescription.tool0101": "Onboarding-focused retrieval with cited sources.",
+  "homeToolDescription.tool0102": "Compare vector store approaches with setup guidance.",
+  "homeToolDescription.tool0201": "Tune custom retrievers with document-backed tips.",
+  "homeToolDescription.tool0202": "Filter by context and pull only relevant sources.",
+  "homeToolDescription.tool0203": "Compare model trade-offs with cited evidence.",
+  "toolsEmptyFallbackToolLabel": "Tool",
+  "toolsEmptyEyebrow": "{{tool}}",
+  "toolsEmptyTitle": "Ask domain-specific questions",
+  "toolsEmptySubtitle": "Each tool searches a different corpus. Try a sample prompt to get started.",
+  "toolsEmptyContent": {
+    "default": {
+      "title": "Ask domain-specific questions",
+      "subtitle": "Each tool searches a different corpus. Try a sample prompt to get started.",
+      "samples": [
+        "Summarize the most relevant documents in this domain.",
+        "Find key facts and cite sources.",
+        "Explain the latest changes with supporting references."
+      ]
+    },
+    "rag0101": {
+      "title": "Onboarding insights",
+      "subtitle": "Search onboarding materials and extract key requirements with citations.",
+      "samples": [
+        "Give a quick summary of the top 3 onboarding documents.",
+        "List the key requirements and cite sources.",
+        "Find the most relevant security review policies."
+      ]
+    },
+    "tool0101": {
+      "title": "Onboarding insights",
+      "subtitle": "Search onboarding materials and extract key requirements with citations.",
+      "samples": [
+        "Give a quick summary of the top 3 onboarding documents.",
+        "List the key requirements and cite sources.",
+        "Find the most relevant security review policies."
+      ]
+    },
+    "rag0102": {
+      "title": "Vector store comparisons",
+      "subtitle": "Compare approaches and pull concrete setup steps from the docs.",
+      "samples": [
+        "Compare two approaches described in the vector store docs.",
+        "Extract setup steps and required configuration values.",
+        "Show common pitfalls with source links."
+      ]
+    },
+    "tool0102": {
+      "title": "Vector store comparisons",
+      "subtitle": "Compare approaches and pull concrete setup steps from the docs.",
+      "samples": [
+        "Compare two approaches described in the vector store docs.",
+        "Extract setup steps and required configuration values.",
+        "Show common pitfalls with source links."
+      ]
+    },
+    "rag0201": {
+      "title": "Custom retriever tuning",
+      "subtitle": "Dig into retriever settings, evaluation, and best practices.",
+      "samples": [
+        "Find documents about custom retriever tuning.",
+        "Summarize recommended parameters with citations.",
+        "Explain how to evaluate retrieval quality."
+      ]
+    },
+    "tool0201": {
+      "title": "Custom retriever tuning",
+      "subtitle": "Dig into retriever settings, evaluation, and best practices.",
+      "samples": [
+        "Find documents about custom retriever tuning.",
+        "Summarize recommended parameters with citations.",
+        "Explain how to evaluate retrieval quality."
+      ]
+    },
+    "rag0202": {
+      "title": "Context filtering",
+      "subtitle": "Focus on documents that match specific constraints.",
+      "samples": [
+        "Identify documents that match the specified context.",
+        "Summarize filtering rules and constraints.",
+        "Provide examples with references."
+      ]
+    },
+    "tool0202": {
+      "title": "Context filtering",
+      "subtitle": "Focus on documents that match specific constraints.",
+      "samples": [
+        "Identify documents that match the specified context.",
+        "Summarize filtering rules and constraints.",
+        "Provide examples with references."
+      ]
+    },
+    "rag0203": {
+      "title": "Model trade-offs",
+      "subtitle": "Compare model choices and document-backed reasoning.",
+      "samples": [
+        "Compare model choices and trade-offs.",
+        "Summarize performance notes with sources.",
+        "List recommended defaults and why."
+      ]
+    },
+    "tool0203": {
+      "title": "Model trade-offs",
+      "subtitle": "Compare model choices and document-backed reasoning.",
+      "samples": [
+        "Compare model choices and trade-offs.",
+        "Summarize performance notes with sources.",
+        "List recommended defaults and why."
+      ]
+    }
+  }
 }

@@ -41,7 +41,7 @@ export const ChatView = ({ viewModel }: ChatViewProps) => {
       <div className="relative size-full h-full min-h-0">
         <div className="flex h-full min-h-0 flex-col overflow-hidden">
           <div className="flex flex-1 items-center justify-center px-6">
-            <div className="w-full max-w-2xl space-y-6">
+            <div className="w-full max-w-3xl space-y-6">
               <div className="space-y-2 text-center">
                 <h2 className="text-2xl font-semibold">
                   {t("chatEmptyTitle")}

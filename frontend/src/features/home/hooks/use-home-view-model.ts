@@ -9,6 +9,7 @@ export type ToolCard = {
   id: string;
   path: string;
   labelKey: string;
+  descriptionKey: string;
   icon: LucideIcon;
 };
 
@@ -29,6 +30,9 @@ const buildToolGroupLabelKey = (groupId: string) =>
 const buildToolLabelKey = (toolId: string) =>
   `tool${toolId.replace(/^rag/i, "")}`;
 
+const buildToolDescriptionKey = (toolId: string) =>
+  `homeToolDescription.${toolId}`;
+
 export const useHomeViewModel = (): HomeViewModel => {
   const toolGroups = useAppStore((state) => state.authz.toolGroups);
   const allowedTools = useAppStore((state) => state.authz.tools);
@@ -47,6 +51,7 @@ export const useHomeViewModel = (): HomeViewModel => {
             id: item.id,
             path: `/tools/${item.id}`,
             labelKey: buildToolLabelKey(item.id),
+            descriptionKey: buildToolDescriptionKey(item.id),
             icon,
           }));
         return {
