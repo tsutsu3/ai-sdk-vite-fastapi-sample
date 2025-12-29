@@ -1,0 +1,37 @@
+[project]
+name = "ai-sdk-fastapi-chat-backend"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi",
+  "uvicorn[standard]",
+  "pydantic[email]",
+  "httpx",
+  "aiohttp",
+  "python-multipart",
+  "pydantic-settings",
+  "fastapi-ai-sdk",
+  "opentelemetry-api",
+  "opentelemetry-sdk",
+  "opentelemetry-exporter-otlp",
+  "opentelemetry-instrumentation-fastapi",
+  "opentelemetry-instrumentation-httpx",
+  "opentelemetry-instrumentation-requests",
+  "opentelemetry-instrumentation-aiohttp-client",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-asyncio", "pytest-cov", "black", "isort", "flake8", "mypy", "pip-tools", "import-linter"]
+duck =["ddgs"]
+postgres = ["asyncpg"]
+azure = [
+  "openai",
+  "azure-cosmos",
+  "azure-storage-blob",
+  "azure-monitor-opentelemetry-exporter",
+  "opentelemetry-instrumentation-openai",
+]
+gcp = ["google-cloud-storage"]
+
+[tool.uvicorn]
+factory = false

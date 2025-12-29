@@ -1,0 +1,10 @@
+{
+  "name": "backend",
+  "private": true,
+  "scripts": {
+    "bootstrap": "pip install -e .[dev]",
+    "dev": "uvicorn app.main:app --reload --port 8000 --env-file .env",
+    "test": "pytest --cov-report html --cov=app tests/ -vv",
+    "lock": "pip-compile pyproject.toml -o requirements.lock"
+  }
+}

@@ -1,0 +1,34 @@
+[tool.black]
+line-length = 98
+
+[tool.isort]
+profile = "black"
+known_first_party = ["app"]
+
+[tool.mypy]
+plugins = [
+  "pydantic.mypy"
+]
+strict = true
+show_error_codes = true
+exclude = ["tests/"]
+
+[[tool.mypy.overrides]]
+module = ["fastapi_ai_sdk.*"]
+ignore_missing_imports = true
+
+[tool.importlinter]
+root_packages = ["app"]
+source_roots = ["backend"]
+
+[[tool.importlinter.contracts]]
+name = "Features do not depend on infra"
+type = "forbidden"
+source_modules = ["app.features"]
+forbidden_modules = ["app.infra"]
+
+[[tool.importlinter.contracts]]
+name = "Features do not depend on each other"
+type = "forbidden"
+source_modules = ["app.features"]
+forbidden_modules = ["app.features"]

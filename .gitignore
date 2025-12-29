@@ -1,0 +1,16 @@
+# Python
+.venv/
+__pycache__/
+
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+.coverage
+
+# Node
+node_modules/
+dist/
+
+.env*
+!.env.example
