@@ -1,0 +1,7 @@
+location            = "japaneast"
+resource_group_name = "rg-ai-fastapi-local"
+environment         = "local"
+name_prefix         = "aifs"
+auth_mode           = "managed_identity"
+owner               = "team"
+cost_center         = "cc-0000"
