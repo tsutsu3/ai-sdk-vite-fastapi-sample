@@ -91,7 +91,7 @@ export const ToolsView = ({ viewModel }: ToolsViewProps) => {
           className="min-h-0 flex-1 overflow-y-hidden"
           contextRef={scrollContextRef}
         >
-          <ConversationContent className="mx-auto w-full max-w-4xl space-y-6 px-6 pb-12">
+          <ConversationContent className="mx-auto w-full max-w-3xl space-y-6 px-6 pb-12">
             <div ref={topSentinelRef} className="h-1" />
             {chainOfThought.steps.length > 0 && (
               <ChainOfThought

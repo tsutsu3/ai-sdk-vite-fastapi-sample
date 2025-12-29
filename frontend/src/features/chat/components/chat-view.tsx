@@ -65,7 +65,7 @@ export const ChatView = ({ viewModel }: ChatViewProps) => {
           className="min-h-0 flex-1 overflow-y-hidden"
           contextRef={scrollContextRef}
         >
-          <ConversationContent className="mx-auto w-full max-w-4xl px-6 pb-12">
+          <ConversationContent className="mx-auto w-full max-w-3xl px-6 pb-12">
             <div ref={topSentinelRef} className="h-1" />
             <ChatMessageList viewModel={messageList} />
             <div className="min-h-6">
