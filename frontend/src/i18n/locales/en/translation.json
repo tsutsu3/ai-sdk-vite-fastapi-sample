@@ -80,5 +80,13 @@
   "regenerateThisResponse": "Regenerate this response",
   "likeThisResponse": "Like this response",
   "dislikeThisResponse": "Dislike this response",
-  "copyToClipboard": "Copy to clipboard"
+  "copyToClipboard": "Copy to clipboard",
+  "homeChatBadge": "Start here",
+  "homeChatDescription": "Chat freely with the AI.",
+  "homeSectionChatLabel": "Chat",
+  "homeSectionChatTitle": "Start a conversation",
+  "homeSectionToolsLabel": "Tools",
+  "homeSectionToolsTitle": "Ask with documents",
+  "homeToolLabel": "Tool",
+  "homeToolDescription": "Ask advanced questions using documents or knowledge bases."
 }

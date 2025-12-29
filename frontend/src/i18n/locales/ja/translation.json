@@ -80,5 +80,13 @@
   "regenerateThisResponse": "もう一度試す",
   "likeThisResponse": "良い回答です",
   "dislikeThisResponse": "良くない回答です",
-  "copyToClipboard": "コピーする"
+  "copyToClipboard": "コピーする",
+  "homeChatBadge": "ここから開始",
+  "homeChatDescription": "生成AIと自由に会話できます。",
+  "homeSectionChatLabel": "チャット",
+  "homeSectionChatTitle": "対話をはじめる",
+  "homeSectionToolsLabel": "ツール",
+  "homeSectionToolsTitle": "ドキュメントで質問する",
+  "homeToolLabel": "Tool",
+  "homeToolDescription": "ドキュメントや知識ベースを使った高度な質問ができます。"
 }
