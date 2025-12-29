@@ -13,7 +13,7 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
-    setupFiles: ["./src/mocks/setupTests.ts"],
+    setupFiles: ["./src/mocks/setup-tests.ts"],
   },
   server: {
     proxy: {

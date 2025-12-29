@@ -1,258 +1,25 @@
-"use client";
-
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import type { HistoryItem } from "@/types/history";
-import type { ChatModel } from "@/types/chat";
 
-export type ThemeMode = "light" | "dark" | "system";
-export type PaletteMode = "default" | "warm" | "cool" | "mint";
+import { createUiPreferencesSlice } from "@/shared/store/ui-preferences-slice";
+import { createAuthzSlice } from "@/features/navigation/store/authz-slice";
+import { createHistorySlice } from "@/features/chat/store/history-slice";
+import { createCapabilitiesSlice } from "@/features/chat/store/capabilities-slice";
+import type { AppState } from "@/store/app-store.types";
 
-type UserInfo = {
-  user_id?: string;
-  email?: string | null;
-  provider?: string;
-  first_name?: string | null;
-  last_name?: string | null;
-};
-
-type AuthzState = {
-  status: "idle" | "loading" | "success" | "error";
-  tools: string[];
-  user?: UserInfo;
-  error?: string;
-};
-
-type HistoryState = {
-  status: "idle" | "loading" | "success" | "error";
-  items: HistoryItem[];
-  error?: string;
-};
-
-type WebSearchEngine = {
-  id: string;
-  name: string;
-};
-
-type CapabilitiesState = {
-  status: "idle" | "loading" | "success" | "error";
-  models: ChatModel[];
-  webSearchEngines: WebSearchEngine[];
-  defaultWebSearchEngine: string;
-  error?: string;
-};
-
-type AppState = {
-  theme: ThemeMode;
-  setTheme: (theme: ThemeMode) => void;
-
-  palette: PaletteMode;
-  setPalette: (palette: PaletteMode) => void;
-
-  activeToolIds: string[];
-  setActiveToolIds: (toolIds: string[]) => void;
-  addActiveToolId: (toolId: string) => void;
-  removeActiveToolId: (toolId: string) => void;
-
-  authz: AuthzState;
-  fetchAuthz: () => Promise<void>;
-
-  history: HistoryState;
-  fetchHistory: (force?: boolean, merge?: boolean) => Promise<void>;
-  upsertHistoryItem: (item: HistoryItem) => void;
-  removeHistoryItem: (url: string) => void;
-
-  capabilities: CapabilitiesState;
-  fetchCapabilities: () => Promise<void>;
-};
-
+/**
+ * Central Zustand store for shared UI state.
+ *
+ * Persists UI preferences and aggregates authz, history, and capabilities data.
+ */
 export const useAppStore = create<AppState>()(
+  // TODO: Separate non-persistent state
   persist(
-    (set, get) => ({
-      theme: "system",
-      setTheme: (theme) =>
-        set((state) => (state.theme === theme ? state : { theme })),
-
-      palette: "default",
-      setPalette: (palette) =>
-        set((state) => (state.palette === palette ? state : { palette })),
-
-      activeToolIds: [],
-      setActiveToolIds: (toolIds) =>
-        set(() => ({ activeToolIds: Array.from(new Set(toolIds)) })),
-      addActiveToolId: (toolId) =>
-        set((state) =>
-          state.activeToolIds.includes(toolId)
-            ? state
-            : { activeToolIds: [...state.activeToolIds, toolId] }
-        ),
-      removeActiveToolId: (toolId) =>
-        set((state) => ({
-          activeToolIds: state.activeToolIds.filter((id) => id !== toolId),
-        })),
-
-      authz: {
-        status: "idle",
-        tools: [],
-      },
-      fetchAuthz: async () => {
-        const { authz } = get();
-        if (authz.status === "loading" || authz.status === "success") {
-          return;
-        }
-        set({ authz: { ...authz, status: "loading", error: undefined } });
-        try {
-          const response = await fetch("/api/authz");
-          if (!response.ok) {
-            throw new Error(`Failed to fetch authz: ${response.statusText}`);
-          }
-          const payload = await response.json();
-          set({
-            authz: {
-              status: "success",
-              tools: payload?.tools ?? [],
-              user: payload?.user,
-            },
-          });
-        } catch (error) {
-          const message =
-            error instanceof Error ? error.message : "Failed to load authz";
-          set({
-            authz: { status: "error", tools: [], error: message },
-          });
-        }
-      },
-
-      history: {
-        status: "idle",
-        items: [],
-      },
-      fetchHistory: async (force = false, merge = true) => {
-        const { history } = get();
-        if (
-          !force &&
-          (history.status === "loading" || history.status === "success")
-        ) {
-          return;
-        }
-        set({
-          history: { ...history, status: "loading", error: undefined },
-        });
-        try {
-          const response = await fetch("/api/conversations");
-          if (!response.ok) {
-            throw new Error(`Failed to fetch history: ${response.statusText}`);
-          }
-          const payload = await response.json();
-          const conversations = payload?.conversations ?? [];
-          const mapped = conversations.map((conversation: any) => ({
-            name: conversation.title ?? "Conversation",
-            url: `/chat/c/${conversation.id ?? crypto.randomUUID()}`,
-            updatedAt: conversation.updatedAt ?? new Date().toISOString(),
-          }));
-          const known = history.items;
-          const merged = merge
-            ? [
-                ...mapped,
-                ...known.filter(
-                  (item) => !mapped.some((entry) => entry.url === item.url)
-                ),
-              ].sort(
-                (a, b) =>
-                  new Date(b.updatedAt).getTime() -
-                  new Date(a.updatedAt).getTime()
-              )
-            : mapped;
-          set({
-            history: {
-              status: "success",
-              items: merged,
-            },
-          });
-        } catch (error) {
-          const message =
-            error instanceof Error ? error.message : "Failed to load history";
-          set({
-            history: { status: "error", items: [], error: message },
-          });
-        }
-      },
-      upsertHistoryItem: (item) => {
-        set((state) => {
-          const existingIndex = state.history.items.findIndex(
-            (entry) => entry.url === item.url
-          );
-          const items = [...state.history.items];
-          if (existingIndex >= 0) {
-            items[existingIndex] = item;
-          } else {
-            items.unshift(item);
-          }
-          return {
-            history: {
-              ...state.history,
-              items,
-              status: state.history.status === "idle" ? "success" : state.history.status,
-            },
-          };
-        });
-      },
-      removeHistoryItem: (url) => {
-        set((state) => ({
-          history: {
-            ...state.history,
-            items: state.history.items.filter((item) => item.url !== url),
-          },
-        }));
-      },
-
-      capabilities: {
-        status: "idle",
-        models: [],
-        webSearchEngines: [],
-        defaultWebSearchEngine: "",
-      },
-      fetchCapabilities: async () => {
-        const { capabilities } = get();
-        if (capabilities.status === "loading" || capabilities.status === "success") {
-          return;
-        }
-        set({
-          capabilities: { ...capabilities, status: "loading", error: undefined },
-        });
-        try {
-          const response = await fetch("/api/capabilities");
-          if (!response.ok) {
-            throw new Error(`Failed to fetch capabilities: ${response.statusText}`);
-          }
-          const payload = await response.json();
-          set({
-            capabilities: {
-              status: "success",
-              models: Array.isArray(payload?.models) ? payload.models : [],
-              webSearchEngines: Array.isArray(payload?.webSearchEngines)
-                ? payload.webSearchEngines
-                : [],
-              defaultWebSearchEngine:
-                typeof payload?.defaultWebSearchEngine === "string"
-                  ? payload.defaultWebSearchEngine
-                  : "",
-            },
-          });
-        } catch (error) {
-          const message =
-            error instanceof Error ? error.message : "Failed to load capabilities";
-          set({
-            capabilities: {
-              status: "error",
-              models: [],
-              webSearchEngines: [],
-              defaultWebSearchEngine: "",
-              error: message,
-            },
-          });
-        }
-      },
+    (...args) => ({
+      ...createUiPreferencesSlice(...args),
+      ...createAuthzSlice(...args),
+      ...createHistorySlice(...args),
+      ...createCapabilitiesSlice(...args),
     }),
     {
       name: "app-store",
@@ -262,6 +29,6 @@ export const useAppStore = create<AppState>()(
         palette: state.palette,
         activeToolIds: state.activeToolIds,
       }),
-    }
-  )
+    },
+  ),
 );

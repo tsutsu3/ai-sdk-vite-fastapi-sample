@@ -1,5 +1,3 @@
-"use client";
-
 import { Archive, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 
 import {
@@ -15,7 +13,6 @@ import {
   SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
-  useSidebar,
 } from "@/components/ui/sidebar";
 import {
   Tooltip,
@@ -30,152 +27,80 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Link, useLocation, useNavigate } from "react-router";
-import { useTranslation } from "react-i18next";
-import type { HistoryItem } from "@/types/history";
-import { useAppStore } from "@/store/app-store";
-import { useState } from "react";
+import { Link } from "react-router";
+import type { HistoryItem } from "@/shared/types/history";
 import { Separator } from "@radix-ui/react-separator";
 import { ConfirmDeleteDialog } from "@/components/app/dialog/confirm-delete-dialog";
+import type { RefObject } from "react";
 
-export function NavHistoryMenu({
-  label,
-  items,
-}: {
+export type NavHistoryMenuItem = HistoryItem & {
+  isActive: boolean;
+};
+
+export type NavHistoryMenuViewModel = {
   label?: string;
-  items: HistoryItem[];
-}) {
-  const { isMobile } = useSidebar();
-  const { t } = useTranslation();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const removeHistoryItem = useAppStore((state) => state.removeHistoryItem);
-  const upsertHistoryItem = useAppStore((state) => state.upsertHistoryItem);
-  const [pendingDelete, setPendingDelete] = useState<HistoryItem | null>(null);
-  const [pendingRename, setPendingRename] = useState<HistoryItem | null>(null);
-  const [renameValue, setRenameValue] = useState("");
+  items: NavHistoryMenuItem[];
+  scrollRef: RefObject<HTMLDivElement | null>;
+  sentinelRef: RefObject<HTMLLIElement | null>;
+  isMobile: boolean;
+  t: (key: string, params?: Record<string, unknown>) => string;
+  pendingDelete: HistoryItem | null;
+  pendingRename: HistoryItem | null;
+  renameValue: string;
+  setPendingDelete: (item: HistoryItem | null) => void;
+  setPendingRename: (item: HistoryItem | null) => void;
+  setRenameValue: (value: string) => void;
+  handleArchive: (item: HistoryItem) => Promise<void> | void;
+  handleDelete: (item: HistoryItem) => Promise<void> | void;
+  handleRename: (item: HistoryItem, nextTitle: string) => Promise<void> | void;
+  formatUpdatedAt: (value: string) => string;
+};
 
-  const extractConversationId = (url: string) => {
-    const parts = url.split("/chat/c/");
-    if (parts.length > 1) {
-      return parts[1];
-    }
-    const toolParts = url.split("/c/");
-    return toolParts.length > 1 ? toolParts[1] : "";
-  };
+export type NavHistoryMenuProps = {
+  viewModel: NavHistoryMenuViewModel;
+};
 
-  const extractActiveConversationId = () => {
-    const path = location.pathname;
-    if (path.includes("/chat/c/")) {
-      return path.split("/chat/c/")[1] ?? "";
-    }
-    if (path.includes("/tools/") && path.includes("/c/")) {
-      return path.split("/c/")[1] ?? "";
-    }
-    return "";
-  };
-
-  const activeConversationId = extractActiveConversationId();
-
-  const handleArchive = async (item: HistoryItem) => {
-    const conversationId = extractConversationId(item.url);
-    if (!conversationId) {
-      return;
-    }
-    try {
-      const response = await fetch(`/api/conversations/${conversationId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ archived: true }),
-      });
-      if (!response.ok) {
-        return;
-      }
-      removeHistoryItem(item.url);
-      if (activeConversationId === conversationId) {
-        navigate("/chat");
-      }
-    } catch {
-      return;
-    }
-  };
-
-  const handleDelete = async (item: HistoryItem) => {
-    const conversationId = extractConversationId(item.url);
-    if (!conversationId) {
-      return;
-    }
-    try {
-      const response = await fetch(`/api/conversations/${conversationId}`, {
-        method: "DELETE",
-      });
-      if (!response.ok) {
-        return;
-      }
-      removeHistoryItem(item.url);
-      if (activeConversationId === conversationId) {
-        navigate("/chat");
-      }
-    } catch {
-      return;
-    }
-  };
-
-  const handleRename = async (item: HistoryItem, nextTitle: string) => {
-    const conversationId = extractConversationId(item.url);
-    if (!conversationId || !nextTitle.trim()) {
-      return;
-    }
-    try {
-      const response = await fetch(`/api/conversations/${conversationId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: nextTitle.trim() }),
-      });
-      if (!response.ok) {
-        return;
-      }
-      const payload = await response.json().catch(() => null);
-      const updatedAt = payload?.updatedAt ?? item.updatedAt;
-      upsertHistoryItem({
-        name: nextTitle.trim(),
-        url: item.url,
-        updatedAt,
-      });
-    } catch {
-      return;
-    }
-  };
-
-  const formatUpdatedAt = (value: string) => {
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) {
-      return value;
-    }
-    return new Intl.DateTimeFormat(undefined, {
-      dateStyle: "medium",
-      timeStyle: "short",
-    }).format(parsed);
-  };
+export const NavHistoryMenu = ({ viewModel }: NavHistoryMenuProps) => {
+  const {
+    label,
+    items,
+    scrollRef,
+    sentinelRef,
+    isMobile,
+    t,
+    pendingDelete,
+    pendingRename,
+    renameValue,
+    setPendingDelete,
+    setPendingRename,
+    setRenameValue,
+    handleArchive,
+    handleDelete,
+    handleRename,
+    formatUpdatedAt,
+  } = viewModel;
 
   return (
-    <SidebarGroup className="group-data-[collapsible=icon]:hidden flex flex-col min-h-0 ">
+    <SidebarGroup className="flex min-h-0 flex-col group-data-[collapsible=icon]:hidden pr-0">
       {label && <SidebarGroupLabel>{label}</SidebarGroupLabel>}
 
-      <div className="flex-1 overflow-y-auto">
-        <SidebarMenu>
+      <div className="flex-1 overflow-y-auto" ref={scrollRef}>
+        <SidebarMenu className="pr-4">
           {items.map((item) => (
             <SidebarMenuItem key={item.url}>
               <Tooltip delayDuration={500}>
                 <TooltipTrigger asChild>
-                  <SidebarMenuButton asChild>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={item.isActive}
+                  >
                     <Link to={item.url} className="flex-1">
                       <span>{item.name}</span>
                     </Link>
                   </SidebarMenuButton>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <div className="flex flex-col gap-1 max-w-[40em]">
+                  <div className="flex max-w-[40em] flex-col gap-1">
                     <span className="wrap-break-word">{item.name}</span>
                     <span>
                       {t("updated")}: {formatUpdatedAt(item.updatedAt)}
@@ -205,7 +130,7 @@ export function NavHistoryMenu({
                     <Pencil className="text-muted-foreground" />
                     <span>{t("rename")}</span>
                   </DropdownMenuItem>
-                  <Separator className="my-1 h-px bg-sidebar-border" />
+                  <Separator className="bg-sidebar-border my-1 h-px" />
                   <DropdownMenuItem onSelect={() => handleArchive(item)}>
                     <Archive className="text-muted-foreground" />
                     <span>{t("archive")}</span>
@@ -218,6 +143,7 @@ export function NavHistoryMenu({
               </DropdownMenu>
             </SidebarMenuItem>
           ))}
+          <li ref={sentinelRef} className="h-1" />
         </SidebarMenu>
       </div>
       {/* Delete confirmation dialog */}
@@ -230,7 +156,7 @@ export function NavHistoryMenu({
         cancelLabel={t("cancel")}
         onConfirm={() => {
           if (pendingDelete) {
-            return handleDelete(pendingDelete).finally(() => {
+            return Promise.resolve(handleDelete(pendingDelete)).finally(() => {
               setPendingDelete(null);
             });
           }
@@ -243,7 +169,7 @@ export function NavHistoryMenu({
       >
         <DialogContent>
           <DialogTitle>{t("rename")}</DialogTitle>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-muted-foreground text-sm">
             {t("renameDescription")}
           </p>
           <Input
@@ -271,4 +197,4 @@ export function NavHistoryMenu({
       </Dialog>
     </SidebarGroup>
   );
-}
+};

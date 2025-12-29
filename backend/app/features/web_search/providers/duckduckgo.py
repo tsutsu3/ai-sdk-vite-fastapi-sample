@@ -1,6 +1,6 @@
 import asyncio
-from collections.abc import Sequence
 import re
+from collections.abc import Sequence
 from typing import Any
 
 from ddgs import DDGS
@@ -15,6 +15,14 @@ class DuckDuckGoSearchProvider(WebSearchProvider):
 
     @staticmethod
     def _is_allowed(result: dict) -> bool:
+        """Filter out unwanted results by domain and language.
+
+        Args:
+            result: Raw result dictionary.
+
+        Returns:
+            bool: True if the result is allowed.
+        """
         url = result.get("href", "")
         title = result.get("title", "")
         body = result.get("body", "")
@@ -41,7 +49,6 @@ class DuckDuckGoSearchProvider(WebSearchProvider):
                         query
                         + " -lang:zh -site:cn -site:baidu.com -site:zhihu.com -site:zhuanlan.zhihu.com",
                         max_results=count * 2,  # Fetch extra to account for filtering
-                        region="us-en",
                     )
                 )
 

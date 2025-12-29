@@ -16,7 +16,7 @@ type ConfirmDeleteDialogProps = {
   onConfirm: () => void | Promise<void>;
 };
 
-export function ConfirmDeleteDialog({
+export const ConfirmDeleteDialog = ({
   open,
   onOpenChange,
   title,
@@ -24,7 +24,7 @@ export function ConfirmDeleteDialog({
   confirmLabel,
   cancelLabel,
   onConfirm,
-}: ConfirmDeleteDialogProps) {
+}: ConfirmDeleteDialogProps) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -46,4 +46,4 @@ export function ConfirmDeleteDialog({
       </DialogContent>
     </Dialog>
   );
-}
+};

@@ -11,9 +11,12 @@
     "dev:spa": "pnpm --dir frontend build && pnpm --dir backend dev",
     "dev:frontend": "pnpm --dir frontend dev",
     "dev:backend": "pnpm --dir backend dev",
-    "build": "pnpm --dir frontend build"
+    "test:backend": "pnpm --dir backend test",
+    "build": "pnpm --dir frontend build",
+    "cloc": "cloc --vcs=git frontend/src backend/app --fullpath --not-match-d=frontend/src/components/ui,frontend/src/components/ai-elements"
   },
   "devDependencies": {
+    "cloc": "2.6.0-cloc",
     "concurrently": "^8.2.0",
     "cross-env": "^7.0.3"
   },

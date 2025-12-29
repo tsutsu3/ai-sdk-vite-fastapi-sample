@@ -1,59 +1,120 @@
-from pydantic import BaseModel, Field
+from datetime import datetime
+from enum import Enum
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
-class UserInfo(BaseModel, frozen=True):
-    user_id: str
+class ProvisioningStatus(str, Enum):
+    """Provisioning status enumeration."""
+
+    PENDING = "pending"
+    ACTIVE = "active"
+    DEACTIVATED = "deactivated"
+    FAILED = "failed"
+
+
+class ToolItem(BaseModel):
+    """Tool item definition."""
+
+    model_config = ConfigDict(frozen=True)
+
+    id: str
+
+
+class ToolGroup(BaseModel):
+    """Tool group definition with nested items."""
+
+    model_config = ConfigDict(frozen=True)
+
+    id: str
+    items: list[ToolItem] = Field(default_factory=list)
+
+
+class UserInfo(BaseModel):
+    """User identity information from the authn layer."""
+
+    model_config = ConfigDict(frozen=True)
+
+    id: str
     email: str | None
     provider: str | None
     first_name: str | None
     last_name: str | None
 
 
-class ToolOverrides(BaseModel, frozen=True):
+class ToolOverridesRecord(BaseModel):
+    """Tool allow/deny overrides stored for repository access."""
+
+    model_config = ConfigDict(frozen=True)
+
     allow: list[str] = Field(default_factory=list)
     deny: list[str] = Field(default_factory=list)
 
 
-class TenantDoc(BaseModel, frozen=True):
-    id: str
-    key: str
+class TenantRecord(BaseModel):
+    """Tenant record stored in the repository."""
+
+    model_config = ConfigDict(frozen=True)
+
+    id: str  # pk
+    key: str | None = None
     name: str
     default_tools: list[str] = Field(default_factory=list)
-    updated_at: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
-class UserDoc(BaseModel, frozen=True):
+class UserIdentityRecord(BaseModel):
+    """User identity record stored in the repository."""
+
+    model_config = ConfigDict(frozen=True)
+
+    id: str  # pk: IAP, EasyAuth, etc. identity ID
+    provider: str | None = None
+    user_id: str
+    tenant_id: str
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class UserRecord(BaseModel):
+    """User record stored in the repository."""
+
+    model_config = ConfigDict(frozen=True)
+
+    tenant_id: str  # hierarchy partition key [tenant_id / id]
+    id: str | None = None
+    email: str | None = None
+    first_name: str | None = None
+    last_name: str | None = None
+    tool_overrides: ToolOverridesRecord = Field(default_factory=ToolOverridesRecord)
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class ProvisioningRecord(BaseModel):
+    """Provisioning record stored in the repository."""
+
+    model_config = ConfigDict(frozen=True)
+
     id: str
+    email: str  # pk
     tenant_id: str
-    user_id: str | None = None
-    email: str | None = None
-    tool_overrides: ToolOverrides = Field(default_factory=ToolOverrides)
-    first_name: str | None = None
-    last_name: str | None = None
-    updated_at: str | None = None
+    first_name: str
+    last_name: str
+    tool_overrides: ToolOverridesRecord = Field(default_factory=ToolOverridesRecord)
+    status: ProvisioningStatus = ProvisioningStatus.PENDING
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
-class TenantMemory(BaseModel, frozen=True):
-    tenant_name: str
-    default_tools: list[str] = Field(default_factory=list)
+class AuthzRecord(BaseModel):
+    """Resolved authorization record for a user."""
 
+    model_config = ConfigDict(frozen=True)
 
-class UserMemory(BaseModel, frozen=True):
-    tenant_id: str
-    tool_overrides: ToolOverrides = Field(default_factory=ToolOverrides)
-    first_name: str | None = None
-    last_name: str | None = None
-    email: str | None = None
-
-
-class AuthzRecord(BaseModel, frozen=True):
     tenant_id: str
     tools: list[str]
     first_name: str | None
     last_name: str | None
     email: str | None
-
-
-class AuthorizationResponse(BaseModel, frozen=True):
-    user: UserInfo
-    tools: list[str]

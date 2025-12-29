@@ -13,57 +13,84 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  useSidebar,
 } from "@/components/ui/sidebar";
-import { useState } from "react";
-import { SettingsDialog } from "../dialog/settings-dialog";
+import {
+  SettingsDialogView,
+  type SettingsDialogViewModel,
+} from "@/features/settings/components/settings-dialog";
+import {
+  BillingDialogView,
+  type BillingDialogViewModel,
+} from "@/features/billing/components/billing-dialog";
 import Avatar from "boring-avatars";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useAppStore } from "@/store/app-store";
-import { useTranslation } from "react-i18next";
-import { monotoneAvatarColors } from "@/config/avatar";
+import { monotoneAvatarColors } from "@/features/navigation/config/avatar";
+import type { AuthzSlice } from "@/store/app-store.types";
 
-export function NavUser({
-  user,
-}: {
+export type NavUserViewModel = {
   user: {
     name: string;
     email: string;
     avatar?: string;
   };
-}) {
-  const { isMobile } = useSidebar();
-  const [showSettings, setShowSettings] = useState(false);
-  const authz = useAppStore((state) => state.authz);
-  const avatarName = user.name || user.email || undefined;
-  const { t } = useTranslation();
+  avatarName?: string;
+  authzStatus: AuthzSlice["authz"]["status"];
+  settingsOpen: boolean;
+  onSettingsOpenChange: (open: boolean) => void;
+  billingOpen: boolean;
+  onBillingOpenChange: (open: boolean) => void;
+  settingsDialog: SettingsDialogViewModel;
+  billingDialog: BillingDialogViewModel;
+  isMobile: boolean;
+  t: (key: string) => string;
+};
+
+export type NavUserProps = {
+  viewModel: NavUserViewModel;
+};
+
+export const NavUser = ({ viewModel }: NavUserProps) => {
+  const {
+    user,
+    avatarName,
+    authzStatus,
+    settingsOpen,
+    onSettingsOpenChange,
+    billingOpen,
+    onBillingOpenChange,
+    settingsDialog,
+    billingDialog,
+    isMobile,
+    t,
+  } = viewModel;
+  const resolvedAvatarName = avatarName ?? user.name ?? user.email ?? undefined;
 
   return (
     <>
       <SidebarMenu>
         <SidebarMenuItem>
-          {authz.status === "loading" ? (
+          {authzStatus === "loading" ? (
             <SidebarMenuButton size="lg">
-              <div className="h-8 w-8 rounded-lg overflow-hidden">
+              <div className="h-8 w-8 overflow-hidden rounded-lg">
                 <Skeleton className="h-8 w-8 rounded-lg" />
               </div>
 
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-3 w-36 mt-1" />
+                <Skeleton className="mt-1 h-3 w-36" />
               </div>
             </SidebarMenuButton>
-          ) : (
+          ) : authzStatus === "success" ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton
                   size="lg"
                   className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                 >
-                  <div className="h-8 w-8 rounded-lg overflow-hidden">
+                  <div className="h-8 w-8 overflow-hidden rounded-lg">
                     <Avatar
                       size={32}
-                      name={avatarName}
+                      name={resolvedAvatarName}
                       variant="beam"
                       colors={monotoneAvatarColors}
                     />
@@ -83,10 +110,10 @@ export function NavUser({
               >
                 <DropdownMenuLabel className="p-0 font-normal">
                   <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                    <div className="h-8 w-8 rounded-lg overflow-hidden">
+                    <div className="h-8 w-8 overflow-hidden rounded-lg">
                       <Avatar
                         size={32}
-                        name={avatarName}
+                        name={resolvedAvatarName}
                         variant="beam"
                         colors={monotoneAvatarColors}
                       />
@@ -101,13 +128,17 @@ export function NavUser({
                 <DropdownMenuGroup>
                   <DropdownMenuItem
                     onSelect={() => {
-                      setShowSettings(true);
+                      onSettingsOpenChange(true);
                     }}
                   >
                     <Settings />
                     {t("settings")}
                   </DropdownMenuItem>
-                  <DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => {
+                      onBillingOpenChange(true);
+                    }}
+                  >
                     <CreditCard />
                     {t("billing")}
                   </DropdownMenuItem>
@@ -119,11 +150,23 @@ export function NavUser({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+          ) : (
+            <SidebarMenuButton size="lg">
+            </SidebarMenuButton>
           )}
         </SidebarMenuItem>
       </SidebarMenu>
 
-      <SettingsDialog open={showSettings} onOpenChange={setShowSettings} />
+      <SettingsDialogView
+        open={settingsOpen}
+        onOpenChange={onSettingsOpenChange}
+        viewModel={settingsDialog}
+      />
+      <BillingDialogView
+        open={billingOpen}
+        onOpenChange={onBillingOpenChange}
+        viewModel={billingDialog}
+      />
     </>
   );
-}
+};

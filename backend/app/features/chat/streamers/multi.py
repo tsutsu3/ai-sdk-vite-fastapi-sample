@@ -1,7 +1,8 @@
 from collections.abc import AsyncIterator
-from typing import Any
 
 from app.features.chat.streamers.base import BaseStreamer, ChatStreamer
+from app.features.messages.models import MessageRecord
+from app.features.run.models import OpenAIMessage
 
 
 class MultiChatStreamer(BaseStreamer):
@@ -17,6 +18,14 @@ class MultiChatStreamer(BaseStreamer):
         self._default_model_id = default_model_id
 
     def _resolve_provider(self, model_id: str | None) -> tuple[str, str]:
+        """Resolve the provider and model id for a request.
+
+        Args:
+            model_id: Requested model id.
+
+        Returns:
+            tuple[str, str]: Provider id and resolved model id.
+        """
         resolved_model = model_id or self._default_model_id
         if not resolved_model:
             raise RuntimeError("Model must be specified.")
@@ -27,7 +36,7 @@ class MultiChatStreamer(BaseStreamer):
 
     async def stream_chat(
         self,
-        messages: list[dict[str, Any]],
+        messages: list[OpenAIMessage],
         model_id: str | None,
     ) -> AsyncIterator[str]:
         provider, resolved_model = self._resolve_provider(model_id)
@@ -39,7 +48,7 @@ class MultiChatStreamer(BaseStreamer):
 
     async def generate_title(
         self,
-        messages: list[dict[str, Any]],
+        messages: list[MessageRecord],
         model_id: str | None,
     ) -> str:
         provider, resolved_model = self._resolve_provider(model_id)

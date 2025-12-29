@@ -16,7 +16,7 @@ Purpose: Describe the overall system structure, key data flows, and integration 
 ## System overview
 
 - Frontend SPA (React + Vite) renders the chat experience.
-- Backend API (FastAPI) serves chat streaming, conversation history, and file uploads.
+- Backend API (FastAPI) serves chat streaming, conversation history, and file upload/download.
 - Storage backend is selectable (memory/local/azure).
 
 ```mermaid
@@ -47,6 +47,11 @@ flowchart LR
 - Backend stores the blob and returns a `fileId`.
 - `fileIds` are included in subsequent chat requests for association.
 
+### File download
+
+- Frontend requests `/api/file/{fileId}/download`.
+- Backend streams blob data from the configured storage backend.
+
 ## External interfaces
 
 - `/api/chat` (streaming)
@@ -54,10 +59,10 @@ flowchart LR
 - `/api/conversations/{id}` (patch, delete)
 - `/api/conversations/{id}/messages`
 - `/api/file`
+- `/api/file/{fileId}/download`
 - `/api/capabilities`, `/api/authz`, `/health`
 
 ## Related docs
 
 - Frontend internals: `docs/architecture-front.md`
 - Backend internals: `docs/architecture-back.md`
-

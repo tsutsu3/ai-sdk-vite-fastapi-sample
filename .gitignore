@@ -6,6 +6,8 @@ __pycache__/
 .dmypy.json
 dmypy.json
 
+.coverage
+
 # Node
 node_modules/
 dist/

@@ -1,1 +1,5 @@
 public/mockServiceWorker.js
+dist/
+pnpm-lock.yaml
+src/components/ui/
+src/components/ai-elements/

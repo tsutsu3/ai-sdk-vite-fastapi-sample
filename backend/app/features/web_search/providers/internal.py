@@ -1,5 +1,4 @@
 from collections.abc import Sequence
-from typing import Any
 
 import httpx
 
@@ -11,7 +10,9 @@ class InternalSearchProvider(WebSearchProvider):
     id = "internal"
     name = "Internal Search"
 
-    def __init__(self, url: str, api_key: str | None = None, auth_header: str = "X-API-Key") -> None:
+    def __init__(
+        self, url: str, api_key: str | None = None, auth_header: str = "X-API-Key"
+    ) -> None:
         self._url = url
         self._api_key = api_key
         self._auth_header = auth_header

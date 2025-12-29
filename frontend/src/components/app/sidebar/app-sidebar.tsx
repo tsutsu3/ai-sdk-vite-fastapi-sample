@@ -2,7 +2,7 @@ import type { ComponentProps } from "react";
 import { Command } from "lucide-react";
 
 import { NavNestedMenu } from "@/components/app/sidebar/nav-nested-menu";
-import { NavUser } from "@/components/app/sidebar/nav-user";
+import { NavUser, type NavUserViewModel } from "@/components/app/sidebar/nav-user";
 import {
   Sidebar,
   SidebarContent,
@@ -12,17 +12,33 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { NavMenu } from "./nav-menu";
-import { NavHistoryMenu } from "./nav-history-menu";
+import { NavMenu, type NavMenuViewModel } from "./nav-menu";
+import { NavHistoryMenu, type NavHistoryMenuViewModel } from "./nav-history-menu";
 import { Separator } from "@radix-ui/react-separator";
 import { Link } from "react-router";
-import { navMainItems, navLinkGroups } from "@/config/navigation";
-import { useTranslation } from "react-i18next";
-import { useSidebarData } from "@/hooks/use-sidebar-data";
+import type { NavNestedMenuViewModel } from "@/components/app/sidebar/nav-nested-menu";
 
-export function AppSidebar({ ...props }: ComponentProps<typeof Sidebar>) {
-  const { authz, history, visibleToolGroups, user } = useSidebarData();
-  const { t } = useTranslation();
+export type AppSidebarViewModel = ComponentProps<typeof Sidebar> & {
+  mainMenu: NavMenuViewModel;
+  toolMenu: NavNestedMenuViewModel;
+  historyMenu: NavHistoryMenuViewModel;
+  linkMenu: NavNestedMenuViewModel;
+  userMenu: NavUserViewModel;
+};
+
+export type AppSidebarProps = {
+  viewModel: AppSidebarViewModel;
+};
+
+export const AppSidebar = ({ viewModel }: AppSidebarProps) => {
+  const {
+    mainMenu,
+    toolMenu,
+    linkMenu,
+    historyMenu,
+    userMenu,
+    ...props
+  } = viewModel;
 
   return (
     <Sidebar {...props}>
@@ -44,26 +60,18 @@ export function AppSidebar({ ...props }: ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMenu items={navMainItems} />
-        <NavNestedMenu
-          label={t("tools")}
-          items={visibleToolGroups}
-          isLoading={authz.status === "loading"}
-        />
+        <NavMenu viewModel={mainMenu} />
+        <NavNestedMenu viewModel={toolMenu} />
         <Separator className="mt-2" />
-        <NavHistoryMenu label={t("history")} items={history.items} />
+        <NavHistoryMenu viewModel={historyMenu} />
         <Separator className="mt-2" />
-        <NavNestedMenu
-          label={t("links")}
-          items={navLinkGroups}
-          className="mt-auto"
-        />
+        <NavNestedMenu viewModel={linkMenu} />
         <Separator className="mt-2" />
       </SidebarContent>
-      <Separator className="h-px bg-sidebar-border" />
+      <Separator className="bg-sidebar-border h-px" />
       <SidebarFooter>
-        <NavUser user={user} />
+        <NavUser viewModel={userMenu} />
       </SidebarFooter>
     </Sidebar>
   );
-}
+};

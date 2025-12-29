@@ -10,8 +10,18 @@ const mockUser = {
   last_name: "Suzuki",
 };
 
-// Match the IDs with those in navToolGroups in config/navigation.ts
+// Match the IDs with the backend tool groups.
 const mockTools = ["rag01", "rag02"];
+const mockToolGroups = [
+  {
+    id: "rag01",
+    items: [{ id: "rag0101" }, { id: "rag0102" }],
+  },
+  {
+    id: "rag02",
+    items: [{ id: "rag0201" }, { id: "rag0202" }, { id: "rag0203" }],
+  },
+];
 
 const mockConversations = [
   {
@@ -35,63 +45,65 @@ const mockArchivedConversations = [
   },
 ];
 
-const mockMessagesByConversation: Record<string, Array<Record<string, unknown>>> =
-  {
-    "conv-quickstart": [
-      {
-        id: "msg-system",
-        role: "system",
-        parts: [
-          {
-            type: "text",
-            text: "You are a helpful project assistant.",
-          },
-        ],
-      },
-      {
-        id: "msg-user-1",
-        role: "user",
-        parts: [
-          {
-            type: "text",
-            text: "Please outline the next steps for our AI SDK demo.",
-          },
-        ],
-      },
-      {
-        id: "msg-assistant-1",
-        role: "assistant",
-        parts: [
-          {
-            type: "text",
-            text: "Sure! I will list the milestones and owners so you can start quickly.",
-          },
-        ],
-      },
-    ],
-    "conv-rag": [
-      {
-        id: "msg-user-2",
-        role: "user",
-        parts: [
-          {
-            type: "text",
-            text: "How can we improve retrieval quality for the docs index?",
-          },
-        ],
-      },
-      {
-        id: "msg-assistant-2",
-        role: "assistant",
-        parts: [
-          {
-            type: "text",
-            text: "Consider adding hierarchical chunking and reranking with a cross-encoder.",
-          },
-        ],
-      },
-    ],
-  };
+const mockMessagesByConversation: Record<
+  string,
+  Array<Record<string, unknown>>
+> = {
+  "conv-quickstart": [
+    {
+      id: "msg-system",
+      role: "system",
+      parts: [
+        {
+          type: "text",
+          text: "You are a helpful project assistant.",
+        },
+      ],
+    },
+    {
+      id: "msg-user-1",
+      role: "user",
+      parts: [
+        {
+          type: "text",
+          text: "Please outline the next steps for our AI SDK demo.",
+        },
+      ],
+    },
+    {
+      id: "msg-assistant-1",
+      role: "assistant",
+      parts: [
+        {
+          type: "text",
+          text: "Sure! I will list the milestones and owners so you can start quickly.",
+        },
+      ],
+    },
+  ],
+  "conv-rag": [
+    {
+      id: "msg-user-2",
+      role: "user",
+      parts: [
+        {
+          type: "text",
+          text: "How can we improve retrieval quality for the docs index?",
+        },
+      ],
+    },
+    {
+      id: "msg-assistant-2",
+      role: "assistant",
+      parts: [
+        {
+          type: "text",
+          text: "Consider adding hierarchical chunking and reranking with a cross-encoder.",
+        },
+      ],
+    },
+  ],
+};
 
 const mockModels = [
   {
@@ -128,16 +140,16 @@ const buildChatStream = (text: string) => {
           data({
             type: "start",
             messageId,
-          })
-        )
+          }),
+        ),
       );
       controller.enqueue(
         encoder.encode(
           data({
             type: "text-start",
             id: textId,
-          })
-        )
+          }),
+        ),
       );
 
       for (const token of tokens) {
@@ -147,8 +159,8 @@ const buildChatStream = (text: string) => {
               type: "text-delta",
               id: textId,
               delta: `${token} `,
-            })
-          )
+            }),
+          ),
         );
       }
 
@@ -157,8 +169,8 @@ const buildChatStream = (text: string) => {
           data({
             type: "text-end",
             id: textId,
-          })
-        )
+          }),
+        ),
       );
       controller.enqueue(
         encoder.encode(
@@ -167,8 +179,8 @@ const buildChatStream = (text: string) => {
             messageMetadata: {
               finishReason: "stop",
             },
-          })
-        )
+          }),
+        ),
       );
       controller.enqueue(encoder.encode("data: [DONE]\n\n"));
       controller.close();
@@ -181,6 +193,7 @@ export const handlers = [
     return HttpResponse.json({
       user: mockUser,
       tools: mockTools,
+      toolGroups: mockToolGroups,
     });
   }),
 
@@ -192,33 +205,46 @@ export const handlers = [
     });
   }),
 
-  http.patch("/api/conversations/:conversationId", async ({ request, params }) => {
-    const conversationId =
-      typeof params.conversationId === "string" ? params.conversationId : "";
+  http.patch(
+    "/api/conversations/:conversationId",
+    async ({ request, params }) => {
+      const conversationId =
+        typeof params.conversationId === "string" ? params.conversationId : "";
+      const body = await request.json().catch(() => null);
+      const archived =
+        body && typeof body === "object" && "archived" in body
+          ? Boolean((body as Record<string, unknown>).archived)
+          : false;
+      const title =
+        body && typeof body === "object" && "title" in body
+          ? String((body as Record<string, unknown>).title ?? "")
+          : undefined;
+      if (!conversationId) {
+        return new HttpResponse(null, { status: 404 });
+      }
+      const updatedAt = now();
+      return HttpResponse.json({
+        id: conversationId,
+        title,
+        archived,
+        updatedAt,
+        messages: [],
+      });
+    },
+  ),
+
+  http.patch("/api/conversations", async ({ request }) => {
     const body = await request.json().catch(() => null);
     const archived =
       body && typeof body === "object" && "archived" in body
         ? Boolean((body as Record<string, unknown>).archived)
         : false;
-    const title =
-      body && typeof body === "object" && "title" in body
-        ? String((body as Record<string, unknown>).title ?? "")
-        : undefined;
-    if (!conversationId) {
-      return new HttpResponse(null, { status: 404 });
-    }
-    const updatedAt = now();
-    return HttpResponse.json({
-      id: conversationId,
-      title,
+    const conversations = mockConversations.map((conversation) => ({
+      ...conversation,
       archived,
-      updatedAt,
-      messages: [],
-    });
-  }),
-
-  http.patch("/api/conversations/archive-all", () => {
-    return new HttpResponse(null, { status: 204 });
+      updatedAt: now(),
+    }));
+    return HttpResponse.json({ conversations });
   }),
 
   http.delete("/api/conversations", () => {

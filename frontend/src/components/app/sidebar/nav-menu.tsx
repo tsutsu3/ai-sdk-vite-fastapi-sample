@@ -1,5 +1,3 @@
-"use client";
-
 import {
   SidebarGroup,
   SidebarGroupLabel,
@@ -8,17 +6,20 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { Link } from "react-router";
-import { useTranslation } from "react-i18next";
-import type { NavMainItem } from "@/types/ui";
+import type { NavMainItem } from "@/shared/types/ui";
 
-export function NavMenu({
-  label,
-  items,
-}: {
+export type NavMenuViewModel = {
   label?: string;
   items: NavMainItem[];
-}) {
-  const { t } = useTranslation();
+  t: (key: string) => string;
+};
+
+export type NavMenuProps = {
+  viewModel: NavMenuViewModel;
+};
+
+export const NavMenu = ({ viewModel }: NavMenuProps) => {
+  const { label, items, t } = viewModel;
 
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
@@ -37,4 +38,4 @@ export function NavMenu({
       </SidebarMenu>
     </SidebarGroup>
   );
-}
+};

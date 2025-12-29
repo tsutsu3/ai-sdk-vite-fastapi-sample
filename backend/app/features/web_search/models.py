@@ -2,6 +2,8 @@ from pydantic import BaseModel, ConfigDict
 
 
 class WebSearchResult(BaseModel):
+    """Web search result item."""
+
     model_config = ConfigDict(frozen=True)
 
     title: str
@@ -9,7 +11,9 @@ class WebSearchResult(BaseModel):
     snippet: str | None = None
 
 
-class WebSearchEngine(BaseModel):
+class WebSearchEngineResult(BaseModel):
+    """Web search engine descriptor."""
+
     model_config = ConfigDict(frozen=True)
 
     id: str

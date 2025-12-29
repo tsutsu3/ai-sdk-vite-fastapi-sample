@@ -17,24 +17,31 @@ import {
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
 import { Link } from "react-router";
-import { useAppStore } from "@/store/app-store";
-import { useTranslation } from "react-i18next";
-import { type NavToolGroup } from "@/types/ui";
+import { type NavToolGroup } from "@/shared/types/ui";
 
-export function NavNestedMenu({
-  items,
-  label,
-  isLoading,
-  ...props
-}: {
+export type NavNestedMenuViewModel = {
   label: string;
   items: NavToolGroup[];
   isLoading?: boolean;
-} & React.ComponentPropsWithoutRef<typeof SidebarGroup>) {
-  const activeToolIds = useAppStore((state) => state.activeToolIds);
-  const addActiveToolId = useAppStore((state) => state.addActiveToolId);
-  const removeActiveToolId = useAppStore((state) => state.removeActiveToolId);
-  const { t } = useTranslation();
+  openGroupIds?: string[];
+  onToggleGroup?: (groupId: string, open: boolean) => void;
+  t: (key: string) => string;
+} & React.ComponentPropsWithoutRef<typeof SidebarGroup>;
+
+export type NavNestedMenuProps = {
+  viewModel: NavNestedMenuViewModel;
+};
+
+export const NavNestedMenu = ({ viewModel }: NavNestedMenuProps) => {
+  const {
+    items,
+    label,
+    isLoading,
+    openGroupIds = [],
+    onToggleGroup,
+    t,
+    ...props
+  } = viewModel;
 
   if (isLoading) {
     return (
@@ -57,50 +64,47 @@ export function NavNestedMenu({
     <SidebarGroup {...props}>
       <SidebarGroupLabel>{label}</SidebarGroupLabel>
       <SidebarMenu>
-        {items.map((item) => (
-          <Collapsible
-            key={item.id}
-            asChild
-            defaultOpen={
-              item.id ? activeToolIds.includes(item.id) : Boolean(item.isActive)
-            }
-            open={
-              item.id ? activeToolIds.includes(item.id) : Boolean(item.isActive)
-            }
-            onOpenChange={(open) => {
-              if (!item.id) return;
-              if (open) {
-                addActiveToolId(item.id);
-              } else {
-                removeActiveToolId(item.id);
-              }
-            }}
-          >
-            <SidebarMenuItem>
-              <CollapsibleTrigger asChild>
-                <SidebarMenuButton tooltip={t(item.id)}>
-                  {item.icon && <item.icon />}
-                  <span>{t(item.id)}</span>
-                  <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                </SidebarMenuButton>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="overflow-hidden data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up">
-                <SidebarMenuSub>
-                  {item.items?.map((subItem) => (
-                    <SidebarMenuSubItem key={subItem.id}>
-                      <SidebarMenuSubButton asChild>
-                        <Link to={subItem.url}>
-                          <span>{t(subItem.id)}</span>
-                        </Link>
-                      </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
-                  ))}
-                </SidebarMenuSub>
-              </CollapsibleContent>
-            </SidebarMenuItem>
-          </Collapsible>
-        ))}
+        {items.map((item) => {
+          const isOpen = item.id
+            ? openGroupIds.includes(item.id)
+            : Boolean(item.isActive);
+          return (
+            <Collapsible
+              key={item.id}
+              asChild
+              defaultOpen={isOpen}
+              open={isOpen}
+              onOpenChange={(open) => {
+                if (!item.id) return;
+                onToggleGroup?.(item.id, open);
+              }}
+            >
+              <SidebarMenuItem>
+                <CollapsibleTrigger asChild>
+                  <SidebarMenuButton tooltip={t(item.id)}>
+                    {item.icon && <item.icon />}
+                    <span>{t(item.id)}</span>
+                    <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                  </SidebarMenuButton>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up overflow-hidden">
+                  <SidebarMenuSub>
+                    {item.items?.map((subItem) => (
+                      <SidebarMenuSubItem key={subItem.id}>
+                        <SidebarMenuSubButton asChild>
+                          <Link to={subItem.url}>
+                            <span>{t(subItem.id)}</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    ))}
+                  </SidebarMenuSub>
+                </CollapsibleContent>
+              </SidebarMenuItem>
+            </Collapsible>
+          );
+        })}
       </SidebarMenu>
     </SidebarGroup>
   );
-}
+};

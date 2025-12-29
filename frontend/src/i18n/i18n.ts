@@ -34,7 +34,9 @@ const detectBrowserLanguage = () => {
 };
 
 const storedLanguage =
-  typeof window !== "undefined" ? resolveLanguage(localStorage.getItem("language")) : "";
+  typeof window !== "undefined"
+    ? resolveLanguage(localStorage.getItem("language"))
+    : "";
 const defaultLanguage = storedLanguage || detectBrowserLanguage() || "en";
 
 i18n.use(initReactI18next).init({

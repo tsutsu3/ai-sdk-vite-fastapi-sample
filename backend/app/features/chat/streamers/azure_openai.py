@@ -1,10 +1,11 @@
 from collections.abc import AsyncIterator
-from typing import Any
 
 from openai import AsyncAzureOpenAI
 
 from app.core.config import AppConfig
 from app.features.chat.streamers.base import BaseStreamer
+from app.features.messages.models import MessageRecord
+from app.features.run.models import OpenAIMessage
 from app.features.title.utils import generate_fallback_title
 
 
@@ -22,26 +23,37 @@ class AzureOpenAIStreamer(BaseStreamer):
 
     async def stream_chat(
         self,
-        messages: list[dict[str, Any]],
+        messages: list[OpenAIMessage],
         model_id: str | None,
     ) -> AsyncIterator[str]:
         if not model_id or model_id not in self._deployments:
             raise RuntimeError("Requested model is not available.")
         deployment = self._deployments[model_id]
+        payload = [message.model_dump(by_alias=True, exclude_none=True) for message in messages]
         stream = await self._client.chat.completions.create(
             model=deployment,
-            messages=messages,
+            messages=payload,
             stream=True,
         )
+        buffer = ""
         async for event in stream:
             choice = event.choices[0] if event.choices else None
             delta = choice.delta.content if choice and choice.delta else None
             if delta:
-                yield delta
+                # Small chunks cause the UI to render everything at once,
+                # so we buffer the output to preserve the streaming effect.
+                buffer += delta
+                if len(buffer) >= 8:
+                    yield buffer
+                    buffer = ""
+
+        # Flush any remaining buffer.
+        if buffer:
+            yield buffer
 
     async def generate_title(
         self,
-        messages: list[dict[str, Any]],
+        messages: list[MessageRecord],
         model_id: str | None,
     ) -> str:
         if not model_id or model_id not in self._deployments:

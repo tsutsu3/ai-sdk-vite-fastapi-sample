@@ -1,15 +1,13 @@
 import asyncio
+import json
+import re
 import uuid
 from collections.abc import AsyncIterator
-from datetime import datetime, timezone
-from typing import Any
-from logging import getLogger
-import re
 from html import unescape
+from logging import getLogger
+from typing import Any
 
-from pydantic import ValidationError
 import httpx
-
 from fastapi_ai_sdk.models import (
     AnyStreamEvent,
     DataEvent,
@@ -17,87 +15,118 @@ from fastapi_ai_sdk.models import (
     ReasoningEndEvent,
     ReasoningStartEvent,
 )
+
+from app.features.authz.request_context import (
+    get_current_tenant_id,
+    get_current_user_id,
+)
 from app.features.chat.streamers import ChatStreamer
 from app.features.conversations.ports import ConversationRepository
-from app.features.messages.models import ChatMessage, MessageMetadata, MessagePart
+from app.features.messages.models import (
+    MessagePartRecord,
+    MessageRecord,
+)
 from app.features.messages.ports import MessageRepository
-from app.features.run.models import OpenAIMessage, StreamContext, WebSearchRequest
-from app.features.web_search.models import WebSearchResult
-from app.features.web_search.service import WebSearchService
+from app.features.run.models import (
+    OpenAIMessage,
+    RunRequest,
+    StreamContext,
+    WebSearchRequest,
+)
 from app.features.title.title_generator import TitleGenerator
 from app.features.usage.models import UsageRecord
 from app.features.usage.ports import UsageRepository
+from app.features.web_search.models import WebSearchResult
+from app.features.web_search.service import WebSearchService
 from app.shared.constants import DEFAULT_CHAT_TITLE
-from app.shared.request_context import get_current_tenant_id, get_current_user_id
+from app.shared.time import now_datetime
 
 logger = getLogger(__name__)
 
 
-def extract_messages(payload: dict[str, Any]) -> list[ChatMessage]:
-    messages = payload.get("messages")
-    if isinstance(messages, list):
-        parsed: list[ChatMessage] = []
-        for message in messages:
-            if not isinstance(message, dict):
-                continue
-            try:
-                parsed.append(ChatMessage.model_validate(message))
-            except ValidationError:
-                continue
-        return parsed
-    return []
+def extract_messages(payload: RunRequest) -> list[MessageRecord]:
+    """Extract chat messages from a request payload."""
+    return list(payload.messages)
 
 
-def extract_conversation_id(payload: dict[str, Any]) -> str:
-    for key in ("conversationId", "chatId", "id"):
-        value = payload.get(key)
-        if isinstance(value, str) and value:
-            return value
-    return f"conv-{uuid.uuid4().hex}"
+def select_latest_user_message(messages: list[MessageRecord]) -> list[MessageRecord]:
+    """Return only the most recent user message for the payload."""
+    for message in reversed(messages):
+        if message.role == "user":
+            return [message]
+    return messages[-1:] if messages else []
 
 
-def current_timestamp() -> str:
-    return datetime.now(timezone.utc).isoformat()
+def extract_conversation_id(payload: RunRequest) -> str:
+    """Resolve a conversation id from the payload or create one.
+
+    Args:
+        payload: Incoming request payload.
+
+    Returns:
+        str: Conversation identifier.
+    """
+    if isinstance(payload.chat_id, str) and payload.chat_id:
+        return payload.chat_id
+    return f"conv-{uuid.uuid4()}"
 
 
-def extract_model_id(payload: dict[str, Any]) -> str | None:
-    model = payload.get("model")
-    return model if isinstance(model, str) and model else None
+def extract_model_id(payload: RunRequest) -> str | None:
+    """Extract the model id from a payload.
+
+    Args:
+        payload: Incoming request payload.
+
+    Returns:
+        str | None: Model identifier if present.
+    """
+    model = payload.model
+    if isinstance(model, str) and model:
+        return model
+    for message in reversed(payload.messages):
+        if message.model_id:
+            return message.model_id
+    return None
 
 
-def extract_file_ids(payload: dict[str, Any]) -> list[str]:
-    file_ids = payload.get("fileIds")
-    if isinstance(file_ids, list):
-        return [str(file_id) for file_id in file_ids]
-    return []
+def extract_file_ids(payload: RunRequest) -> list[str]:
+    """Extract file ids from a payload.
+
+    Args:
+        payload: Incoming request payload.
+
+    Returns:
+        list[str]: File identifiers.
+    """
+    if not payload.file_ids:
+        return []
+    return [str(file_id) for file_id in payload.file_ids]
 
 
-def extract_web_search(payload: dict[str, Any]) -> WebSearchRequest:
-    enabled = False
-    engine: str | None = None
-    raw = payload.get("webSearch")
-    if raw is None:
-        raw = payload.get("websearch")
-    if isinstance(raw, bool):
-        enabled = raw
-    elif isinstance(raw, str):
-        enabled = True
-        engine = raw.strip()
-    elif isinstance(raw, dict):
-        enabled = bool(raw.get("enabled") or raw.get("use") or raw.get("value"))
-        engine_value = raw.get("engine") or raw.get("id")
-        if isinstance(engine_value, str):
-            engine = engine_value.strip()
+def extract_web_search(payload: RunRequest) -> WebSearchRequest:
+    """Extract web search configuration from a payload.
 
-    if not engine:
-        engine_value = payload.get("webSearchEngine") or payload.get("websearchEngine")
-        if isinstance(engine_value, str):
-            engine = engine_value.strip()
+    Args:
+        payload: Incoming request payload.
 
-    return WebSearchRequest(enabled=enabled, engine=engine or None)
+    Returns:
+        WebSearchRequest: Web search configuration.
+    """
+    request = payload.web_search or WebSearchRequest()
+    engine = payload.web_search_engine or request.engine
+    enabled = request.enabled or bool(engine)
+    return request.model_copy(update={"enabled": enabled, "engine": engine or None})
 
 
-def extract_search_query(messages: list[ChatMessage]) -> str:
+def extract_search_query(messages: list[MessageRecord]) -> str:
+    """Extract a search query from user messages.
+
+    Args:
+        messages: Chat messages.
+
+    Returns:
+        str: Extracted query string.
+    """
     for message in reversed(messages):
         if message.role != "user":
             continue
@@ -109,6 +138,14 @@ def extract_search_query(messages: list[ChatMessage]) -> str:
 
 
 def _strip_html_content(raw: str) -> str:
+    """Strip HTML content to plain text.
+
+    Args:
+        raw: Raw HTML string.
+
+    Returns:
+        str: Cleaned plain text.
+    """
     text = raw[:200000]
     text = re.sub(r"(?is)<(script|style).*?>.*?</\1>", " ", text)
     text = re.sub(r"(?is)<[^>]+>", " ", text)
@@ -121,6 +158,16 @@ def format_web_search_results(
     results: list[WebSearchResult],
     content_by_url: dict[str, str] | None = None,
 ) -> str:
+    """Format web search results for inclusion in a prompt.
+
+    Args:
+        engine: Search engine name.
+        results: Search results.
+        content_by_url: Optional content snippets keyed by URL.
+
+    Returns:
+        str: Formatted result block.
+    """
     lines = [f"Web search results from {engine}:"]
     for index, result in enumerate(results, start=1):
         lines.append(f"{index}. {result.title}")
@@ -134,7 +181,15 @@ def format_web_search_results(
     return "\n".join(lines)
 
 
-def to_openai_messages(messages: list[ChatMessage]) -> list[OpenAIMessage]:
+def to_openai_messages(messages: list[MessageRecord]) -> list[OpenAIMessage]:
+    """Convert chat messages to OpenAI-style messages.
+
+    Args:
+        messages: Chat messages.
+
+    Returns:
+        list[OpenAIMessage]: Converted messages.
+    """
     converted: list[OpenAIMessage] = []
     for message in messages:
         text_parts = [part.text or "" for part in message.parts if part.type == "text"]
@@ -145,6 +200,13 @@ def to_openai_messages(messages: list[ChatMessage]) -> list[OpenAIMessage]:
 
 
 class RunService:
+    """Service that orchestrates chat execution and streaming.
+
+    This service coordinates message persistence, model selection, web search,
+    and streaming event assembly so providers and repositories remain decoupled.
+    It is the main integration point between request payloads and AI SDK output.
+    """
+
     def __init__(
         self,
         streamer: ChatStreamer,
@@ -152,16 +214,52 @@ class RunService:
         web_search: WebSearchService,
         fetch_web_search_content: bool = False,
     ) -> None:
+        """Initialize the run service.
+
+        Args:
+            streamer: Chat streamer implementation.
+            title_generator: Title generator.
+            web_search: Web search service.
+            fetch_web_search_content: Whether to fetch page content.
+        """
         self._streamer = streamer
         self._title_generator = title_generator
         self._web_search = web_search
         self._fetch_web_search_content = fetch_web_search_content
         self._web_search_content_limit = 2000
 
+    def _merge_messages(
+        self,
+        existing: list[MessageRecord],
+        incoming: list[MessageRecord],
+    ) -> list[MessageRecord]:
+        if not incoming:
+            return list(existing)
+        merged = list(existing)
+        index_by_id = {message.id: idx for idx, message in enumerate(merged)}
+        for message in incoming:
+            if message.id in index_by_id:
+                merged[index_by_id[message.id]] = message
+            else:
+                index_by_id[message.id] = len(merged)
+                merged.append(message)
+        return merged
+
     async def _fetch_result_contents(
         self,
         results: list[WebSearchResult],
     ) -> dict[str, str]:
+        """Fetch and trim web search result content.
+
+        This enriches results with page text when configured, while applying
+        size limits and concurrency control to avoid overloading providers.
+
+        Args:
+            results: Search results to enrich.
+
+        Returns:
+            dict[str, str]: Mapping of URL to trimmed content.
+        """
         if not results:
             return {}
 
@@ -197,13 +295,36 @@ class RunService:
 
     async def _prepare_conversation(
         self,
-        payload: dict[str, Any],
+        payload: RunRequest,
         conversation_repo: ConversationRepository,
+        message_repo: MessageRepository,
         tenant_id: str,
         user_id: str,
-    ) -> tuple[str, list[ChatMessage], str, bool]:
+    ) -> tuple[str, list[MessageRecord], str, bool]:
+        """Prepare conversation state for a chat request.
+
+        This ensures a conversation exists and determines whether a title
+        should be generated during the run.
+
+        Args:
+            payload: Chat request payload.
+            conversation_repo: Conversation repository.
+            tenant_id: Tenant identifier.
+            user_id: User identifier.
+
+        Returns:
+            tuple[str, list[MessageRecord], str, bool]: Conversation id, messages,
+            existing title, and title-generation flag.
+        """
         conversation_id = extract_conversation_id(payload)
-        messages = extract_messages(payload)
+        messages, _ = await message_repo.list_messages(
+            tenant_id,
+            user_id,
+            conversation_id,
+            limit=None,
+            continuation_token=None,
+            descending=False,
+        )
         existing = await conversation_repo.get_conversation(tenant_id, user_id, conversation_id)
         title = existing.title if existing else DEFAULT_CHAT_TITLE
         should_generate_title = not title or title == DEFAULT_CHAT_TITLE
@@ -212,33 +333,67 @@ class RunService:
             user_id,
             conversation_id,
             title,
-            current_timestamp(),
         )
         return conversation_id, messages, title, should_generate_title
 
     async def _persist_incoming_messages(
         self,
-        payload: dict[str, Any],
+        payload: RunRequest,
         message_repo: MessageRepository,
         tenant_id: str,
+        user_id: str,
         conversation_id: str,
-        messages: list[ChatMessage],
+        messages: list[MessageRecord],
     ) -> None:
+        """Persist incoming user messages before streaming a response.
+
+        This ensures the user input is saved even if streaming fails.
+
+        Args:
+            payload: Chat request payload.
+            message_repo: Message repository.
+            tenant_id: Tenant identifier.
+            user_id: User identifier.
+            conversation_id: Conversation identifier.
+            messages: Parsed incoming messages.
+        """
+        if not messages:
+            return
         file_ids = extract_file_ids(payload)
         if file_ids and messages:
             last_message = messages[-1]
-            metadata = last_message.metadata or MessageMetadata()
-            updated_metadata = metadata.model_copy(update={"file_ids": file_ids})
-            updated_message = last_message.model_copy(update={"metadata": updated_metadata})
+            existing_ids = {
+                part.file_id
+                for part in last_message.parts
+                if part.type == "file" and part.file_id
+            }
+            next_parts = list(last_message.parts)
+            for file_id in file_ids:
+                if file_id in existing_ids:
+                    continue
+                next_parts.append(MessagePartRecord(type="file", file_id=file_id))
+            updated_message = last_message.model_copy(update={"parts": next_parts})
             messages = [*messages[:-1], updated_message]
-        await message_repo.upsert_messages(tenant_id, conversation_id, messages)
+        await message_repo.upsert_messages(tenant_id, user_id, conversation_id, messages)
 
     def _build_message_context(
         self,
-        payload: dict[str, Any],
-        messages: list[ChatMessage],
+        payload: RunRequest,
+        messages: list[MessageRecord],
     ) -> tuple[str, str | None, list[OpenAIMessage]]:
-        message_id = f"msg-{uuid.uuid4().hex}"
+        """Build message context for streaming.
+
+        This resolves the message id, model id, and OpenAI-formatted messages.
+
+        Args:
+            payload: Chat request payload.
+            messages: Parsed chat messages.
+
+        Returns:
+            tuple[str, str | None, list[OpenAIMessage]]: Message id, model id,
+            and formatted messages.
+        """
+        message_id = f"msg-{uuid.uuid4()}"
         model_id = extract_model_id(payload)
         openai_messages = to_openai_messages(messages)
         return message_id, model_id, openai_messages
@@ -251,14 +406,41 @@ class RunService:
         conversation_id: str,
         generated: str,
     ) -> AnyStreamEvent:
+        """Persist and emit a title update event.
+
+        This keeps the conversation metadata in sync with streamed title events.
+
+        Args:
+            conversation_repo: Conversation repository.
+            tenant_id: Tenant identifier.
+            user_id: User identifier.
+            conversation_id: Conversation identifier.
+            generated: Generated title.
+
+        Returns:
+            AnyStreamEvent: Data event with the updated title.
+        """
         await conversation_repo.upsert_conversation(
             tenant_id,
             user_id,
             conversation_id,
             generated,
-            current_timestamp(),
         )
         return DataEvent.create("title", {"title": generated})
+
+    def _send_conversation_event(self, context: StreamContext) -> AnyStreamEvent:
+        return DataEvent.create(
+            "conversation",
+            {"convId": context.conversation_id},
+        )
+
+    def _send_model_event(self, context: StreamContext) -> AnyStreamEvent | None:
+        if not context.model_id:
+            return None
+        return DataEvent.create(
+            "model",
+            {"messageId": context.message_id, "modelId": context.model_id},
+        )
 
     async def _stream_with_persistence(
         self,
@@ -268,16 +450,38 @@ class RunService:
         message_repo: MessageRepository,
         usage_repo: UsageRepository,
     ) -> AsyncIterator[AnyStreamEvent]:
+        """Stream events while persisting messages and metadata.
+
+        This method coordinates streaming with title updates, message
+        persistence, and usage recording to keep state consistent.
+
+        Args:
+            context: Stream context data.
+            conversation_repo: Conversation repository.
+            message_repo: Message repository.
+            usage_repo: Usage repository.
+
+        Returns:
+            AsyncIterator[AnyStreamEvent]: Stream of AI SDK events.
+        """
+        start_event = self._streamer.ensure_message_start(context.message_id)
+        if start_event:
+            yield start_event
+        yield self._send_conversation_event(context)
+        model_event = self._send_model_event(context)
+        if model_event:
+            yield model_event
         response_text = ""
         final_title = context.title
         title_task: asyncio.Task[str] | None = None
         if context.should_generate_title:
             title_task = asyncio.create_task(self._title_generator.generate(context.messages))
         title_sent = False
+        request_payload: list[dict[str, Any]] = []
         try:
-            openai_payload = [
-                message.model_dump(by_alias=True, exclude_none=True)
-                for message in context.openai_messages
+            openai_payload = list(context.openai_messages)
+            request_payload = [
+                message.model_dump(by_alias=True, exclude_none=True) for message in openai_payload
             ]
             if context.web_search.enabled:
                 start_event = self._streamer.ensure_message_start(context.message_id)
@@ -291,7 +495,7 @@ class RunService:
                     provider.id if provider else None,
                 )
                 if query and provider:
-                    reasoning_id = f"reasoning_{uuid.uuid4().hex}"
+                    reasoning_id = f"reasoning_{uuid.uuid4()}"
                     yield ReasoningStartEvent(id=reasoning_id)
                     yield ReasoningDeltaEvent(
                         id=reasoning_id,
@@ -324,8 +528,12 @@ class RunService:
                             )
                             # logger.debug("Web search results: %s", search_block)
                             openai_payload = [
-                                {"role": "system", "content": search_block},
+                                OpenAIMessage(role="system", content=search_block),
                                 *openai_payload,
+                            ]
+                            request_payload = [
+                                message.model_dump(by_alias=True, exclude_none=True)
+                                for message in openai_payload
                             ]
                             yield ReasoningDeltaEvent(
                                 id=reasoning_id,
@@ -391,22 +599,26 @@ class RunService:
 
         async for chunk in self._streamer.stream_text_end(context.message_id):
             yield chunk
-        assistant_message = ChatMessage(
+        parent_message_id = context.messages[-1].id if context.messages else ""
+        assistant_message = MessageRecord(
             id=context.message_id,
             role="assistant",
-            parts=[MessagePart(type="text", text=response_text)],
+            parts=[MessagePartRecord(type="text", text=response_text)],
+            created_at=now_datetime(),
+            parent_message_id=parent_message_id,
+            model_id=context.model_id,
         )
         await message_repo.upsert_messages(
             context.tenant_id,
+            context.user_id,
             context.conversation_id,
-            context.messages + [assistant_message],
+            [assistant_message],
         )
         await conversation_repo.upsert_conversation(
             context.tenant_id,
             context.user_id,
             context.conversation_id,
             final_title,
-            current_timestamp(),
         )
         await usage_repo.record_usage(
             UsageRecord(
@@ -414,35 +626,63 @@ class RunService:
                 user_id=context.user_id,
                 conversation_id=context.conversation_id,
                 message_id=context.message_id,
-                tokens=None,
+                model_id=context.model_id,
+                tokens_in=None,
+                tokens_out=None,
+                bytes_in=(
+                    len(json.dumps(request_payload).encode("utf-8")) if request_payload else None
+                ),
+                bytes_out=len(response_text.encode("utf-8")) if response_text else None,
+                requests=1,
             )
         )
 
     async def stream(
         self,
-        payload: dict[str, Any],
+        payload: RunRequest,
         conversation_repo: ConversationRepository,
         message_repo: MessageRepository,
         usage_repo: UsageRepository,
     ) -> AsyncIterator[AnyStreamEvent]:
+        """Stream chat events for the given payload.
+
+        This is the primary entry point used by the chat API to produce
+        incremental AI SDK events while persisting conversation state.
+
+        Args:
+            payload: Chat request payload.
+            conversation_repo: Conversation repository.
+            message_repo: Message repository.
+            usage_repo: Usage repository.
+
+        Returns:
+            AsyncIterator[AnyStreamEvent]: Stream of AI SDK events.
+        """
         tenant_id = get_current_tenant_id()
         user_id = get_current_user_id()
         conversation_id, messages, title, should_generate_title = (
             await self._prepare_conversation(
                 payload,
                 conversation_repo,
+                message_repo,
                 tenant_id,
                 user_id,
             )
         )
+        incoming_messages = select_latest_user_message(extract_messages(payload))
+        merged_messages = self._merge_messages(messages, incoming_messages)
         await self._persist_incoming_messages(
             payload,
             message_repo,
             tenant_id,
+            user_id,
             conversation_id,
-            messages,
+            incoming_messages,
         )
-        message_id, model_id, openai_messages = self._build_message_context(payload, messages)
+        message_id, model_id, openai_messages = self._build_message_context(
+            payload,
+            merged_messages,
+        )
 
         context = StreamContext(
             tenant_id=tenant_id,
@@ -452,7 +692,7 @@ class RunService:
             model_id=model_id,
             title=title,
             should_generate_title=should_generate_title,
-            messages=messages,
+            messages=merged_messages,
             openai_messages=openai_messages,
             web_search=extract_web_search(payload),
         )

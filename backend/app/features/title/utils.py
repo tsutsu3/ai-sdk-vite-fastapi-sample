@@ -1,28 +1,18 @@
-from typing import Any
-
+from app.features.messages.models import MessageRecord
 from app.shared.constants import DEFAULT_CHAT_TITLE
 
 
-def extract_message_text(message: dict[str, Any]) -> str:
-    parts = message.get("parts")
-    if isinstance(parts, list):
-        text_parts = [
-            part.get("text", "")
-            for part in parts
-            if isinstance(part, dict) and part.get("type") == "text"
-        ]
-        text = " ".join(part.strip() for part in text_parts if part)
-        if text.strip():
-            return text.strip()
-    content = message.get("content")
-    if isinstance(content, str) and content.strip():
-        return content.strip()
-    return ""
+def extract_message_text(message: MessageRecord) -> str:
+    """Extract text content from a message record."""
+    text_parts = [part.text or "" for part in message.parts if part.type == "text"]
+    text = " ".join(part.strip() for part in text_parts if part)
+    return text.strip() if text.strip() else ""
 
 
-def generate_fallback_title(messages: list[dict[str, Any]]) -> str:
+def generate_fallback_title(messages: list[MessageRecord]) -> str:
+    """Generate a fallback title from message content."""
     for message in messages:
-        if message.get("role") == "user":
+        if message.role == "user":
             text = extract_message_text(message)
             if text:
                 words = text.split()

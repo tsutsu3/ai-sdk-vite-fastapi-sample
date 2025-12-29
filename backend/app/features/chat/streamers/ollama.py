@@ -1,11 +1,12 @@
 import json
 from collections.abc import AsyncIterator
-from typing import Any
 
 import httpx
 
 from app.core.config import AppConfig
 from app.features.chat.streamers.base import BaseStreamer
+from app.features.messages.models import MessageRecord
+from app.features.run.models import OpenAIMessage
 from app.features.title.utils import generate_fallback_title
 
 
@@ -16,15 +17,18 @@ class OllamaStreamer(BaseStreamer):
 
     async def stream_chat(
         self,
-        messages: list[dict[str, Any]],
+        messages: list[OpenAIMessage],
         model_id: str | None,
     ) -> AsyncIterator[str]:
         if not model_id:
             raise RuntimeError("Requested model is not available.")
         url = f"{self._base_url}/api/chat"
+        messages_payload = [
+            message.model_dump(by_alias=True, exclude_none=True) for message in messages
+        ]
         payload = {
             "model": model_id,
-            "messages": messages,
+            "messages": messages_payload,
             "stream": True,
         }
         try:
@@ -49,7 +53,7 @@ class OllamaStreamer(BaseStreamer):
 
     async def generate_title(
         self,
-        messages: list[dict[str, Any]],
+        messages: list[MessageRecord],
         model_id: str | None,
     ) -> str:
         if not model_id:
