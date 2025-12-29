@@ -20,8 +20,9 @@ def create_usage_repository(
                 flush_interval_seconds=app_config.usage_buffer_flush_interval_seconds,
             )
         case UsageBufferBackend.azure:
+            if azure_eventhub_producer is None:
+                raise RuntimeError("Azure Event Hub producer must be provided.")
             return AzureEventHubUsageRepository(
-                app_config,
                 producer=azure_eventhub_producer,
             )
         case UsageBufferBackend.gcp:
