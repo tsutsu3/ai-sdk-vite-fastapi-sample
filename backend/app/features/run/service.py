@@ -1,13 +1,9 @@
 import asyncio
 import json
-import re
 import uuid
 from collections.abc import AsyncIterator
-from html import unescape
 from logging import getLogger
 from typing import Any
-
-import httpx
 from fastapi_ai_sdk.models import (
     AnyStreamEvent,
     DataEvent,
@@ -27,176 +23,29 @@ from app.features.messages.models import (
     MessageRecord,
 )
 from app.features.messages.ports import MessageRepository
-from app.features.run.models import (
-    OpenAIMessage,
-    RunRequest,
-    StreamContext,
-    WebSearchRequest,
+from app.features.run.message_utils import (
+    extract_conversation_id,
+    extract_file_ids,
+    extract_messages,
+    extract_model_id,
+    select_latest_user_message,
+    to_openai_messages,
+)
+from app.features.run.models import OpenAIMessage, RunRequest, StreamContext
+from app.features.run.web_search_utils import (
+    WebSearchContentFetcher,
+    extract_search_query,
+    extract_web_search,
+    format_web_search_results,
 )
 from app.features.title.title_generator import TitleGenerator
 from app.features.usage.models import UsageRecord
 from app.features.usage.ports import UsageRepository
-from app.features.web_search.models import WebSearchResult
 from app.features.web_search.service import WebSearchService
 from app.shared.constants import DEFAULT_CHAT_TITLE
 from app.shared.time import now_datetime
 
 logger = getLogger(__name__)
-
-
-def extract_messages(payload: RunRequest) -> list[MessageRecord]:
-    """Extract chat messages from a request payload."""
-    return list(payload.messages)
-
-
-def select_latest_user_message(messages: list[MessageRecord]) -> list[MessageRecord]:
-    """Return only the most recent user message for the payload."""
-    for message in reversed(messages):
-        if message.role == "user":
-            return [message]
-    return messages[-1:] if messages else []
-
-
-def extract_conversation_id(payload: RunRequest) -> str:
-    """Resolve a conversation id from the payload or create one.
-
-    Args:
-        payload: Incoming request payload.
-
-    Returns:
-        str: Conversation identifier.
-    """
-    if isinstance(payload.chat_id, str) and payload.chat_id:
-        return payload.chat_id
-    return f"conv-{uuid.uuid4()}"
-
-
-def extract_model_id(payload: RunRequest) -> str | None:
-    """Extract the model id from a payload.
-
-    Args:
-        payload: Incoming request payload.
-
-    Returns:
-        str | None: Model identifier if present.
-    """
-    model = payload.model
-    if isinstance(model, str) and model:
-        return model
-    for message in reversed(payload.messages):
-        if message.model_id:
-            return message.model_id
-    return None
-
-
-def extract_file_ids(payload: RunRequest) -> list[str]:
-    """Extract file ids from a payload.
-
-    Args:
-        payload: Incoming request payload.
-
-    Returns:
-        list[str]: File identifiers.
-    """
-    if not payload.file_ids:
-        return []
-    return [str(file_id) for file_id in payload.file_ids]
-
-
-def extract_web_search(payload: RunRequest) -> WebSearchRequest:
-    """Extract web search configuration from a payload.
-
-    Args:
-        payload: Incoming request payload.
-
-    Returns:
-        WebSearchRequest: Web search configuration.
-    """
-    request = payload.web_search or WebSearchRequest()
-    engine = payload.web_search_engine or request.engine
-    enabled = request.enabled or bool(engine)
-    return request.model_copy(update={"enabled": enabled, "engine": engine or None})
-
-
-def extract_search_query(messages: list[MessageRecord]) -> str:
-    """Extract a search query from user messages.
-
-    Args:
-        messages: Chat messages.
-
-    Returns:
-        str: Extracted query string.
-    """
-    for message in reversed(messages):
-        if message.role != "user":
-            continue
-        text_parts = [part.text or "" for part in message.parts if part.type == "text"]
-        query = " ".join(part.strip() for part in text_parts if part).strip()
-        if query:
-            return query
-    return ""
-
-
-def _strip_html_content(raw: str) -> str:
-    """Strip HTML content to plain text.
-
-    Args:
-        raw: Raw HTML string.
-
-    Returns:
-        str: Cleaned plain text.
-    """
-    text = raw[:200000]
-    text = re.sub(r"(?is)<(script|style).*?>.*?</\1>", " ", text)
-    text = re.sub(r"(?is)<[^>]+>", " ", text)
-    text = unescape(text)
-    return re.sub(r"\\s+", " ", text).strip()
-
-
-def format_web_search_results(
-    engine: str,
-    results: list[WebSearchResult],
-    content_by_url: dict[str, str] | None = None,
-) -> str:
-    """Format web search results for inclusion in a prompt.
-
-    Args:
-        engine: Search engine name.
-        results: Search results.
-        content_by_url: Optional content snippets keyed by URL.
-
-    Returns:
-        str: Formatted result block.
-    """
-    lines = [f"Web search results from {engine}:"]
-    for index, result in enumerate(results, start=1):
-        lines.append(f"{index}. {result.title}")
-        lines.append(f"   URL: {result.url}")
-        if result.snippet:
-            lines.append(f"   Snippet: {result.snippet}")
-        if content_by_url:
-            content = content_by_url.get(result.url, "")
-            if content:
-                lines.append(f"   Content: {content}")
-    return "\n".join(lines)
-
-
-def to_openai_messages(messages: list[MessageRecord]) -> list[OpenAIMessage]:
-    """Convert chat messages to OpenAI-style messages.
-
-    Args:
-        messages: Chat messages.
-
-    Returns:
-        list[OpenAIMessage]: Converted messages.
-    """
-    converted: list[OpenAIMessage] = []
-    for message in messages:
-        text_parts = [part.text or "" for part in message.parts if part.type == "text"]
-        content = " ".join(part.strip() for part in text_parts if part).strip()
-        if content:
-            converted.append(OpenAIMessage(role=message.role, content=content))
-    return converted
 
 
 class RunService:
@@ -226,7 +75,74 @@ class RunService:
         self._title_generator = title_generator
         self._web_search = web_search
         self._fetch_web_search_content = fetch_web_search_content
-        self._web_search_content_limit = 2000
+        self._web_search_content_fetcher = WebSearchContentFetcher()
+
+    async def stream(
+        self,
+        payload: RunRequest,
+        conversation_repo: ConversationRepository,
+        message_repo: MessageRepository,
+        usage_repo: UsageRepository,
+    ) -> AsyncIterator[AnyStreamEvent]:
+        """Stream chat events for the given payload.
+
+        This is the primary entry point used by the chat API to produce
+        incremental AI SDK events while persisting conversation state.
+
+        Args:
+            payload: Chat request payload.
+            conversation_repo: Conversation repository.
+            message_repo: Message repository.
+            usage_repo: Usage repository.
+
+        Returns:
+            AsyncIterator[AnyStreamEvent]: Stream of AI SDK events.
+        """
+        tenant_id = get_current_tenant_id()
+        user_id = get_current_user_id()
+        conversation_id, messages, title, should_generate_title = (
+            await self._prepare_conversation(
+                payload,
+                conversation_repo,
+                message_repo,
+                tenant_id,
+                user_id,
+            )
+        )
+        incoming_messages = select_latest_user_message(extract_messages(payload))
+        merged_messages = self._merge_messages(messages, incoming_messages)
+        await self._persist_incoming_messages(
+            payload,
+            message_repo,
+            tenant_id,
+            user_id,
+            conversation_id,
+            incoming_messages,
+        )
+        message_id, model_id, openai_messages = self._build_message_context(
+            payload,
+            merged_messages,
+        )
+
+        context = StreamContext(
+            tenant_id=tenant_id,
+            user_id=user_id,
+            conversation_id=conversation_id,
+            message_id=message_id,
+            model_id=model_id,
+            title=title,
+            should_generate_title=should_generate_title,
+            messages=merged_messages,
+            openai_messages=openai_messages,
+            web_search=extract_web_search(payload),
+        )
+
+        return self._stream_with_persistence(
+            context=context,
+            conversation_repo=conversation_repo,
+            message_repo=message_repo,
+            usage_repo=usage_repo,
+        )
 
     def _merge_messages(
         self,
@@ -244,54 +160,6 @@ class RunService:
                 index_by_id[message.id] = len(merged)
                 merged.append(message)
         return merged
-
-    async def _fetch_result_contents(
-        self,
-        results: list[WebSearchResult],
-    ) -> dict[str, str]:
-        """Fetch and trim web search result content.
-
-        This enriches results with page text when configured, while applying
-        size limits and concurrency control to avoid overloading providers.
-
-        Args:
-            results: Search results to enrich.
-
-        Returns:
-            dict[str, str]: Mapping of URL to trimmed content.
-        """
-        if not results:
-            return {}
-
-        semaphore = asyncio.Semaphore(3)
-
-        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
-
-            async def fetch_one(result: WebSearchResult) -> tuple[str, str]:
-                url = result.url
-                async with semaphore:
-                    try:
-                        response = await client.get(
-                            url,
-                            headers={"User-Agent": "Mozilla/5.0"},
-                        )
-                        response.raise_for_status()
-                    except httpx.HTTPError:
-                        return (url, "")
-
-                    content_type = response.headers.get("content-type", "")
-                    if "text" not in content_type and "html" not in content_type:
-                        return (url, "")
-
-                    cleaned = _strip_html_content(response.text)
-                    if not cleaned:
-                        return (url, "")
-
-                    return (url, cleaned[: self._web_search_content_limit])
-
-            tasks = [fetch_one(result) for result in results]
-            pairs = await asyncio.gather(*tasks, return_exceptions=False)
-            return {url: content for url, content in pairs if content}
 
     async def _prepare_conversation(
         self,
@@ -516,11 +384,11 @@ class RunService:
                         )
                     else:
                         if results:
-                            content_by_url = (
-                                await self._fetch_result_contents(results)
-                                if self._fetch_web_search_content
-                                else None
-                            )
+                            content_by_url = None
+                            if self._fetch_web_search_content:
+                                content_by_url = await self._web_search_content_fetcher.fetch(
+                                    results
+                                )
                             search_block = format_web_search_results(
                                 provider.name,
                                 results,
@@ -635,71 +503,4 @@ class RunService:
                 bytes_out=len(response_text.encode("utf-8")) if response_text else None,
                 requests=1,
             )
-        )
-
-    async def stream(
-        self,
-        payload: RunRequest,
-        conversation_repo: ConversationRepository,
-        message_repo: MessageRepository,
-        usage_repo: UsageRepository,
-    ) -> AsyncIterator[AnyStreamEvent]:
-        """Stream chat events for the given payload.
-
-        This is the primary entry point used by the chat API to produce
-        incremental AI SDK events while persisting conversation state.
-
-        Args:
-            payload: Chat request payload.
-            conversation_repo: Conversation repository.
-            message_repo: Message repository.
-            usage_repo: Usage repository.
-
-        Returns:
-            AsyncIterator[AnyStreamEvent]: Stream of AI SDK events.
-        """
-        tenant_id = get_current_tenant_id()
-        user_id = get_current_user_id()
-        conversation_id, messages, title, should_generate_title = (
-            await self._prepare_conversation(
-                payload,
-                conversation_repo,
-                message_repo,
-                tenant_id,
-                user_id,
-            )
-        )
-        incoming_messages = select_latest_user_message(extract_messages(payload))
-        merged_messages = self._merge_messages(messages, incoming_messages)
-        await self._persist_incoming_messages(
-            payload,
-            message_repo,
-            tenant_id,
-            user_id,
-            conversation_id,
-            incoming_messages,
-        )
-        message_id, model_id, openai_messages = self._build_message_context(
-            payload,
-            merged_messages,
-        )
-
-        context = StreamContext(
-            tenant_id=tenant_id,
-            user_id=user_id,
-            conversation_id=conversation_id,
-            message_id=message_id,
-            model_id=model_id,
-            title=title,
-            should_generate_title=should_generate_title,
-            messages=merged_messages,
-            openai_messages=openai_messages,
-            web_search=extract_web_search(payload),
-        )
-
-        return self._stream_with_persistence(
-            context=context,
-            conversation_repo=conversation_repo,
-            message_repo=message_repo,
-            usage_repo=usage_repo,
         )
