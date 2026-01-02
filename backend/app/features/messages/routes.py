@@ -6,13 +6,13 @@ from app.features.authz.request_context import (
     get_current_user_id,
     require_request_context,
 )
-from app.features.messages.ports import MessageRepository
 from app.features.messages.models import MessageRecord
+from app.features.messages.ports import MessageRepository
 from app.features.messages.schemas import (
-  MessageReactionRequest,
-  MessageReactionResponse,
-  MessageResponse,
-  MessagesResponse,
+    MessageReactionRequest,
+    MessageReactionResponse,
+    MessageResponse,
+    MessagesResponse,
 )
 
 router = APIRouter(dependencies=[Depends(require_request_context)])
