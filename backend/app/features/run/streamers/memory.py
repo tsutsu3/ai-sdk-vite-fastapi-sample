@@ -2,8 +2,8 @@ import asyncio
 import random
 from collections.abc import AsyncIterator
 
-from app.features.chat.streamers.base import BaseStreamer
 from app.features.run.models import OpenAIMessage
+from app.features.run.streamers.base import BaseStreamer
 
 
 class MemoryStreamer(BaseStreamer):

@@ -3,9 +3,9 @@ from collections.abc import AsyncIterator
 from openai import AsyncAzureOpenAI
 
 from app.core.config import AppConfig
-from app.features.chat.streamers.base import BaseStreamer
 from app.features.messages.models import MessageRecord
 from app.features.run.models import OpenAIMessage
+from app.features.run.streamers.base import BaseStreamer
 from app.features.title.utils import generate_fallback_title
 
 

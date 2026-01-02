@@ -4,6 +4,7 @@ import uuid
 from collections.abc import AsyncIterator
 from logging import getLogger
 from typing import Any
+
 from fastapi_ai_sdk.models import (
     AnyStreamEvent,
     DataEvent,
@@ -16,7 +17,6 @@ from app.features.authz.request_context import (
     get_current_tenant_id,
     get_current_user_id,
 )
-from app.features.chat.streamers import ChatStreamer
 from app.features.conversations.ports import ConversationRepository
 from app.features.messages.models import (
     MessagePartRecord,
@@ -32,6 +32,7 @@ from app.features.run.message_utils import (
     to_openai_messages,
 )
 from app.features.run.models import OpenAIMessage, RunRequest, StreamContext
+from app.features.run.streamers import ChatStreamer
 from app.features.run.web_search_utils import (
     WebSearchContentFetcher,
     extract_search_query,

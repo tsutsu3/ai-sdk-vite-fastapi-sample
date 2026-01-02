@@ -1,6 +1,6 @@
 from app.core.config import AppConfig
-from app.features.chat.streamers import ChatStreamer
 from app.features.messages.models import MessageRecord
+from app.features.run.streamers import ChatStreamer
 from app.features.title.utils import generate_fallback_title
 
 

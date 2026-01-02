@@ -14,15 +14,8 @@ from app.core.logging_config import build_logging_config
 from app.core.telemetry import configure_telemetry, instrument_app
 from app.features.authz import routes as authz_api
 from app.features.authz.service import AuthzService
+from app.features.capabilities import routes as capabilities_api
 from app.features.chat import routes as chat_api
-from app.features.chat.capabilities import routes as capabilities_api
-from app.features.chat.streamers import (
-    AzureOpenAIStreamer,
-    ChatStreamer,
-    MemoryStreamer,
-    MultiChatStreamer,
-    OllamaStreamer,
-)
 from app.features.conversations import routes as conversations_api
 from app.features.file import routes as file_api
 from app.features.health import routes as health_api
@@ -34,6 +27,13 @@ from app.features.retrieval.providers.memory import MemoryRetrievalProvider
 from app.features.retrieval.providers.postgres import PostgresRetrievalProvider
 from app.features.retrieval.service import RetrievalService
 from app.features.run.service import RunService
+from app.features.run.streamers import (
+    AzureOpenAIStreamer,
+    ChatStreamer,
+    MemoryStreamer,
+    MultiChatStreamer,
+    OllamaStreamer,
+)
 from app.features.spa import routes as spa_api
 from app.features.title.title_generator import TitleGenerator
 from app.features.web_search.providers.base import WebSearchProvider

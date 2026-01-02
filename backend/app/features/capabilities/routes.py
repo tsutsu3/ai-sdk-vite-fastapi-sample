@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request
 
-from app.features.chat.capabilities.schemas import (
+from app.features.capabilities.schemas import (
     APIPageSizeCapability,
     CapabilitiesResponse,
     ModelCapability,

@@ -6,10 +6,10 @@ from fastapi.testclient import TestClient
 
 from app.core.application import create_app
 from app.features.authz.service import AuthzService
-from app.features.chat.streamers.base import BaseStreamer
 from app.features.retrieval.providers.memory import MemoryRetrievalProvider
 from app.features.retrieval.service import RetrievalService
 from app.features.run.service import RunService
+from app.features.run.streamers.base import BaseStreamer
 from app.features.title.title_generator import TitleGenerator
 from app.features.web_search.service import WebSearchService
 from app.infra.repository.memory.memory_authz_repository import MemoryAuthzRepository
