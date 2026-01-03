@@ -34,6 +34,7 @@ class RunRequest(BaseModel):
     chat_id: str | None = Field(default=None, alias="chatId")
     messages: list[MessageRecord] = Field(default_factory=list)
     model: str | None = None
+    tool_id: str | None = Field(default=None, alias="toolId")
     file_ids: list[str] | None = Field(default=None, alias="fileIds")
     web_search: WebSearchRequest | None = Field(default=None, alias="webSearch")
     web_search_engine: str | None = Field(default=None, alias="webSearchEngine")
@@ -119,6 +120,7 @@ class StreamContext(BaseModel):
 
     message_id: str
     model_id: str | None
+    tool_id: str | None = None
 
     title: str
     should_generate_title: bool

@@ -23,9 +23,11 @@ from app.features.messages import routes as messages_api
 from app.features.retrieval import routes as rag_api
 from app.features.retrieval.providers.ai_search import AISearchProvider
 from app.features.retrieval.providers.base import RetrievalProvider
+from app.features.retrieval.providers.local_files import LocalFileRetrievalProvider
 from app.features.retrieval.providers.memory import MemoryRetrievalProvider
 from app.features.retrieval.providers.postgres import PostgresRetrievalProvider
 from app.features.retrieval.service import RetrievalService
+from app.features.retrieval.tools import initialize_tool_specs
 from app.features.run.service import RunService
 from app.features.run.streamers import (
     AzureOpenAIStreamer,
@@ -80,7 +82,10 @@ def _build_blob_storage(app_config: AppConfig, storage_caps: StorageCapabilities
 
 
 def _build_run_service(
-    app_config: AppConfig, chat_caps: ChatCapabilities, web_search: WebSearchService
+    app_config: AppConfig,
+    chat_caps: ChatCapabilities,
+    web_search: WebSearchService,
+    retrieval_service: RetrievalService,
 ) -> RunService:
     """Construct the run service for chat execution.
 
@@ -126,6 +131,7 @@ def _build_run_service(
         streamer,
         TitleGenerator(app_config, streamer),
         web_search,
+        retrieval_service,
         fetch_web_search_content=app_config.web_search_fetch_content,
     )
 
@@ -177,6 +183,9 @@ def _build_retrieval_service(settings: Settings) -> RetrievalService:
             api_key=settings.retrieval_ai_search_api_key,
             auth_header=settings.retrieval_ai_search_auth_header,
         ),
+        "local-files": LocalFileRetrievalProvider(
+            settings.retrieval_local_path,
+        ),
         "postgres": PostgresRetrievalProvider(
             settings.retrieval_pg_dsn,
             settings.retrieval_pg_table,
@@ -211,6 +220,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.app_config = settings.to_app_config()
     app.state.storage_capabilities = settings.to_storage_capabilities()
     app.state.chat_capabilities = settings.to_chat_capabilities()
+    initialize_tool_specs(app.state.app_config.retrieval_tools_config_path)
 
     app.state.cosmos_client_provider = None
     if app.state.storage_capabilities.db_backend == "azure":
@@ -260,6 +270,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.app_config,
         app.state.chat_capabilities,
         app.state.web_search_service,
+        app.state.retrieval_service,
     )
 
     log_app_configuration(

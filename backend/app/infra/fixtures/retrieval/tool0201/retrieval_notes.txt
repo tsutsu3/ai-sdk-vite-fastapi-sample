@@ -1,0 +1,4 @@
+Document: Retrieval notes
+Topic: warehouse layout optimization and picking accuracy.
+Focus: route planning, slotting, and audit checks.
+Answer rule: cite sources and avoid unsupported claims.

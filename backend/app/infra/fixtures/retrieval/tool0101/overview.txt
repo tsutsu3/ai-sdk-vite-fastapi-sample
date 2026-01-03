@@ -1,0 +1,4 @@
+Document: Quality overview
+Topic: supply chain risk and vendor compliance.
+Guidance: Use clear, actionable language and cite the source file name.
+Checklist: verify scope, verify constraints, report next steps.

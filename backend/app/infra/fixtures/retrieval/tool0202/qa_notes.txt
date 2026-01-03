@@ -1,0 +1,5 @@
+Document: Q&A notes
+Topic: IT incident response and postmortem practices.
+Rule: answer only using provided sources.
+If sources are missing, ask a clarifying question.
+Avoid combining unrelated sources in a single claim.

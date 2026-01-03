@@ -50,6 +50,7 @@ def client() -> TestClient:
             FastTestStreamer(),
             TitleGenerator(app.state.app_config, FastTestStreamer()),
             app.state.web_search_service,
+            app.state.retrieval_service,
             fetch_web_search_content=False,
         )
         yield client

@@ -153,6 +153,8 @@ class AppConfig(BaseModel):
     retrieval_pg_url_column: str = "source_url"
     retrieval_pg_embedding_column: str = "embedding"
     retrieval_pg_source_column: str = "data_source"
+    retrieval_local_path: str = "backend/app/infra/fixtures/retrieval"
+    retrieval_tools_config_path: str = "retrieval_tools.yaml"
 
     # Auth provider
     auth_provider: AuthProvider = AuthProvider.local
@@ -322,6 +324,8 @@ class Settings(BaseSettings):
     retrieval_pg_url_column: str = "source_url"
     retrieval_pg_embedding_column: str = "embedding"
     retrieval_pg_source_column: str = "data_source"
+    retrieval_local_path: str = "backend/app/infra/fixtures/retrieval"
+    retrieval_tools_config_path: str = "retrieval_tools.yaml"
 
     # Auth provider
     auth_provider: AuthProvider = AuthProvider.local
@@ -622,6 +626,8 @@ class Settings(BaseSettings):
             retrieval_pg_url_column=self.retrieval_pg_url_column,
             retrieval_pg_embedding_column=self.retrieval_pg_embedding_column,
             retrieval_pg_source_column=self.retrieval_pg_source_column,
+            retrieval_local_path=self.retrieval_local_path,
+            retrieval_tools_config_path=self.retrieval_tools_config_path,
             auth_provider=self.auth_provider,
             local_auth_user_id=self.local_auth_user_id,
             local_auth_user_email=self.local_auth_user_email,

@@ -23,6 +23,8 @@ from app.features.messages.models import (
     MessageRecord,
 )
 from app.features.messages.ports import MessageRepository
+from app.features.retrieval.service import RetrievalService
+from app.features.run.errors import RunServiceError
 from app.features.run.message_utils import (
     extract_conversation_id,
     extract_file_ids,
@@ -32,6 +34,7 @@ from app.features.run.message_utils import (
     to_openai_messages,
 )
 from app.features.run.models import OpenAIMessage, RunRequest, StreamContext
+from app.features.run.retrieval_context import build_retrieval_context
 from app.features.run.streamers import ChatStreamer
 from app.features.run.web_search_utils import (
     WebSearchContentFetcher,
@@ -62,6 +65,7 @@ class RunService:
         streamer: ChatStreamer,
         title_generator: TitleGenerator,
         web_search: WebSearchService,
+        retrieval_service: RetrievalService | None = None,
         fetch_web_search_content: bool = False,
     ) -> None:
         """Initialize the run service.
@@ -75,6 +79,7 @@ class RunService:
         self._streamer = streamer
         self._title_generator = title_generator
         self._web_search = web_search
+        self._retrieval_service = retrieval_service
         self._fetch_web_search_content = fetch_web_search_content
         self._web_search_content_fetcher = WebSearchContentFetcher()
 
@@ -136,6 +141,7 @@ class RunService:
             messages=merged_messages,
             openai_messages=openai_messages,
             web_search=extract_web_search(payload),
+            tool_id=payload.tool_id,
         )
 
         return self._stream_with_persistence(
@@ -349,9 +355,45 @@ class RunService:
         request_payload: list[dict[str, Any]] = []
         try:
             openai_payload = list(context.openai_messages)
-            request_payload = [
-                message.model_dump(by_alias=True, exclude_none=True) for message in openai_payload
-            ]
+            if context.tool_id and not self._retrieval_service:
+                raise RunServiceError("Retrieval service is not configured.")
+            if context.tool_id and self._retrieval_service:
+                reasoning_id = f"reasoning_{uuid.uuid4()}"
+                yield ReasoningStartEvent(id=reasoning_id)
+                yield ReasoningDeltaEvent(
+                    id=reasoning_id,
+                    delta=f"Retrieval tool: {context.tool_id}\n",
+                )
+                retrieval_context = await build_retrieval_context(
+                    tool_id=context.tool_id,
+                    messages=context.messages,
+                    retrieval_service=self._retrieval_service,
+                )
+                if retrieval_context:
+                    openai_payload = [
+                        OpenAIMessage(
+                            role="system",
+                            content=retrieval_context.system_message,
+                        ),
+                        *openai_payload,
+                    ]
+                    query_preview = retrieval_context.query
+                    if len(query_preview) > 120:
+                        query_preview = query_preview[:117].rstrip() + "..."
+                    yield ReasoningDeltaEvent(
+                        id=reasoning_id,
+                        delta=f"Query: {query_preview}\n",
+                    )
+                    yield ReasoningDeltaEvent(
+                        id=reasoning_id,
+                        delta=f"Retrieved {len(retrieval_context.results)} results.\n",
+                    )
+                else:
+                    yield ReasoningDeltaEvent(
+                        id=reasoning_id,
+                        delta="No retrieval context was added.\n",
+                    )
+                yield ReasoningEndEvent(id=reasoning_id)
             if context.web_search.enabled:
                 start_event = self._streamer.ensure_message_start(context.message_id)
                 if start_event:
@@ -400,10 +442,6 @@ class RunService:
                                 OpenAIMessage(role="system", content=search_block),
                                 *openai_payload,
                             ]
-                            request_payload = [
-                                message.model_dump(by_alias=True, exclude_none=True)
-                                for message in openai_payload
-                            ]
                             yield ReasoningDeltaEvent(
                                 id=reasoning_id,
                                 delta=f"Found {len(results)} results.\n",
@@ -424,6 +462,9 @@ class RunService:
                                 delta="No results found.\n",
                             )
                     yield ReasoningEndEvent(id=reasoning_id)
+            request_payload = [
+                message.model_dump(by_alias=True, exclude_none=True) for message in openai_payload
+            ]
             async for delta in self._streamer.stream_chat(openai_payload, context.model_id):
                 response_text += delta
                 async for chunk in self._streamer.stream_text_delta(delta, context.message_id):

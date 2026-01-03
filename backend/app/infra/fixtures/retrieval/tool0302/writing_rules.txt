@@ -1,0 +1,5 @@
+Document: Writing rules
+Topic: customer success update for an internal newsletter.
+Press release format: title, summary, details, and contact.
+Avoid company-specific names unless provided in sources.
+Return plain text or HTML tables when appropriate.

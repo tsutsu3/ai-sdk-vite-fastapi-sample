@@ -1,0 +1,4 @@
+Document: Script style guide
+Topic: onboarding walkthrough for a new SaaS product.
+Tone: professional, calm, and instructional.
+Structure: intro, steps with rationale, closing summary.

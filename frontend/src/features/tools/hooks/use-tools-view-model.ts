@@ -80,13 +80,15 @@ export const useToolsViewModel = (): ToolsViewModel => {
   const { messages, status, sendMessage, regenerate, setMessages, stop } =
     useChat({
       transport: new DefaultChatTransport({
-        api: "/api/chat",
-        prepareSendMessagesRequest: ({ id, messages, trigger, body }) => ({
+        api: "/api/rag/query",
+        prepareSendMessagesRequest: ({ messages, body }) => ({
           body: {
-            ...(body ?? {}),
-            id,
-            trigger,
-            messages: messages.length ? [messages[messages.length - 1]] : [],
+            ...buildToolsRequestBody({
+              toolId: typeof body?.toolId === "string" ? body.toolId : "",
+              maxDocuments:
+                typeof body?.maxDocuments === "number" ? body.maxDocuments : undefined,
+              messages,
+            }),
           },
         }),
       }),
@@ -317,17 +319,13 @@ export const useToolsViewModel = (): ToolsViewModel => {
       if (!userMessage) {
         return;
       }
-      const body = buildToolsRequestBody({
+      const body = {
         toolId: toolId ?? "",
-        activeConversationId,
-        hydeEnabled: advancedSettings.hydeEnabled,
         maxDocuments: advancedSettings.maxDocuments[0],
-      });
+      };
       void regenerate({ messageId, body });
     },
     [
-      activeConversationId,
-      advancedSettings.hydeEnabled,
       advancedSettings.maxDocuments,
       regenerate,
       toolId,
@@ -451,7 +449,6 @@ export const useToolsViewModel = (): ToolsViewModel => {
     status,
     sendMessage,
     stop,
-    activeConversationId,
     toolId: toolId ?? "",
     advancedSettings,
   });

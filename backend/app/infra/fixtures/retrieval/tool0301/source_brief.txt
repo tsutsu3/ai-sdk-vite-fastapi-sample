@@ -1,0 +1,4 @@
+Document: Source brief
+Topic: regional sales performance snapshot.
+Example facts: region=EMEA, quarter=Q2-2025, growth=7.2%.
+Use this only as a template for citing sources.

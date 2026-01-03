@@ -15,7 +15,13 @@ TOOL_GROUPS: list[ToolGroup] = [
         items=[
             ToolItem(id="tool0201"),
             ToolItem(id="tool0202"),
-            ToolItem(id="tool0203"),
+        ],
+    ),
+    ToolGroup(
+        id="tool03",
+        items=[
+            ToolItem(id="tool0301"),
+            ToolItem(id="tool0302"),
         ],
     ),
 ]
