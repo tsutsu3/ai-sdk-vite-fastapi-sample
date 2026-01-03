@@ -2,6 +2,7 @@ import {
   BotIcon,
   CheckIcon,
   CopyIcon,
+  CpuIcon,
   SearchIcon,
   // RefreshCcwIcon,
   ThumbsDownIcon,
@@ -39,13 +40,69 @@ import {
 } from "@/components/ai-elements/reasoning";
 import { AlertTriangleIcon } from "lucide-react";
 import type { ChatMessageListViewModel } from "@/features/chat/hooks/use-chat-view-model";
-import { useState } from "react";
+import { memo, useEffect, useState } from "react";
 import type { RagProgressStep } from "@/shared/types/rag-progress";
 import type { RagSourceItem } from "@/shared/types/rag-sources";
 
 export type ChatMessageListProps = {
   viewModel: ChatMessageListViewModel;
 };
+
+const MessageRagProgress = memo(({ steps }: { steps: RagProgressStep[] }) => {
+  const isComplete = steps.length > 0 && steps.every((step) => step.status === "complete");
+  const [open, setOpen] = useState(!isComplete);
+  useEffect(() => {
+    if (isComplete) {
+      setOpen(false);
+    } else {
+      setOpen(true);
+    }
+  }, [isComplete]);
+  if (!steps.length) {
+    return null;
+  }
+  return (
+    <ChainOfThought open={open} onOpenChange={setOpen}>
+      <ChainOfThoughtHeader>RAG Progress</ChainOfThoughtHeader>
+      <ChainOfThoughtContent>
+          {steps.map((step) => {
+            const isSearch = step.id === "search";
+            const isAnswer = step.id === "answer";
+            const resultCount =
+              typeof step.resultCount === "number" ? step.resultCount : null;
+          const resultTitles = Array.isArray(step.resultTitles)
+            ? step.resultTitles.filter((title) => typeof title === "string")
+            : [];
+          const showResults = isSearch && (resultCount !== null || resultTitles.length);
+
+            return (
+              <ChainOfThoughtStep
+                key={step.id}
+                icon={isSearch ? SearchIcon : isAnswer ? CpuIcon : undefined}
+                label={step.label}
+                description={step.description}
+                status={step.status}
+              >
+              {showResults && (
+                <ChainOfThoughtSearchResults>
+                  {resultTitles.map((title, index) => (
+                    <ChainOfThoughtSearchResult
+                      key={`${step.id}-title-${index}`}
+                    >
+                      {title}
+                    </ChainOfThoughtSearchResult>
+                  ))}
+                </ChainOfThoughtSearchResults>
+              )}
+            </ChainOfThoughtStep>
+          );
+        })}
+      </ChainOfThoughtContent>
+    </ChainOfThought>
+  );
+});
+
+MessageRagProgress.displayName = "MessageRagProgress";
 
 export const ChatMessageList = ({ viewModel }: ChatMessageListProps) => {
   const {
@@ -86,51 +143,6 @@ export const ChatMessageList = ({ viewModel }: ChatMessageListProps) => {
     } catch {
       return [];
     }
-  };
-
-  const MessageRagProgress = ({ steps }: { steps: RagProgressStep[] }) => {
-    const [open, setOpen] = useState(true);
-    if (!steps.length) {
-      return null;
-    }
-    return (
-      <ChainOfThought open={open} onOpenChange={setOpen}>
-        <ChainOfThoughtHeader>RAG Progress</ChainOfThoughtHeader>
-        <ChainOfThoughtContent>
-          {steps.map((step) => {
-            const isSearch = step.id === "search";
-            const resultCount =
-              typeof step.resultCount === "number" ? step.resultCount : null;
-            const resultTitles = Array.isArray(step.resultTitles)
-              ? step.resultTitles.filter((title) => typeof title === "string")
-              : [];
-            const showResults = isSearch && (resultCount !== null || resultTitles.length);
-
-            return (
-              <ChainOfThoughtStep
-                key={step.id}
-                icon={isSearch ? SearchIcon : undefined}
-                label={step.label}
-                description={step.description}
-                status={step.status}
-              >
-                {showResults && (
-                  <ChainOfThoughtSearchResults>
-                    {resultTitles.map((title, index) => (
-                      <ChainOfThoughtSearchResult
-                        key={`${step.id}-title-${index}`}
-                      >
-                        {title}
-                      </ChainOfThoughtSearchResult>
-                    ))}
-                  </ChainOfThoughtSearchResults>
-                )}
-              </ChainOfThoughtStep>
-            );
-          })}
-        </ChainOfThoughtContent>
-      </ChainOfThought>
-    );
   };
 
   const resolveRagSources = (

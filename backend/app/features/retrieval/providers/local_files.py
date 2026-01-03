@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 from pathlib import Path
+import asyncio
+import random
 
 from app.features.retrieval.providers.base import RetrievalProvider
 from app.features.retrieval.schemas import RetrievalResult
@@ -137,6 +139,8 @@ class LocalFileRetrievalProvider(RetrievalProvider):
     ) -> Sequence[RetrievalResult]:
         if not query or not self._base_path.exists():
             return []
+
+        await asyncio.sleep(random.random())
 
         results: list[RetrievalResult] = []
         for path in self._iter_files(data_source):

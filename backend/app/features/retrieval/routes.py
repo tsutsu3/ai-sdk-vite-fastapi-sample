@@ -450,6 +450,12 @@ async def query_rag(
         query=user_query,
         sources=sources,
     )
+    logger.debug(
+        "rag.query.answer_payload provider=%s data_source=%s payload=%s",
+        provider.id,
+        data_source,
+        request_payload,
+    )
     rag_progress_steps = [
         {
             "id": "search",
