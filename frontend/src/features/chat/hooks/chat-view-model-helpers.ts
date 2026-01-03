@@ -14,6 +14,7 @@ export type DataEventMap = {
   "data-conversation": {
     convId: string;
     messageId?: string;
+    toolId?: string;
   };
   "data-model": {
     messageId: string;

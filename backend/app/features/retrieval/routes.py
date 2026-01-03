@@ -497,7 +497,10 @@ async def query_rag(
     async def stream() -> AsyncIterator[AnyStreamEvent]:
         nonlocal response_text
         yield StartEvent(messageId=message_id)
-        yield DataEvent.create("conversation", {"convId": conversation_id})
+        yield DataEvent.create(
+            "conversation",
+            {"convId": conversation_id, "toolId": tool_id_for_conversation},
+        )
         if selected_model:
             yield DataEvent.create("model", {"messageId": message_id, "modelId": selected_model})
         if generated_title:

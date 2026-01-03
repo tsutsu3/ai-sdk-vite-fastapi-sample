@@ -75,6 +75,7 @@ export const useToolsViewModel = (): ToolsViewModel => {
   const activeConversationId = conversationId ?? localConversationId ?? "";
   const activeConversationIdRef = useRef<string>("");
   const activeRagMessageIdRef = useRef<string>("");
+  const toolIdRef = useRef<string>("");
   const messagesRef = useRef<UIMessage[]>([]);
   const statusRef = useRef<ChatStatus>("ready");
   const messagesConversationIdRef = useRef<string>("");
@@ -117,25 +118,30 @@ export const useToolsViewModel = (): ToolsViewModel => {
           if (!nextConversationId) {
             return;
           }
+          const toolIdFromEvent =
+            typeof data.data.toolId === "string" ? data.data.toolId.trim() : "";
+          const resolvedToolId = toolIdFromEvent || toolId || "";
           if (conversationId && conversationId === nextConversationId) {
             activeConversationIdRef.current = nextConversationId;
+            toolIdRef.current = resolvedToolId;
             return;
           }
           if (activeConversationIdRef.current === nextConversationId) {
             return;
           }
           activeConversationIdRef.current = nextConversationId;
+          toolIdRef.current = resolvedToolId;
           skipMessageFetchForIdRef.current = nextConversationId;
           messagesConversationIdRef.current = nextConversationId;
           setLocalConversationId(nextConversationId);
           if (!conversationId) {
-            const toolPath = toolId
-              ? `/tools/${toolId}/c/${nextConversationId}`
+            const toolPath = resolvedToolId
+              ? `/tools/${resolvedToolId}/c/${nextConversationId}`
               : `/tools/c/${nextConversationId}`;
             navigate(toolPath);
           }
-          const historyUrl = toolId
-            ? `/tools/${toolId}/c/${nextConversationId}`
+          const historyUrl = resolvedToolId
+            ? `/tools/${resolvedToolId}/c/${nextConversationId}`
             : `/tools/c/${nextConversationId}`;
           upsertHistoryItem({
             name: "New Tool Chat",
@@ -189,8 +195,9 @@ export const useToolsViewModel = (): ToolsViewModel => {
         const titleValue = data.data.title.trim();
         if (!titleValue) return;
 
-        const historyUrl = toolId
-          ? `/tools/${toolId}/c/${conversationIdForEvent}`
+        const resolvedToolId = toolIdRef.current || toolId || "";
+        const historyUrl = resolvedToolId
+          ? `/tools/${resolvedToolId}/c/${conversationIdForEvent}`
           : `/tools/c/${conversationIdForEvent}`;
         upsertHistoryItem({
           name: titleValue,
@@ -209,6 +216,7 @@ export const useToolsViewModel = (): ToolsViewModel => {
       setRagProgressByMessageId({});
       setRagSourcesByMessageId({});
       activeRagMessageIdRef.current = "";
+      toolIdRef.current = "";
     }
   }, [activeConversationId]);
 
