@@ -3,6 +3,8 @@ import type {
   ChatMessageListViewModel,
   ChatScrollViewModel,
 } from "@/features/chat/hooks/chat-view-model-types";
+import type { RagProgressStep } from "@/shared/types/rag-progress";
+import type { RagSourceItem } from "@/shared/types/rag-sources";
 import type { ChatStatus } from "ai";
 
 export type ToolsAdvancedSettingsViewModel = {
@@ -32,29 +34,10 @@ export type ToolsPromptInputViewModel = {
   advancedSettings: ToolsAdvancedSettingsViewModel;
 };
 
-export type ToolsChainOfThoughtStep = {
-  id: string;
-  label: string;
-  description?: string;
-  status?: "complete" | "active" | "pending";
-};
+export type ToolsChainOfThoughtStep = RagProgressStep;
 
-export type ToolsChainOfThoughtViewModel = {
-  steps: ToolsChainOfThoughtStep[];
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-};
+export type ToolsSourceItem = RagSourceItem;
 
-export type ToolsSourceItem = {
-  id: string;
-  title: string;
-  url?: string;
-  description?: string;
-};
-
-export type ToolsSourcesViewModel = {
-  items: ToolsSourceItem[];
-};
 
 export type ToolsEmptyStateViewModel = {
   eyebrow: string;
@@ -69,6 +52,4 @@ export type ToolsViewModel = {
   messageList: ChatMessageListViewModel;
   prompt: ToolsPromptInputViewModel;
   emptyState: ToolsEmptyStateViewModel;
-  chainOfThought: ToolsChainOfThoughtViewModel;
-  sources: ToolsSourcesViewModel;
 };

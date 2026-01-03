@@ -208,6 +208,7 @@ class RunService:
             user_id,
             conversation_id,
             title,
+            tool_id="chat",
         )
         return conversation_id, messages, title, should_generate_title
 
@@ -300,6 +301,7 @@ class RunService:
             user_id,
             conversation_id,
             generated,
+            tool_id="chat",
         )
         return DataEvent.create("title", {"title": generated})
 
@@ -529,6 +531,7 @@ class RunService:
             context.user_id,
             context.conversation_id,
             final_title,
+            tool_id="chat",
         )
         await usage_repo.record_usage(
             UsageRecord(

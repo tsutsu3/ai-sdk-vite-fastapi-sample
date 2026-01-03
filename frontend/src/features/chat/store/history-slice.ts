@@ -7,6 +7,15 @@ const HISTORY_PAGE_SIZE = 50;
 const resolveHistoryPageSize = (value?: number) =>
   typeof value === "number" && value > 0 ? value : HISTORY_PAGE_SIZE;
 
+const resolveHistoryUrl = (conversation: { id?: string; toolId?: string | null }) => {
+  const id = conversation.id ?? crypto.randomUUID();
+  const toolId = conversation.toolId?.trim() ?? "";
+  if (toolId && toolId !== "chat") {
+    return `/tools/${toolId}/c/${id}`;
+  }
+  return `/chat/c/${id}`;
+};
+
 /**
  * History slice for conversation navigation.
  *
@@ -51,7 +60,7 @@ export const createHistorySlice: StateCreator<
       });
       const mapped = result.conversations.map((conversation) => ({
         name: conversation.title ?? "Conversation",
-        url: `/chat/c/${conversation.id ?? crypto.randomUUID()}`,
+        url: resolveHistoryUrl(conversation),
         updatedAt: conversation.updatedAt ?? new Date().toISOString(),
       }));
       const known = history.items;
@@ -113,7 +122,7 @@ export const createHistorySlice: StateCreator<
       });
       const mapped = result.conversations.map((conversation) => ({
         name: conversation.title ?? "Conversation",
-        url: `/chat/c/${conversation.id ?? crypto.randomUUID()}`,
+        url: resolveHistoryUrl(conversation),
         updatedAt: conversation.updatedAt ?? new Date().toISOString(),
       }));
       set((state) => {

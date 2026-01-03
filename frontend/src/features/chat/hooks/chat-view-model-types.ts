@@ -1,5 +1,7 @@
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 import type { ChatModel, ChatMessageMetadata } from "@/features/chat/types/chat";
+import type { RagProgressStep } from "@/shared/types/rag-progress";
+import type { RagSourceItem } from "@/shared/types/rag-sources";
 import type { ChatStatus, UIMessage } from "ai";
 import type { StickToBottomContext } from "use-stick-to-bottom";
 
@@ -48,6 +50,8 @@ export type ChatMessageListViewModel = {
   copiedMessageId: string | null;
   onCopyMessage: (message: UIMessage<ChatMessageMetadata>) => void;
   getModelIdForMessage: (messageIndex: number) => string | undefined;
+  ragProgressByMessageId?: Record<string, RagProgressStep[]>;
+  ragSourcesByMessageId?: Record<string, RagSourceItem[]>;
 };
 
 export type ChatScrollViewModel = {

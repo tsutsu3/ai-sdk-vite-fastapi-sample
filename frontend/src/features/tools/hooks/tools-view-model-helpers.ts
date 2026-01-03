@@ -76,16 +76,19 @@ export const buildToolsRequestBody = ({
   toolId,
   messages,
   maxDocuments,
+  chatId,
 }: {
   toolId: string;
   messages: UIMessage[];
   maxDocuments?: number;
+  chatId?: string;
 }) => {
   const retrievalMessages = buildRetrievalMessages(messages);
   const query = findLastUserMessage(retrievalMessages);
   return {
     query,
     dataSource: toolId || "default",
+    ...(chatId ? { chatId } : {}),
     ...(toolId ? { toolId } : {}),
     ...(typeof maxDocuments === "number" ? { topK: maxDocuments } : {}),
     ...(retrievalMessages.length ? { messages: retrievalMessages } : {}),

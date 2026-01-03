@@ -8,6 +8,7 @@ import type { UIMessage } from "ai";
 export type ConversationApiItem = {
   id?: string;
   title?: string;
+  toolId?: string | null;
   updatedAt?: string;
   createdAt?: string | null;
 };
@@ -34,6 +35,7 @@ type ConversationMessagesResponse = {
 export type ConversationDetailResponse = {
   id?: string;
   title?: string;
+  toolId?: string | null;
   updatedAt?: string;
   createdAt?: string | null;
   messages?: UIMessage<ChatMessageMetadata>[];

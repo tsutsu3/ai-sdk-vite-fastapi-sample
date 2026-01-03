@@ -9,7 +9,7 @@ class MessagePartRecord(BaseModel):
 
     model_config = ConfigDict(frozen=True, populate_by_name=True)
 
-    type: Literal["text", "file", "image"]
+    type: Literal["text", "file", "image", "rag-progress", "rag-sources"]
     text: str | None = None
     file_id: str | None = Field(default=None, alias="fileId")
     image_id: str | None = Field(default=None, alias="imageId")

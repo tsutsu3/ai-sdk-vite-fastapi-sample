@@ -152,16 +152,19 @@ class CosmosConversationRepository(ConversationRepository):
         user_id: str,
         conversation_id: str,
         title: str,
+        tool_id: str | None = None,
     ) -> ConversationRecord:
         pk = conversation_partition(tenant_id, user_id)
         updated_at = now_datetime()
         created_at = updated_at
+        existing_tool_id = None
         try:
             existing = await self._container.read_item(item=conversation_id, partition_key=pk)
             try:
                 existing_doc = ConversationDoc.model_validate(existing)
                 if existing_doc.user_id == user_id:
                     created_at = existing_doc.created_at or created_at
+                    existing_tool_id = existing_doc.tool_id
                 else:
                     raw_created_at = existing.get("createdAt")
                     if isinstance(raw_created_at, str):
@@ -195,6 +198,7 @@ class CosmosConversationRepository(ConversationRepository):
         record = ConversationRecord(
             id=conversation_id,
             title=title or DEFAULT_CHAT_TITLE,
+            toolId=tool_id or existing_tool_id or "chat",
             archived=False,
             updatedAt=updated_at,
             createdAt=created_at,
@@ -203,7 +207,7 @@ class CosmosConversationRepository(ConversationRepository):
             record,
             tenant_id=tenant_id,
             user_id=user_id,
-            tool_id="chat",
+            tool_id=record.toolId or "chat",
         )
         await self._container.upsert_item(doc.model_dump(by_alias=True, exclude_none=True))
         return record

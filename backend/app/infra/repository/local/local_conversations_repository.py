@@ -116,21 +116,25 @@ class LocalConversationRepository(ConversationRepository):
         user_id: str,
         conversation_id: str,
         title: str,
+        tool_id: str | None = None,
     ) -> ConversationRecord:
         updated_at = now_datetime()
         conversation_dir = self._conversation_dir(tenant_id, user_id)
         conversation_dir.mkdir(parents=True, exist_ok=True)
         path = conversation_dir / f"{conversation_id}.json"
         existing_created_at = None
+        existing_tool_id = None
         if path.exists():
             try:
                 existing = ConversationDoc.model_validate_json(path.read_text(encoding="utf-8"))
                 existing_created_at = existing.created_at
+                existing_tool_id = existing.tool_id
             except (OSError, ValueError):
                 existing_created_at = None
         metadata = ConversationRecord(
             id=conversation_id,
             title=title or DEFAULT_CHAT_TITLE,
+            toolId=tool_id or existing_tool_id or "chat",
             archived=False,
             updatedAt=updated_at,
             createdAt=existing_created_at or updated_at,
@@ -139,7 +143,7 @@ class LocalConversationRepository(ConversationRepository):
             metadata,
             tenant_id=tenant_id,
             user_id=user_id,
-            tool_id="chat",
+            tool_id=metadata.toolId or "chat",
         )
         path.write_text(doc.model_dump_json(), encoding="utf-8")
         return metadata

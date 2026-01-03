@@ -11,6 +11,7 @@ class MemoryConversationRepository(ConversationRepository):
             "conv-quickstart": ConversationRecord(
                 id="conv-quickstart",
                 title="Project kickoff chat",
+                toolId="chat",
                 archived=False,
                 updatedAt=now,
                 createdAt=now,
@@ -18,6 +19,7 @@ class MemoryConversationRepository(ConversationRepository):
             "conv-rag": ConversationRecord(
                 id="conv-rag",
                 title="RAG tuning ideas",
+                toolId="rag01",
                 archived=False,
                 updatedAt=now,
                 createdAt=now,
@@ -35,6 +37,7 @@ class MemoryConversationRepository(ConversationRepository):
             ConversationRecord(
                 id=conv.id,
                 title=conv.title or DEFAULT_CHAT_TITLE,
+                toolId=conv.toolId,
                 archived=False,
                 updatedAt=conv.updatedAt or now_datetime(),
                 createdAt=conv.createdAt,
@@ -68,6 +71,7 @@ class MemoryConversationRepository(ConversationRepository):
             ConversationRecord(
                 id=conv.id,
                 title=conv.title or DEFAULT_CHAT_TITLE,
+                toolId=conv.toolId,
                 archived=True,
                 updatedAt=conv.updatedAt or now_datetime(),
                 createdAt=conv.createdAt,
@@ -102,6 +106,7 @@ class MemoryConversationRepository(ConversationRepository):
         return ConversationRecord(
             id=conversation.id,
             title=conversation.title or DEFAULT_CHAT_TITLE,
+            toolId=conversation.toolId,
             updatedAt=conversation.updatedAt or now_datetime(),
             createdAt=conversation.createdAt,
         )
@@ -112,6 +117,7 @@ class MemoryConversationRepository(ConversationRepository):
         user_id: str,
         conversation_id: str,
         title: str,
+        tool_id: str | None = None,
     ) -> ConversationRecord:
         updated_at = now_datetime()
         conversation = self._conversation_store.get(conversation_id)
@@ -119,6 +125,7 @@ class MemoryConversationRepository(ConversationRepository):
             conversation = ConversationRecord(
                 id=conversation_id,
                 title=title or DEFAULT_CHAT_TITLE,
+                toolId=tool_id or "chat",
                 archived=False,
                 updatedAt=updated_at,
                 createdAt=updated_at,
@@ -127,6 +134,7 @@ class MemoryConversationRepository(ConversationRepository):
             conversation = conversation.model_copy(
                 update={
                     "title": title or DEFAULT_CHAT_TITLE,
+                    "toolId": tool_id or conversation.toolId,
                     "updatedAt": updated_at,
                 }
             )

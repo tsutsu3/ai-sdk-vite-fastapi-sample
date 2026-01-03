@@ -1,21 +1,6 @@
 import { GlobeIcon } from "lucide-react";
-import {
-  PromptInput,
-  PromptInputActionAddAttachments,
-  PromptInputActionMenu,
-  PromptInputActionMenuContent,
-  PromptInputActionMenuTrigger,
-  PromptInputAttachment,
-  PromptInputAttachments,
-  PromptInputBody,
-  PromptInputButton,
-  PromptInputFooter,
-  PromptInputHeader,
-  PromptInputSpeechButton,
-  PromptInputSubmit,
-  PromptInputTextarea,
-  PromptInputTools,
-} from "@/components/ai-elements/prompt-input";
+import { PromptInputButton } from "@/components/ai-elements/prompt-input";
+import { PromptInputShell } from "@/components/app/chat/prompt-input-shell";
 import { ChatModelSelector } from "./chat-model-selector";
 import { ChatAdvancedSettingsPopover } from "./chat-advanced-settings-popover";
 import type { ChatPromptInputViewModel } from "@/features/chat/hooks/use-chat-view-model";
@@ -42,37 +27,17 @@ export const ChatPromptInput = ({
   } = viewModel;
 
   return (
-    <PromptInput
+    <PromptInputShell
+      text={text}
+      status={status}
+      textareaRef={textareaRef}
+      placeholder={t("chatPromptPlaceholder")}
+      addAttachmentsLabel={t("addPhotosOrFiles")}
       onSubmit={onSubmitPrompt}
-      className="bg-background sticky bottom-0 mx-auto w-full max-w-3xl px-3 pb-6"
-      globalDrop
-      multiple
-    >
-      <PromptInputHeader>
-        <PromptInputAttachments>
-          {(attachment) => <PromptInputAttachment data={attachment} />}
-        </PromptInputAttachments>
-      </PromptInputHeader>
-      <PromptInputBody>
-        <PromptInputTextarea
-          onChange={(event) => onTextChange(event.target.value)}
-          ref={textareaRef}
-          value={text}
-          placeholder={t("chatPromptPlaceholder")}
-        />
-      </PromptInputBody>
-      <PromptInputFooter>
-        <PromptInputTools>
-          <PromptInputActionMenu>
-            <PromptInputActionMenuTrigger />
-            <PromptInputActionMenuContent>
-              <PromptInputActionAddAttachments label={t("addPhotosOrFiles")} />
-            </PromptInputActionMenuContent>
-          </PromptInputActionMenu>
-          <PromptInputSpeechButton
-            onTranscriptionChange={onTranscriptionChange}
-            textareaRef={textareaRef}
-          />
+      onTextChange={onTextChange}
+      onTranscriptionChange={onTranscriptionChange}
+      tools={
+        <>
           <PromptInputButton
             onClick={onToggleWebSearch}
             variant={useWebSearch ? "default" : "ghost"}
@@ -82,12 +47,8 @@ export const ChatPromptInput = ({
           </PromptInputButton>
           <ChatModelSelector viewModel={modelSelector} />
           <ChatAdvancedSettingsPopover viewModel={advancedSettings} />
-        </PromptInputTools>
-        <PromptInputSubmit
-          disabled={!text && !status}
-          status={status}
-        />
-      </PromptInputFooter>
-    </PromptInput>
+        </>
+      }
+    />
   );
 };

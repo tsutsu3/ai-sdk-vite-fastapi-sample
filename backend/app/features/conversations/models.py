@@ -10,6 +10,7 @@ class ConversationRecord(BaseModel):
 
     id: str
     title: str
+    toolId: str | None = None
     archived: bool = False
     updatedAt: datetime
     createdAt: datetime | None = None

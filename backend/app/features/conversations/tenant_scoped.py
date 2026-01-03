@@ -87,6 +87,7 @@ class TenantScopedConversationRepository:
         user_id: str,
         conversation_id: str,
         title: str,
+        tool_id: str | None = None,
     ) -> ConversationRecord:
         """Create or update conversation metadata.
 
@@ -102,6 +103,7 @@ class TenantScopedConversationRepository:
             user_id,
             conversation_id,
             title,
+            tool_id=tool_id,
         )
 
     async def archive_conversation(

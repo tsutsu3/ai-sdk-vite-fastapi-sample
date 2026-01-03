@@ -42,9 +42,12 @@ export const useToolsViewModel = (): ToolsViewModel => {
   const [reactionById, setReactionById] = useState<
     Record<string, "like" | "dislike" | null>
   >({});
-  const [chainSteps, setChainSteps] = useState<ToolsChainOfThoughtStep[]>([]);
-  const [chainOpen, setChainOpen] = useState(false);
-  const [sources, setSources] = useState<ToolsSourceItem[]>([]);
+  const [ragProgressByMessageId, setRagProgressByMessageId] = useState<
+    Record<string, ToolsChainOfThoughtStep[]>
+  >({});
+  const [ragSourcesByMessageId, setRagSourcesByMessageId] = useState<
+    Record<string, ToolsSourceItem[]>
+  >({});
   const [modelIdByMessageId, setModelIdByMessageId] = useState<
     Record<string, string>
   >({});
@@ -71,6 +74,7 @@ export const useToolsViewModel = (): ToolsViewModel => {
   const skipMessageFetchForIdRef = useRef<string | null>(null);
   const activeConversationId = conversationId ?? localConversationId ?? "";
   const activeConversationIdRef = useRef<string>("");
+  const activeRagMessageIdRef = useRef<string>("");
   const messagesRef = useRef<UIMessage[]>([]);
   const statusRef = useRef<ChatStatus>("ready");
   const messagesConversationIdRef = useRef<string>("");
@@ -87,6 +91,10 @@ export const useToolsViewModel = (): ToolsViewModel => {
               toolId: typeof body?.toolId === "string" ? body.toolId : "",
               maxDocuments:
                 typeof body?.maxDocuments === "number" ? body.maxDocuments : undefined,
+              chatId:
+                typeof body?.chatId === "string"
+                  ? body.chatId
+                  : activeConversationId || undefined,
               messages,
             }),
           },
@@ -142,19 +150,34 @@ export const useToolsViewModel = (): ToolsViewModel => {
             ...prev,
             [data.data.messageId]: data.data.modelId,
           }));
+          activeRagMessageIdRef.current = data.data.messageId;
           return;
         }
 
         if (isChainOfThoughtDataEvent(data)) {
-          setChainSteps((prev) => mergeChainOfThoughtSteps(prev, data.data));
-          if (typeof data.data.open === "boolean") {
-            setChainOpen(data.data.open);
+          const ragMessageId = activeRagMessageIdRef.current;
+          if (!ragMessageId) {
+            return;
           }
+          setRagProgressByMessageId((prev) => ({
+            ...prev,
+            [ragMessageId]: mergeChainOfThoughtSteps(
+              prev[ragMessageId] ?? [],
+              data.data,
+            ),
+          }));
           return;
         }
 
         if (isSourcesDataEvent(data)) {
-          setSources((prev) => mergeSources(prev, data.data));
+          const ragMessageId = activeRagMessageIdRef.current;
+          if (!ragMessageId) {
+            return;
+          }
+          setRagSourcesByMessageId((prev) => ({
+            ...prev,
+            [ragMessageId]: mergeSources(prev[ragMessageId] ?? [], data.data),
+          }));
           return;
         }
 
@@ -179,6 +202,14 @@ export const useToolsViewModel = (): ToolsViewModel => {
 
   useEffect(() => {
     activeConversationIdRef.current = activeConversationId;
+  }, [activeConversationId]);
+
+  useEffect(() => {
+    if (!activeConversationId) {
+      setRagProgressByMessageId({});
+      setRagSourcesByMessageId({});
+      activeRagMessageIdRef.current = "";
+    }
   }, [activeConversationId]);
 
   useEffect(() => {
@@ -322,11 +353,13 @@ export const useToolsViewModel = (): ToolsViewModel => {
       const body = {
         toolId: toolId ?? "",
         maxDocuments: advancedSettings.maxDocuments[0],
+        ...(activeConversationId ? { chatId: activeConversationId } : {}),
       };
       void regenerate({ messageId, body });
     },
     [
       advancedSettings.maxDocuments,
+      activeConversationId,
       regenerate,
       toolId,
     ],
@@ -450,6 +483,7 @@ export const useToolsViewModel = (): ToolsViewModel => {
     sendMessage,
     stop,
     toolId: toolId ?? "",
+    activeConversationId,
     advancedSettings,
   });
 
@@ -486,6 +520,8 @@ export const useToolsViewModel = (): ToolsViewModel => {
       copiedMessageId: messageList.copiedMessageId,
       onCopyMessage: messageList.handleCopy,
       getModelIdForMessage: messageList.getModelIdForMessage,
+      ragProgressByMessageId,
+      ragSourcesByMessageId,
     },
     prompt,
     emptyState: {
@@ -499,14 +535,6 @@ export const useToolsViewModel = (): ToolsViewModel => {
           ? resolvedContent.subtitle
           : t("toolsEmptySubtitle", { tool: toolLabel }),
       samples: samples.slice(0, 3),
-    },
-    chainOfThought: {
-      steps: chainSteps,
-      open: chainOpen,
-      onOpenChange: setChainOpen,
-    },
-    sources: {
-      items: sources,
     },
   };
 };

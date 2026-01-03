@@ -1,0 +1,4 @@
+Document: Supply chain risk signals
+Topic: early warning indicators for supplier risk and disruption.
+Signals: late shipments, sudden quality drift, regulatory changes, financial instability, single-source dependency.
+Actions: monitor lead times, review quality metrics, diversify suppliers, update risk register.

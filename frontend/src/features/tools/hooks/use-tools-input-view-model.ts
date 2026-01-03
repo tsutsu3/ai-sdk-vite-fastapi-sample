@@ -10,6 +10,7 @@ type UseToolsInputViewModelArgs = {
   sendMessage: ReturnType<typeof useChat>["sendMessage"];
   stop: ReturnType<typeof useChat>["stop"];
   toolId: string;
+  activeConversationId: string;
   advancedSettings: ToolsPromptInputViewModel["advancedSettings"];
 };
 
@@ -19,6 +20,7 @@ export const useToolsInputViewModel = ({
   sendMessage,
   stop,
   toolId,
+  activeConversationId,
   advancedSettings,
 }: UseToolsInputViewModelArgs): ToolsPromptInputViewModel => {
   const [text, setText] = useState<string>("");
@@ -33,6 +35,7 @@ export const useToolsInputViewModel = ({
       const body = {
         toolId,
         maxDocuments: advancedSettings.maxDocuments[0],
+        ...(activeConversationId ? { chatId: activeConversationId } : {}),
       };
 
       sendMessage(
@@ -46,6 +49,7 @@ export const useToolsInputViewModel = ({
     },
     [
       advancedSettings.maxDocuments,
+      activeConversationId,
       sendMessage,
       toolId,
     ],

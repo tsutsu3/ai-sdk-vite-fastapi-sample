@@ -6,7 +6,7 @@ import {
 import type { ChatViewModel } from "@/features/chat/hooks/use-chat-view-model";
 import { useEffect, useRef } from "react";
 import type { StickToBottomContext } from "use-stick-to-bottom";
-import { ChatMessageList } from "./chat-message-list";
+import { ChatMessageList } from "@/components/app/chat/chat-message-list";
 import { ChatPromptInput } from "./chat-prompt-input";
 import { Loader } from "@/components/ai-elements/loader";
 import { useTranslation } from "react-i18next";

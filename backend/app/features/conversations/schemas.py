@@ -25,6 +25,7 @@ class ConversationResponse(BaseModel):
 
     id: str
     title: str
+    toolId: str | None = None
     messages: list[MessageRecord]
     updatedAt: datetime
 

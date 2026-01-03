@@ -1,0 +1,4 @@
+Document: Vendor compliance checklist
+Topic: supplier onboarding and compliance verification.
+Guidance: Check certifications, confirm audit cadence, validate insurance, and log exceptions.
+Checklist: verify certifications, verify audit schedule, verify insurance coverage, record deviations.

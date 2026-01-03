@@ -18,6 +18,7 @@ class RetrievalQueryRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True, frozen=True)
 
     query: str
+    chat_id: str | None = Field(default=None, alias="chatId")
     data_source: str = Field(alias="dataSource")
     provider: str = "memory"
     tool_id: str | None = Field(default=None, alias="toolId")

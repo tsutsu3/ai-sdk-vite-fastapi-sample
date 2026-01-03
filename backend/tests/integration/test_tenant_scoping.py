@@ -40,11 +40,13 @@ class CapturingConversationRepository(ConversationRepository):
         user_id: str,
         conversation_id: str,
         title: str,
+        tool_id: str | None = None,
     ):
         updated_at = datetime.now(timezone.utc)
         return ConversationRecord(
             id=conversation_id,
             title=title,
+            toolId=tool_id,
             archived=False,
             updatedAt=updated_at,
             createdAt=updated_at,

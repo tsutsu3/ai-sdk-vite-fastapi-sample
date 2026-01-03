@@ -98,6 +98,7 @@ class ConversationService:
         return ConversationResponse(
             id=metadata.id,
             title=metadata.title,
+            toolId=metadata.toolId,
             updatedAt=metadata.updatedAt,
             messages=messages,
         )

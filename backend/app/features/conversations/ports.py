@@ -84,6 +84,7 @@ class ConversationRepository(Protocol):
         user_id: str,
         conversation_id: str,
         title: str,
+        tool_id: str | None = None,
     ) -> ConversationRecord:
         """Create or update conversation metadata.
 

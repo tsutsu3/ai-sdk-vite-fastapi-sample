@@ -194,6 +194,7 @@ async def update_conversation(
     return ConversationResponse(
         id=updated.id,
         title=updated.title,
+        toolId=updated.toolId,
         updatedAt=updated.updatedAt,
         messages=messages,
     )

@@ -29,7 +29,7 @@ def conversation_record_to_doc(
     payload = {
         "id": record.id,
         "tenant_id": tenant_id,
-        "tool_id": tool_id,
+        "tool_id": record.toolId or tool_id,
         "user_id": user_id,
         "title": record.title,
         "archived": record.archived,
@@ -45,6 +45,7 @@ def conversation_doc_to_record(doc: ConversationDoc) -> ConversationRecord:
     return ConversationRecord(
         id=doc.id,
         title=doc.title or DEFAULT_CHAT_TITLE,
+        toolId=doc.tool_id,
         archived=doc.archived,
         updatedAt=_ensure_datetime(doc.updated_at) or now_datetime(),
         createdAt=_ensure_datetime(doc.created_at),
