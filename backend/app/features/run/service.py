@@ -551,6 +551,13 @@ class RunService:
             final_title,
             tool_id="chat",
         )
+        logger.debug(
+            "run.stream.response_raw conversation_id=%s message_id=%s model_id=%s text=%s",
+            context.conversation_id,
+            context.message_id,
+            context.model_id,
+            response_text,
+        )
         await usage_repo.record_usage(
             UsageRecord(
                 tenant_id=context.tenant_id,

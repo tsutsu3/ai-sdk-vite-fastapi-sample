@@ -22,14 +22,9 @@ class VertexSearchProvider(RetrievalProvider):
             raise RuntimeError("Vertex AI Search settings are not configured.")
         self._project_id = config.vertex_search_project_id
         self._location = config.vertex_search_location
-        self._collection = config.vertex_search_collection or "default_collection"
         self._data_store = config.vertex_search_data_store
         self._serving_config = config.vertex_search_serving_config or "default_search"
-        self._endpoint = (
-            f"{self._location}-discoveryengine.googleapis.com"
-            if self._location != "global"
-            else None
-        )
+        self._engine_data_type = 0
         logger.info(
             "vertex_search.ready project=%s location=%s data_store=%s",
             self._project_id,
@@ -37,47 +32,52 @@ class VertexSearchProvider(RetrievalProvider):
             self._data_store,
         )
 
-    def _build_client(self):
+    @staticmethod
+    def _extract_document_fields(metadata: dict[str, Any], text: str) -> tuple[str, str | None, str | None]:
+        title = metadata.get("title") or metadata.get("name")
+        url = metadata.get("source") or metadata.get("link") or metadata.get("url")
+        return (
+            text,
+            str(url) if isinstance(url, str) and url else None,
+            str(title) if isinstance(title, str) and title else None,
+        )
+
+    def _build_retriever(self, *, data_source: str, top_k: int):
         try:
-            from google.cloud import discoveryengine_v1beta as discoveryengine
+            from langchain_google_community.vertex_ai_search import (
+                VertexAISearchRetriever,
+                VertexAISearchSummaryTool,
+            )
         except ImportError as exc:
             raise RuntimeError(
-                "google-cloud-discoveryengine is required for Vertex AI Search."
+                "langchain-google-community is required for Vertex AI Search."
             ) from exc
-        if self._endpoint:
-            return discoveryengine.SearchServiceClient(
-                client_options={"api_endpoint": self._endpoint}
-            )
-        return discoveryengine.SearchServiceClient()
-
-    def _serving_config_path(self) -> str:
-        return (
-            f"projects/{self._project_id}/locations/{self._location}/collections/{self._collection}"
-            f"/dataStores/{self._data_store}/servingConfigs/{self._serving_config}"
+        filter_expression = ""
+        if data_source:
+            filter_expression = f'data_source = "{data_source}"'
+        retriever = VertexAISearchRetriever(
+            project_id=self._project_id,
+            location_id=self._location,
+            data_store_id=self._data_store,
+            serving_config_id=self._serving_config,
+            engine_data_type=self._engine_data_type,
+            max_documents=top_k,
+            filter=filter_expression or None,
+            custom_embedding_ratio=None,
         )
-
-    @staticmethod
-    def _extract_document_fields(document: Any) -> tuple[str, str | None, str | None]:
-        data: dict[str, Any] = {}
-        try:
-            if document.derived_struct_data:
-                data = dict(document.derived_struct_data)
-        except Exception:
-            data = {}
-        if not data:
-            try:
-                if document.struct_data:
-                    data = dict(document.struct_data)
-            except Exception:
-                data = {}
-        title = data.get("title") or data.get("name")
-        url = data.get("link") or data.get("url") or data.get("uri")
-        text = data.get("snippet") or data.get("text") or data.get("content") or data.get("body")
-        return (
-            str(text) if isinstance(text, str) else "",
-            str(url) if isinstance(url, str) else None,
-            str(title) if isinstance(title, str) else None,
+        summary_tool = VertexAISearchSummaryTool(
+            name="vertex-ai-search-summary",
+            description="Summarize Vertex AI Search results with citations.",
+            project_id=self._project_id,
+            location_id=self._location,
+            data_store_id=self._data_store,
+            serving_config_id=self._serving_config,
+            engine_data_type=self._engine_data_type,
+            max_documents=top_k,
+            filter=filter_expression or None,
+            custom_embedding_ratio=None,
         )
+        return retriever, summary_tool
 
     async def search(
         self,
@@ -89,40 +89,47 @@ class VertexSearchProvider(RetrievalProvider):
     ) -> list[RetrievalResult]:
         if not query:
             return []
-        client = self._build_client()
-        serving_config = self._serving_config_path()
-        filter_expression = ""
-        if data_source:
-            filter_expression = f'data_source = "{data_source}"'
-
-        def _run_search():
-            from google.cloud import discoveryengine_v1beta as discoveryengine
-
-            request = discoveryengine.SearchRequest(
-                serving_config=serving_config,
-                query=query,
-                page_size=top_k,
-                filter=filter_expression or None,
-            )
-            return list(client.search(request=request))
-
-        results = await asyncio.to_thread(_run_search)
+        retriever, _ = self._build_retriever(data_source=data_source, top_k=top_k)
+        documents = await asyncio.to_thread(retriever.invoke, query)
         output: list[RetrievalResult] = []
-        for result in results:
-            document = getattr(result, "document", None)
-            if not document:
-                continue
-            text, url, title = self._extract_document_fields(document)
+        for doc in documents:
+            metadata = dict(getattr(doc, "metadata", {}) or {})
+            text = getattr(doc, "page_content", "") or ""
+            text, url, title = self._extract_document_fields(metadata, text)
             if not url:
                 continue
-            output.append(
-                RetrievalResult(
-                    text=text or "",
-                    url=url,
-                    title=title,
-                    score=getattr(result, "score", None),
-                )
-            )
+            output.append(RetrievalResult(text=text or "", url=url, title=title))
             if len(output) >= top_k:
                 break
         return output
+
+    async def search_with_answer(
+        self,
+        query: str,
+        data_source: str,
+        top_k: int = 5,
+        *,
+        summary_prompt: str | None = None,
+    ) -> tuple[list[RetrievalResult], str]:
+        if not query:
+            return [], ""
+        retriever, summary_tool = self._build_retriever(
+            data_source=data_source, top_k=top_k
+        )
+        summary_tool.summary_result_count = min(top_k, 5)
+        summary_tool.summary_include_citations = True
+        if summary_prompt:
+            summary_tool.summary_prompt = summary_prompt
+        summary_text = await asyncio.to_thread(summary_tool.run, query)
+        documents = await asyncio.to_thread(retriever.invoke, query)
+        output: list[RetrievalResult] = []
+        for doc in documents:
+            metadata = dict(getattr(doc, "metadata", {}) or {})
+            text = getattr(doc, "page_content", "") or ""
+            text, url, title = self._extract_document_fields(metadata, text)
+            if not url:
+                continue
+            output.append(RetrievalResult(text=text or "", url=url, title=title))
+            if len(output) >= top_k:
+                break
+        return output, summary_text.strip()

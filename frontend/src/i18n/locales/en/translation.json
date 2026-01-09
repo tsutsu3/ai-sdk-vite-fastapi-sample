@@ -100,7 +100,7 @@
   "homeToolDescription.tool0201": "Tune custom retrievers with document-backed tips.",
   "homeToolDescription.tool0202": "Filter by context and pull only relevant sources.",
   "homeToolDescription.tool0203": "Compare model trade-offs with cited evidence.",
-  "homeToolDescription.tool0301": "Gather press release sources and summarize.",
+  "homeToolDescription.tool0301": "Search Vertex AI Search data stores and summarize.",
   "homeToolDescription.tool0302": "Draft press releases from structured inputs.",
   "toolsEmptyFallbackToolLabel": "Tool",
   "toolsEmptyEyebrow": "{{tool}}",
@@ -204,6 +204,15 @@
         "Compare model choices and trade-offs.",
         "Summarize performance notes with sources.",
         "List recommended defaults and why."
+      ]
+    },
+    "tool0301": {
+      "title": "Press release research",
+      "subtitle": "Collect evidence from Vertex AI Search data stores.",
+      "samples": [
+        "Find three recent press release source documents.",
+        "Summarize relevant sources with citations.",
+        "Gather evidence that supports the announcement."
       ]
     }
   }

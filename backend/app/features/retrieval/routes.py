@@ -48,6 +48,7 @@ from app.features.retrieval.langchain_adapters import (
 from app.features.retrieval.providers.local_files import LocalFileRetrievalProvider
 from app.features.retrieval.providers.memory import MemoryRetrievalProvider
 from app.features.retrieval.providers.postgres import PostgresRetrievalProvider
+from app.features.retrieval.providers.vertex_search import VertexSearchProvider
 from app.features.retrieval.schemas import (
     RetrievalMessage,
     RetrievalQueryRequest,
@@ -314,6 +315,14 @@ async def _stream_answer(
         yield buffer
 
 
+async def _stream_plain_text(text: str) -> AsyncIterator[str]:
+    if not text:
+        return
+    chunk_size = 128
+    for index in range(0, len(text), chunk_size):
+        yield text[index : index + chunk_size]
+
+
 @router.post(
     "/rag/query",
     response_class=StreamingResponse,
@@ -425,20 +434,40 @@ async def query_rag(
             [user_message],
         )
 
+    answer_text = ""
     try:
-
-        async def _retrieve(_: str) -> list:
-            return await retrieve_documents(
-                service,
-                provider_id=provider.id,
-                data_source=data_source,
-                query=search_query,
+        if mode == "searchandanswer":
+            if not isinstance(provider, VertexSearchProvider):
+                raise HTTPException(
+                    status_code=400,
+                    detail="searchandanswer mode requires Vertex AI Search provider.",
+                )
+            results, answer_text = await provider.search_with_answer(
+                search_query,
+                data_source,
                 top_k=payload.top_k,
-                query_embedding=payload.query_embedding,
+                summary_prompt=tool.system_prompt if tool else None,
             )
+            logger.debug(
+                "rag.query.search_answer provider=%s data_source=%s text=%s",
+                provider.id,
+                data_source,
+                answer_text,
+            )
+        else:
 
-        documents = await RunnableLambda(_retrieve).ainvoke(search_query)
-        results = documents_to_results(documents)
+            async def _retrieve(_: str) -> list:
+                return await retrieve_documents(
+                    service,
+                    provider_id=provider.id,
+                    data_source=data_source,
+                    query=search_query,
+                    top_k=payload.top_k,
+                    query_embedding=payload.query_embedding,
+                )
+
+            documents = await RunnableLambda(_retrieve).ainvoke(search_query)
+            results = documents_to_results(documents)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except RuntimeError as exc:
@@ -483,7 +512,10 @@ async def query_rag(
     if mode != "retrievethenread":
         user_query = last_user or user_query
 
-    deployment, selected_model = _resolve_azure_deployment(request, payload.model)
+    deployment = ""
+    selected_model = ""
+    if mode != "searchandanswer":
+        deployment, selected_model = _resolve_azure_deployment(request, payload.model)
     message_id = f"msg-{uuid.uuid4()}"
     text_id = "text-1"
     response_text = ""
@@ -498,18 +530,27 @@ async def query_rag(
         if result.url
     ]
     result_titles = _resolve_result_titles(results)
-    request_payload = _build_answer_payload(
-        system_prompt=system_prompt,
-        messages=payload.messages,
-        query=user_query,
-        sources=sources,
-    )
-    logger.debug(
-        "rag.query.answer_payload provider=%s data_source=%s payload=%s",
-        provider.id,
-        data_source,
-        request_payload,
-    )
+    request_payload = None
+    if mode != "searchandanswer":
+        request_payload = _build_answer_payload(
+            system_prompt=system_prompt,
+            messages=payload.messages,
+            query=user_query,
+            sources=sources,
+        )
+        logger.debug(
+            "rag.query.answer_payload provider=%s data_source=%s payload=%s",
+            provider.id,
+            data_source,
+            request_payload,
+        )
+    else:
+        logger.debug(
+            "rag.query.answer_payload provider=%s data_source=%s payload=%s",
+            provider.id,
+            data_source,
+            {"query": user_query, "mode": mode},
+        )
     rag_progress_steps = [
         {
             "id": "search",
@@ -597,17 +638,33 @@ async def query_rag(
             },
         )
         yield TextStartEvent(id=text_id)
-        async for delta in _stream_answer(
-            request=request,
-            deployment=deployment,
-            system_prompt=system_prompt,
-            messages=payload.messages,
-            query=user_query,
-            sources=sources,
-        ):
-            yield TextDeltaEvent(id=text_id, delta=delta)
-            response_text += delta
+        if mode == "searchandanswer":
+            if answer_text:
+                async for delta in _stream_plain_text(answer_text):
+                    yield TextDeltaEvent(id=text_id, delta=delta)
+                    response_text += delta
+            else:
+                response_text = "No summary was returned from Vertex AI Search."
+                yield TextDeltaEvent(id=text_id, delta=response_text)
+        else:
+            async for delta in _stream_answer(
+                request=request,
+                deployment=deployment,
+                system_prompt=system_prompt,
+                messages=payload.messages,
+                query=user_query,
+                sources=sources,
+            ):
+                yield TextDeltaEvent(id=text_id, delta=delta)
+                response_text += delta
         yield TextEndEvent(id=text_id)
+        logger.debug(
+            "rag.query.response_raw provider=%s data_source=%s message_id=%s text=%s",
+            provider.id,
+            data_source,
+            message_id,
+            response_text,
+        )
         yield DataEvent.create(
             "cot",
             {"step": {"id": "answer", "status": "complete"}},

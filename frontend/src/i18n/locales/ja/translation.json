@@ -100,7 +100,7 @@
   "homeToolDescription.tool0201": "リトリーバー調整のポイントを引用付きで。",
   "homeToolDescription.tool0202": "条件に合う資料だけを絞り込み。",
   "homeToolDescription.tool0203": "モデル比較を根拠付きで整理。",
-  "homeToolDescription.tool0301": "プレスリリース用の資料を検索して整理。",
+  "homeToolDescription.tool0301": "Vertex AI Search のデータストアを検索して整理。",
   "homeToolDescription.tool0302": "プレスリリースの下書きを作成。",
   "toolsEmptyFallbackToolLabel": "ツール",
   "toolsEmptyEyebrow": "{{tool}}",
@@ -204,6 +204,15 @@
         "モデル選定の比較ポイントを整理してください。",
         "性能に関する注意点を根拠付きでまとめてください。",
         "推奨デフォルト設定と理由を示してください。"
+      ]
+    },
+    "tool0301": {
+      "title": "プレスリリース向けの検索",
+      "subtitle": "Vertex AI Search のデータストアから根拠を集めます。",
+      "samples": [
+        "最新のプレスリリース関連資料を3件探してください。",
+        "関連情報を引用付きで整理してください。",
+        "発表内容の根拠になりそうな資料をまとめてください。"
       ]
     }
   }

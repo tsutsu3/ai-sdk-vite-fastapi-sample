@@ -164,4 +164,11 @@ class LangChainChatStreamer(BaseStreamer):
             llm = llm.bind(max_tokens=40, temperature=0.2)
         chain = title_prompt | llm
         response = await chain.ainvoke({"user_text": user_text})
-        return (response.content or "").strip()
+        title = (response.content or "").strip()
+        logger.debug(
+            "chat.title.result provider=%s model_id=%s title=%s",
+            provider,
+            resolved_model,
+            title,
+        )
+        return title

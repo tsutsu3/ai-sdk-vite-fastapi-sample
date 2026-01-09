@@ -22,7 +22,7 @@ class RetrievalQueryRequest(BaseModel):
     data_source: str = Field(alias="dataSource")
     provider: str = "memory"
     tool_id: str | None = Field(default=None, alias="toolId")
-    mode: Literal["retrievethenread", "chatreadretrieveread"] | None = None
+    mode: Literal["retrievethenread", "chatreadretrieveread", "searchandanswer"] | None = None
     model: str | None = None
     messages: list[RetrievalMessage] = Field(default_factory=list)
     top_k: int = Field(default=5, alias="topK", ge=1, le=50)

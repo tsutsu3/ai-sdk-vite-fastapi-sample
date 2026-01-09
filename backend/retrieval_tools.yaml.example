@@ -82,9 +82,9 @@ tools:
       If you cannot generate a search query, return the single digit 0.
   tool0301:
     data_source: tool0301
-    provider: local-files
+    provider: vertex-search
     top_k: 5
-    mode: chatreadretrieveread
+    mode: searchandanswer
     max_result_chars: 1000
     system_prompt: |-
       Assistant answers questions about regional sales performance snapshots.
