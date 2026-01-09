@@ -17,3 +17,5 @@ dist/
 
 retrieval_tools.yaml*
 !retrieval_tools.yaml.example
+
+scripts/*.csv
