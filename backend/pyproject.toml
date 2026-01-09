@@ -14,10 +14,11 @@ dependencies = [
   "langchain",
   "langchain-openai",
   "langchain-ollama",
-  "langchain-google-vertexai",
-  "google-cloud-aiplatform",
+  "langchain-google-genai",
+  "google-generativeai",
   "google-cloud-firestore",
   "google-cloud-storage",
+  "google-cloud-discoveryengine",
   "opentelemetry-api",
   "opentelemetry-sdk",
   "opentelemetry-exporter-otlp",
@@ -38,7 +39,7 @@ azure = [
   "azure-monitor-opentelemetry-exporter",
   "opentelemetry-instrumentation-openai",
 ]
-gcp = ["google-cloud-storage", "google-cloud-firestore", "google-cloud-aiplatform"]
+gcp = ["google-cloud-storage", "google-cloud-firestore", "google-cloud-discoveryengine", "langchain-google-genai", "google-generativeai"]
 
 [tool.uvicorn]
 factory = false

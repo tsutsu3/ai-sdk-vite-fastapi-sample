@@ -85,15 +85,14 @@ class LangChainChatStreamer(BaseStreamer):
             )
         if provider == "gcp":
             try:
-                from langchain_google_vertexai import ChatVertexAI
+                from langchain_google_genai import ChatGoogleGenerativeAI
             except ImportError as exc:
                 raise RuntimeError(
-                    "langchain-google-vertexai is required for GCP chat provider."
+                    "langchain-google-genai is required for GCP chat provider."
                 ) from exc
-            return ChatVertexAI(
-                model_name=model_id,
-                project=self._config.gcp_project_id or None,
-                location=self._config.gcp_location or None,
+            return ChatGoogleGenerativeAI(
+                model=model_id,
+                api_key=self._config.google_api_key or None,
                 streaming=streaming,
             )
         return None

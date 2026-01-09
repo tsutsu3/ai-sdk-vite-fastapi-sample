@@ -26,6 +26,7 @@ from app.features.retrieval.providers.base import RetrievalProvider
 from app.features.retrieval.providers.local_files import LocalFileRetrievalProvider
 from app.features.retrieval.providers.memory import MemoryRetrievalProvider
 from app.features.retrieval.providers.postgres import PostgresRetrievalProvider
+from app.features.retrieval.providers.vertex_search import VertexSearchProvider
 from app.features.retrieval.service import RetrievalService
 from app.features.retrieval.tools import initialize_tool_specs
 from app.features.run.service import RunService
@@ -143,7 +144,7 @@ def _build_web_search_service(settings: Settings) -> WebSearchService:
     )
 
 
-def _build_retrieval_service(settings: Settings) -> RetrievalService:
+def _build_retrieval_service(settings: Settings, app_config: AppConfig) -> RetrievalService:
     """Construct the retrieval service based on settings.
 
     Args:
@@ -171,6 +172,12 @@ def _build_retrieval_service(settings: Settings) -> RetrievalService:
             settings.retrieval_pg_source_column,
         ),
     }
+    if app_config.vertex_search_data_store and app_config.vertex_search_project_id:
+        providers["vertex-search"] = VertexSearchProvider(app_config)
+    else:
+        logging.getLogger(__name__).info(
+            "vertex-search disabled (missing VERTEX_SEARCH_PROJECT_ID or VERTEX_SEARCH_DATA_STORE)"
+        )
     return RetrievalService(
         providers,
         default_provider=settings.retrieval_default_provider or "memory",
@@ -241,7 +248,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.app_config, app.state.storage_capabilities
     )
     app.state.web_search_service = _build_web_search_service(settings)
-    app.state.retrieval_service = _build_retrieval_service(settings)
+    app.state.retrieval_service = _build_retrieval_service(settings, app.state.app_config)
     app.state.run_service = _build_run_service(
         app.state.app_config,
         app.state.chat_capabilities,

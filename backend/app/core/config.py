@@ -96,6 +96,7 @@ class AppConfig(BaseModel):
     gcp_location: str = ""
     gcs_bucket: str = ""
     gcs_prefix: str = "uploads"
+    google_api_key: str = ""
 
     # Ollama
     ollama_base_url: str = "http://localhost:11434"
@@ -157,6 +158,11 @@ class AppConfig(BaseModel):
     retrieval_pg_source_column: str = "data_source"
     retrieval_local_path: str = "backend/app/infra/fixtures/retrieval"
     retrieval_tools_config_path: str = "retrieval_tools.yaml"
+    vertex_search_project_id: str = ""
+    vertex_search_location: str = "global"
+    vertex_search_collection: str = "default_collection"
+    vertex_search_data_store: str = ""
+    vertex_search_serving_config: str = "default_search"
 
     # Auth provider
     auth_provider: AuthProvider = AuthProvider.local
@@ -277,6 +283,7 @@ class Settings(BaseSettings):
     gcp_location: str = ""
     gcs_bucket: str = ""
     gcs_prefix: str = "uploads"
+    google_api_key: str = ""
 
     # Ollama
     ollama_base_url: str = "http://localhost:11434"
@@ -330,6 +337,11 @@ class Settings(BaseSettings):
     retrieval_pg_source_column: str = "data_source"
     retrieval_local_path: str = "backend/app/infra/fixtures/retrieval"
     retrieval_tools_config_path: str = "retrieval_tools.yaml"
+    vertex_search_project_id: str = ""
+    vertex_search_location: str = "global"
+    vertex_search_collection: str = "default_collection"
+    vertex_search_data_store: str = ""
+    vertex_search_serving_config: str = "default_search"
 
     # Auth provider
     auth_provider: AuthProvider = AuthProvider.local
@@ -540,8 +552,8 @@ class Settings(BaseSettings):
                 raise ValueError("AZURE_OPENAI_DEPLOYMENTS must be configured")
 
         if "gcp" in self.chat_providers_set:
-            if not self.gcp_project_id or not self.gcp_location:
-                raise ValueError("GCP_PROJECT_ID and GCP_LOCATION are required for GCP chat")
+            if not self.google_api_key:
+                raise ValueError("GOOGLE_API_KEY is required for GCP chat")
             if not self.gcp_chat_models_set:
                 raise ValueError("GCP_CHAT_MODELS must be configured")
 
@@ -602,6 +614,7 @@ class Settings(BaseSettings):
             gcp_location=self.gcp_location,
             gcs_bucket=self.gcs_bucket,
             gcs_prefix=self.gcs_prefix,
+            google_api_key=self.google_api_key,
             ollama_base_url=self.ollama_base_url,
             chat_model_chefs=self.chat_model_chefs_dict,
             chat_model_chef_slugs=self.chat_model_chef_slugs_dict,
@@ -641,6 +654,13 @@ class Settings(BaseSettings):
             retrieval_pg_source_column=self.retrieval_pg_source_column,
             retrieval_local_path=self.retrieval_local_path,
             retrieval_tools_config_path=self.retrieval_tools_config_path,
+            vertex_search_project_id=self.vertex_search_project_id or self.gcp_project_id,
+            vertex_search_location=self.vertex_search_location or "global",
+            vertex_search_collection=self.vertex_search_collection or "default_collection",
+            vertex_search_data_store=self.vertex_search_data_store,
+            vertex_search_serving_config=(
+                self.vertex_search_serving_config or "default_search"
+            ),
             auth_provider=self.auth_provider,
             local_auth_user_id=self.local_auth_user_id,
             local_auth_user_email=self.local_auth_user_email,

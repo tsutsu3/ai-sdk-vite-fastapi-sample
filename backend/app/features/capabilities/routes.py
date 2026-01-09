@@ -63,6 +63,18 @@ def get_capabilities(request: Request) -> CapabilitiesResponse:
                 )
             )
 
+    if capabilities.has_provider("gcp"):
+        for model_id in sorted(capabilities.providers.get("gcp", set())):
+            models.append(
+                ModelCapability(
+                    id=model_id,
+                    name=capabilities.model_names.get(model_id, model_id),
+                    chef=capabilities.model_chefs.get(model_id, "GCP"),
+                    chef_slug=capabilities.model_chef_slugs.get(model_id, "gcp"),
+                    providers=capabilities.model_providers.get(model_id, ["gcp"]),
+                )
+            )
+
     web_search_engines = [
         WebSearchEngineCapability(id=engine.id, name=engine.name)
         for engine in web_search.available_engines()
