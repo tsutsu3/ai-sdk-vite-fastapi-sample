@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from logging import getLogger
+
 from google.cloud import firestore
 
 from app.features.conversations.models import ConversationRecord
@@ -12,11 +14,17 @@ from app.infra.model.conversations_model import ConversationDoc
 from app.shared.constants import DEFAULT_CHAT_TITLE
 from app.shared.time import now_datetime
 
+logger = getLogger(__name__)
+
 
 class FirestoreConversationRepository(ConversationRepository):
     def __init__(self, client: firestore.AsyncClient, *, config) -> None:
         self._client = client
         self._collection = client.collection(config.cosmos_conversations_container)
+        logger.info(
+            "firestore.conversations.ready collection=%s",
+            config.cosmos_conversations_container,
+        )
 
     def _doc_id(self, tenant_id: str, user_id: str, conversation_id: str) -> str:
         return f"{tenant_id}:{user_id}:{conversation_id}"
@@ -28,6 +36,13 @@ class FirestoreConversationRepository(ConversationRepository):
         limit: int | None = None,
         continuation_token: str | None = None,
     ) -> tuple[list[ConversationRecord], str | None]:
+        logger.debug(
+            "firestore.conversations.list tenant_id=%s user_id=%s limit=%s offset=%s",
+            tenant_id,
+            user_id,
+            limit,
+            continuation_token,
+        )
         query = (
             self._collection.where("tenantId", "==", tenant_id)
             .where("userId", "==", user_id)
@@ -56,6 +71,13 @@ class FirestoreConversationRepository(ConversationRepository):
         limit: int | None = None,
         continuation_token: str | None = None,
     ) -> tuple[list[ConversationRecord], str | None]:
+        logger.debug(
+            "firestore.conversations.list_archived tenant_id=%s user_id=%s limit=%s offset=%s",
+            tenant_id,
+            user_id,
+            limit,
+            continuation_token,
+        )
         query = (
             self._collection.where("tenantId", "==", tenant_id)
             .where("userId", "==", user_id)
@@ -83,6 +105,12 @@ class FirestoreConversationRepository(ConversationRepository):
         user_id: str,
         conversation_id: str,
     ) -> ConversationRecord | None:
+        logger.debug(
+            "firestore.conversations.get tenant_id=%s user_id=%s conversation_id=%s",
+            tenant_id,
+            user_id,
+            conversation_id,
+        )
         doc_id = self._doc_id(tenant_id, user_id, conversation_id)
         doc = await self._collection.document(doc_id).get()
         if not doc.exists:
@@ -106,6 +134,12 @@ class FirestoreConversationRepository(ConversationRepository):
         title: str,
         tool_id: str | None = None,
     ) -> ConversationRecord:
+        logger.debug(
+            "firestore.conversations.upsert tenant_id=%s user_id=%s conversation_id=%s",
+            tenant_id,
+            user_id,
+            conversation_id,
+        )
         doc_id = self._doc_id(tenant_id, user_id, conversation_id)
         updated_at = now_datetime()
         created_at = updated_at
@@ -144,6 +178,13 @@ class FirestoreConversationRepository(ConversationRepository):
         conversation_id: str,
         archived: bool,
     ) -> ConversationRecord | None:
+        logger.debug(
+            "firestore.conversations.archive tenant_id=%s user_id=%s conversation_id=%s archived=%s",
+            tenant_id,
+            user_id,
+            conversation_id,
+            archived,
+        )
         doc_id = self._doc_id(tenant_id, user_id, conversation_id)
         doc_ref = self._collection.document(doc_id)
         doc = await doc_ref.get()
@@ -168,6 +209,12 @@ class FirestoreConversationRepository(ConversationRepository):
         user_id: str,
         conversation_id: str,
     ) -> bool:
+        logger.debug(
+            "firestore.conversations.delete tenant_id=%s user_id=%s conversation_id=%s",
+            tenant_id,
+            user_id,
+            conversation_id,
+        )
         doc_id = self._doc_id(tenant_id, user_id, conversation_id)
         doc_ref = self._collection.document(doc_id)
         doc = await doc_ref.get()
@@ -183,6 +230,12 @@ class FirestoreConversationRepository(ConversationRepository):
         conversation_id: str,
         title: str,
     ) -> ConversationRecord | None:
+        logger.debug(
+            "firestore.conversations.update_title tenant_id=%s user_id=%s conversation_id=%s",
+            tenant_id,
+            user_id,
+            conversation_id,
+        )
         doc_id = self._doc_id(tenant_id, user_id, conversation_id)
         doc_ref = self._collection.document(doc_id)
         doc = await doc_ref.get()
@@ -206,6 +259,11 @@ class FirestoreConversationRepository(ConversationRepository):
         tenant_id: str,
         user_id: str,
     ) -> list[str]:
+        logger.debug(
+            "firestore.conversations.list_all tenant_id=%s user_id=%s",
+            tenant_id,
+            user_id,
+        )
         query = self._collection.where("tenantId", "==", tenant_id).where("userId", "==", user_id)
         results: list[str] = []
         async for doc in query.stream():

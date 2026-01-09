@@ -5,8 +5,6 @@ from collections.abc import AsyncIterator
 from logging import getLogger
 from typing import Any
 
-from langchain_core.messages import BaseMessage, SystemMessage
-
 from fastapi_ai_sdk.models import (
     AnyStreamEvent,
     DataEvent,
@@ -14,6 +12,7 @@ from fastapi_ai_sdk.models import (
     ReasoningEndEvent,
     ReasoningStartEvent,
 )
+from langchain_core.messages import BaseMessage, SystemMessage
 
 from app.features.authz.request_context import (
     get_current_tenant_id,
@@ -144,6 +143,14 @@ class RunService:
             langchain_messages=langchain_messages,
             web_search=extract_web_search(payload),
             tool_id=payload.tool_id,
+        )
+
+        logger.info(
+            "run.stream.start conversation_id=%s model_id=%s tool_id=%s web_search=%s",
+            conversation_id,
+            model_id,
+            payload.tool_id,
+            context.web_search.enabled,
         )
 
         return self._stream_with_persistence(
@@ -374,6 +381,11 @@ class RunService:
                     retrieval_service=self._retrieval_service,
                 )
                 if retrieval_context:
+                    logger.debug(
+                        "run.retrieval.context tool_id=%s results=%s",
+                        context.tool_id,
+                        len(retrieval_context.results),
+                    )
                     langchain_payload = [
                         SystemMessage(content=retrieval_context.system_message),
                         *langchain_payload,
@@ -426,8 +438,14 @@ class RunService:
                             id=reasoning_id,
                             delta="Search failed.\n",
                         )
+                        logger.info("run.web_search.failed engine=%s", provider.id)
                     else:
                         if results:
+                            logger.debug(
+                                "run.web_search.results engine=%s count=%s",
+                                provider.id,
+                                len(results),
+                            )
                             content_by_url = None
                             if self._fetch_web_search_content:
                                 content_by_url = await self._web_search_content_fetcher.fetch(
@@ -467,9 +485,7 @@ class RunService:
                 {"role": message.type, "content": message.content}
                 for message in langchain_payload
             ]
-            async for delta in self._streamer.stream_chat(
-                langchain_payload, context.model_id
-            ):
+            async for delta in self._streamer.stream_chat(langchain_payload, context.model_id):
                 response_text += delta
                 async for chunk in self._streamer.stream_text_delta(delta, context.message_id):
                     yield chunk
@@ -550,4 +566,10 @@ class RunService:
                 bytes_out=len(response_text.encode("utf-8")) if response_text else None,
                 requests=1,
             )
+        )
+        logger.info(
+            "run.stream.done conversation_id=%s message_id=%s bytes_out=%s",
+            context.conversation_id,
+            context.message_id,
+            len(response_text.encode("utf-8")) if response_text else 0,
         )

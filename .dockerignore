@@ -1,0 +1,24 @@
+# Node
+frontend/node_modules
+frontend/dist
+frontend/dist-ssr
+frontend/.vite
+
+# Python
+backend/.venv
+backend/__pycache__
+backend/.local-data
+backend/ai_sdk_fastapi_chat_backend.egg-info
+backend/build
+backend/dist
+
+# その他
+.git
+.vscode
+.DS_Store
+*.pyc
+*.pyo
+*.pyd
+*.log
+.env
+.env.*

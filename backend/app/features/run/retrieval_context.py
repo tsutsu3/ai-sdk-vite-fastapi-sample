@@ -10,7 +10,10 @@ from app.features.authz.request_context import (
 )
 from app.features.authz.tool_merge import merge_tools
 from app.features.messages.models import MessageRecord
-from app.features.retrieval.langchain_adapters import documents_to_results, retrieve_documents
+from app.features.retrieval.langchain_adapters import (
+    documents_to_results,
+    retrieve_documents,
+)
 from app.features.retrieval.schemas import RetrievalResult
 from app.features.retrieval.service import RetrievalService
 from app.features.retrieval.tools import RetrievalToolSpec, resolve_tool

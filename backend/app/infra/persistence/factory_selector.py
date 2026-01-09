@@ -180,9 +180,7 @@ class _FirestoreRepositoryFactory:
         try:
             from google.cloud import firestore
         except ImportError as exc:
-            raise RuntimeError(
-                "google-cloud-firestore is required for DB_BACKEND=gcp"
-            ) from exc
+            raise RuntimeError("google-cloud-firestore is required for DB_BACKEND=gcp") from exc
         from app.infra.repository.gcp.firestore_authz_repository import (
             FirestoreAuthzRepository,
         )
@@ -234,8 +232,10 @@ def create_repository_factory(
     Raises:
         RuntimeError: If the backend is unsupported or misconfigured.
     """
+    logger.info("repository.factory.select db_backend=%s", storage_caps.db_backend)
     match storage_caps.db_backend:
         case "memory":
+            logger.info("repository.factory.init backend=memory")
             return _MemoryRepositoryFactory(
                 config=app_config,
                 tenants=init_tenants or TENANTS,
@@ -245,6 +245,9 @@ def create_repository_factory(
             )
 
         case "local":
+            logger.info(
+                "repository.factory.init backend=local path=%s", app_config.local_storage_path
+            )
             return _LocalRepositoryFactory(
                 config=app_config,
                 tenants=init_tenants or TENANTS,
@@ -257,11 +260,15 @@ def create_repository_factory(
             if cosmos_provider is None:
                 raise RuntimeError("CosmosClientProvider is required for azure backend")
 
+            logger.info("repository.factory.init backend=azure")
             return _CosmosRepositoryFactory(
                 provider=cosmos_provider,
                 config=app_config,
             )
         case "gcp":
+            logger.info(
+                "repository.factory.init backend=gcp project_id=%s", app_config.gcp_project_id
+            )
             return _FirestoreRepositoryFactory(app_config)
 
         case _:

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from logging import getLogger
+
 from google.cloud import firestore
 
 from app.features.authz.models import (
@@ -26,6 +28,8 @@ from app.infra.model.authz_model import (
     UserIdentityDoc,
 )
 
+logger = getLogger(__name__)
+
 
 class FirestoreAuthzRepository(AuthzRepository):
     def __init__(self, client: firestore.AsyncClient, *, config) -> None:
@@ -34,8 +38,16 @@ class FirestoreAuthzRepository(AuthzRepository):
         self._users = client.collection(config.cosmos_users_container)
         self._user_identities = client.collection(config.cosmos_useridentities_container)
         self._provisioning = client.collection(config.cosmos_provisioning_container)
+        logger.info(
+            "firestore.authz.ready tenants=%s users=%s identities=%s provisioning=%s",
+            config.cosmos_tenants_container,
+            config.cosmos_users_container,
+            config.cosmos_useridentities_container,
+            config.cosmos_provisioning_container,
+        )
 
     async def get_user(self, user_id: str) -> UserRecord | None:
+        logger.debug("firestore.authz.get_user id=%s", user_id)
         doc = await self._users.document(user_id).get()
         if not doc.exists:
             return None
@@ -45,6 +57,7 @@ class FirestoreAuthzRepository(AuthzRepository):
             return None
 
     async def get_tenant(self, tenant_id: str) -> TenantRecord | None:
+        logger.debug("firestore.authz.get_tenant id=%s", tenant_id)
         doc = await self._tenants.document(tenant_id).get()
         if not doc.exists:
             return None
@@ -54,6 +67,7 @@ class FirestoreAuthzRepository(AuthzRepository):
             return None
 
     async def get_user_identity(self, identity_id: str) -> UserIdentityRecord | None:
+        logger.debug("firestore.authz.get_identity id=%s", identity_id)
         doc = await self._user_identities.document(identity_id).get()
         if not doc.exists:
             return None
@@ -65,13 +79,14 @@ class FirestoreAuthzRepository(AuthzRepository):
     async def list_provisioning_by_email(
         self, email: str, status: ProvisioningStatus
     ) -> list[ProvisioningRecord]:
-        query = self._provisioning.where("email", "==", email).where(
-            "status", "==", status.value
-        )
+        logger.debug("firestore.authz.list_provisioning status=%s", status.value)
+        query = self._provisioning.where("email", "==", email).where("status", "==", status.value)
         results: list[ProvisioningRecord] = []
         async for doc in query.stream():
             try:
-                results.append(provisioning_doc_to_record(ProvisioningDoc.model_validate(doc.to_dict())))
+                results.append(
+                    provisioning_doc_to_record(ProvisioningDoc.model_validate(doc.to_dict()))
+                )
             except Exception:
                 continue
         return results
@@ -80,7 +95,9 @@ class FirestoreAuthzRepository(AuthzRepository):
         if not record.id:
             raise ValueError("UserRecord.id is required for persistence")
         doc = user_record_to_doc(record)
-        await self._users.document(record.id).set(doc.model_dump(by_alias=True, exclude_none=True))
+        await self._users.document(record.id).set(
+            doc.model_dump(by_alias=True, exclude_none=True)
+        )
 
     async def save_user_identity(self, record: UserIdentityRecord) -> None:
         doc = user_identity_record_to_doc(record)

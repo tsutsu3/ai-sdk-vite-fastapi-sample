@@ -2,8 +2,9 @@ import asyncio
 import random
 from collections.abc import AsyncIterator
 
-from app.features.run.streamers.base import BaseStreamer
 from langchain_core.messages import BaseMessage
+
+from app.features.run.streamers.base import BaseStreamer
 
 
 class MemoryStreamer(BaseStreamer):

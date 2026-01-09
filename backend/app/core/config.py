@@ -174,7 +174,6 @@ class AppConfig(BaseModel):
     azure_monitor_connection_string: str = ""
 
 
-
 class StorageCapabilities(BaseModel):
     """Storage backend capabilities used by the application."""
 
@@ -346,7 +345,6 @@ class Settings(BaseSettings):
     otel_exporter_otlp_protocol: str = "grpc"
     otel_exporter_otlp_endpoint: str = ""
     azure_monitor_connection_string: str = ""
-
 
     @property
     def chat_providers_set(self) -> Set[str]:

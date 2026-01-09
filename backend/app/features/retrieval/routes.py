@@ -16,7 +16,11 @@ from fastapi_ai_sdk.models import (
     TextStartEvent,
 )
 from langchain_core.messages import AIMessageChunk, BaseMessage
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder, PromptTemplate
+from langchain_core.prompts import (
+    ChatPromptTemplate,
+    MessagesPlaceholder,
+    PromptTemplate,
+)
 from langchain_core.runnables import RunnableLambda, RunnablePassthrough
 from langchain_openai import AzureChatOpenAI
 
@@ -37,17 +41,17 @@ from app.features.authz.tool_merge import merge_tools
 from app.features.conversations.ports import ConversationRepository
 from app.features.messages.models import MessagePartRecord, MessageRecord
 from app.features.messages.ports import MessageRepository
-from app.features.retrieval.schemas import (
-    RetrievalMessage,
-    RetrievalQueryRequest,
-    RetrievalQueryResponse,
+from app.features.retrieval.langchain_adapters import (
+    documents_to_results,
+    retrieve_documents,
 )
 from app.features.retrieval.providers.local_files import LocalFileRetrievalProvider
 from app.features.retrieval.providers.memory import MemoryRetrievalProvider
 from app.features.retrieval.providers.postgres import PostgresRetrievalProvider
-from app.features.retrieval.langchain_adapters import (
-    documents_to_results,
-    retrieve_documents,
+from app.features.retrieval.schemas import (
+    RetrievalMessage,
+    RetrievalQueryRequest,
+    RetrievalQueryResponse,
 )
 from app.features.retrieval.service import RetrievalService
 from app.features.retrieval.tools import resolve_tool
@@ -269,9 +273,7 @@ async def _stream_answer(
 
     def _format_user_prompt(values: dict[str, str]) -> str:
         if values.get("sources"):
-            return user_prompt_template.format(
-                query=values["query"], sources=values["sources"]
-            )
+            return user_prompt_template.format(query=values["query"], sources=values["sources"])
         return values["query"]
 
     prompt = ChatPromptTemplate.from_messages(
@@ -424,6 +426,7 @@ async def query_rag(
         )
 
     try:
+
         async def _retrieve(_: str) -> list:
             return await retrieve_documents(
                 service,

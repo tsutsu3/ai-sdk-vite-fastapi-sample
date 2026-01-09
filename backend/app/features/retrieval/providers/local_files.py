@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
-from pathlib import Path
 import asyncio
 import random
+from collections.abc import Iterable, Sequence
+from pathlib import Path
 
 from app.features.retrieval.providers.base import RetrievalProvider
 from app.features.retrieval.schemas import RetrievalResult

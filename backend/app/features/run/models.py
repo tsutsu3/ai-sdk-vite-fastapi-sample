@@ -3,6 +3,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
+from langchain_core.messages import BaseMessage
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -11,8 +12,6 @@ from pydantic import (
     field_validator,
     model_validator,
 )
-
-from langchain_core.messages import BaseMessage
 
 from app.features.messages.models import MessageRecord
 

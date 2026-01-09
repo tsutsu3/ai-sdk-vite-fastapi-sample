@@ -1,5 +1,6 @@
 from collections.abc import AsyncGenerator
 from contextvars import ContextVar
+from logging import getLogger
 
 from fastapi import HTTPException, Request
 
@@ -20,6 +21,8 @@ _tenant_record_ctx: ContextVar[TenantRecord | None] = ContextVar("tenant_record"
 _user_identity_ctx: ContextVar[UserIdentityRecord | None] = ContextVar(
     "user_identity", default=None
 )
+
+logger = getLogger(__name__)
 
 
 def get_current_tenant_id() -> str:
@@ -126,11 +129,13 @@ async def require_request_context(request: Request) -> AsyncGenerator[None, None
         None: Control back to request handling.
     """
     user = parse_user_from_headers(request)
+    logger.debug("authz.resolve.start provider=%s", user.provider)
     service: AuthzService = request.app.state.authz_service
 
     try:
         resolution = await service.resolve_access(user)
     except AuthzError as exc:
+        logger.info("authz.resolve.denied reason=%s", str(exc))
         raise HTTPException(status_code=403, detail=str(exc)) from exc
 
     user_record = resolution.user_record
@@ -152,6 +157,10 @@ async def require_request_context(request: Request) -> AsyncGenerator[None, None
     request.state.user_record = user_record
     request.state.tenant_record = tenant_record
     request.state.user_identity = user_identity
+
+    logger.info(
+        "authz.resolve.success tenant_id=%s user_id=%s", user_record.tenant_id, user_record.id
+    )
 
     try:
         yield

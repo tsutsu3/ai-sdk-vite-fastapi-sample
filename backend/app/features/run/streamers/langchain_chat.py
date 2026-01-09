@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import random
 from collections.abc import AsyncIterator
+from logging import getLogger
 
 from langchain_core.messages import AIMessageChunk, BaseMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
@@ -12,6 +13,8 @@ from app.core.config import AppConfig, ChatCapabilities
 from app.features.messages.models import MessageRecord
 from app.features.run.streamers.base import BaseStreamer
 from app.features.title.utils import generate_fallback_title
+
+logger = getLogger(__name__)
 
 
 class LangChainChatStreamer(BaseStreamer):
@@ -25,7 +28,9 @@ class LangChainChatStreamer(BaseStreamer):
         for provider, models in self._providers.items():
             for model_id in models:
                 if model_id in self._model_to_provider:
-                    raise RuntimeError(f"Model '{model_id}' is configured for multiple providers.")
+                    raise RuntimeError(
+                        f"Model '{model_id}' is configured for multiple providers."
+                    )
                 self._model_to_provider[model_id] = provider
         if not self._model_to_provider:
             self._model_to_provider["dummy"] = "memory"
@@ -119,6 +124,7 @@ class LangChainChatStreamer(BaseStreamer):
                 yield token + " "
             return
 
+        logger.info("chat.stream.start provider=%s model_id=%s", provider, resolved_model)
         llm = self._build_llm(provider, resolved_model, streaming=True)
         if llm is None:
             raise RuntimeError("Requested model is not available.")
@@ -138,6 +144,7 @@ class LangChainChatStreamer(BaseStreamer):
         if provider == "memory":
             return generate_fallback_title(messages)
 
+        logger.debug("chat.title.start provider=%s model_id=%s", provider, resolved_model)
         llm = self._build_llm(provider, resolved_model, streaming=False)
         if llm is None:
             raise RuntimeError("Requested model is not available.")

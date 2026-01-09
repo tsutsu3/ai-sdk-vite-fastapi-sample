@@ -50,4 +50,4 @@ def log_app_configuration(
         "storage_capabilities": storage_caps.model_dump(mode="json"),
         "chat_capabilities": chat_caps.model_dump(mode="json"),
     }
-    logger.info("Application configuration: %s", json.dumps(config_payload, ensure_ascii=True))
+    logger.info("Application configuration: %s", config_payload)

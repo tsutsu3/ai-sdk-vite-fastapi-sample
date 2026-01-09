@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from logging import getLogger
+
 from google.cloud import firestore
 
 from app.features.messages.models import MessageRecord
@@ -11,15 +13,19 @@ from app.infra.mapper.messages_mapper import (
 from app.infra.model.messages_model import MessageDoc
 from app.shared.time import now_datetime
 
+logger = getLogger(__name__)
+
 
 class FirestoreMessageRepository(MessageRepository):
     def __init__(self, client: firestore.AsyncClient, *, config) -> None:
         self._client = client
         self._collection = client.collection(config.cosmos_messages_container)
+        logger.info(
+            "firestore.messages.ready collection=%s",
+            config.cosmos_messages_container,
+        )
 
-    def _doc_id(
-        self, tenant_id: str, user_id: str, conversation_id: str, message_id: str
-    ) -> str:
+    def _doc_id(self, tenant_id: str, user_id: str, conversation_id: str, message_id: str) -> str:
         return f"{tenant_id}:{user_id}:{conversation_id}:{message_id}"
 
     async def list_messages(
@@ -31,6 +37,15 @@ class FirestoreMessageRepository(MessageRepository):
         continuation_token: str | None = None,
         descending: bool = False,
     ) -> tuple[list[MessageRecord], str | None]:
+        logger.debug(
+            "firestore.messages.list tenant_id=%s user_id=%s conversation_id=%s limit=%s offset=%s descending=%s",
+            tenant_id,
+            user_id,
+            conversation_id,
+            limit,
+            continuation_token,
+            descending,
+        )
         direction = firestore.Query.DESCENDING if descending else firestore.Query.ASCENDING
         query = (
             self._collection.where("tenantId", "==", tenant_id)
@@ -60,6 +75,13 @@ class FirestoreMessageRepository(MessageRepository):
         conversation_id: str,
         messages: list[MessageRecord],
     ) -> list[MessageRecord]:
+        logger.debug(
+            "firestore.messages.upsert tenant_id=%s user_id=%s conversation_id=%s count=%s",
+            tenant_id,
+            user_id,
+            conversation_id,
+            len(messages),
+        )
         for message in messages:
             doc_id = self._doc_id(tenant_id, user_id, conversation_id, message.id)
             doc_ref = self._collection.document(doc_id)
@@ -80,10 +102,7 @@ class FirestoreMessageRepository(MessageRepository):
                 created_at = message.created_at or now_datetime()
                 parent_message_id = message.parent_message_id or ""
 
-            if (
-                created_at != message.created_at
-                or parent_message_id != message.parent_message_id
-            ):
+            if created_at != message.created_at or parent_message_id != message.parent_message_id:
                 message = message.model_copy(
                     update={
                         "created_at": created_at,
@@ -101,6 +120,12 @@ class FirestoreMessageRepository(MessageRepository):
         return list(messages)
 
     async def delete_messages(self, tenant_id: str, user_id: str, conversation_id: str) -> None:
+        logger.debug(
+            "firestore.messages.delete tenant_id=%s user_id=%s conversation_id=%s",
+            tenant_id,
+            user_id,
+            conversation_id,
+        )
         query = (
             self._collection.where("tenantId", "==", tenant_id)
             .where("userId", "==", user_id)
@@ -117,6 +142,14 @@ class FirestoreMessageRepository(MessageRepository):
         message_id: str,
         reaction: str | None,
     ) -> MessageRecord | None:
+        logger.debug(
+            "firestore.messages.update_reaction tenant_id=%s user_id=%s conversation_id=%s message_id=%s reaction=%s",
+            tenant_id,
+            user_id,
+            conversation_id,
+            message_id,
+            reaction,
+        )
         doc_id = self._doc_id(tenant_id, user_id, conversation_id, message_id)
         doc_ref = self._collection.document(doc_id)
         existing = await doc_ref.get()

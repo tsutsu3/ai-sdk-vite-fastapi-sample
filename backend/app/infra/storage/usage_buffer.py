@@ -2,6 +2,7 @@ import asyncio
 import json
 import time
 from collections import defaultdict
+from logging import getLogger
 from pathlib import Path
 from typing import Protocol
 
@@ -9,6 +10,8 @@ from app.core.config import AppConfig, UsageBufferBackend
 from app.features.usage.models import UsageRecord
 from app.features.usage.ports import UsageRepository
 from app.shared.time import now_datetime
+
+logger = getLogger(__name__)
 
 
 class UsageBuffer(Protocol):
@@ -185,6 +188,7 @@ class GcsUsageBuffer(_BaseUsageBuffer):
         self._prefix = config.usage_buffer_gcs_prefix.strip("/")
         self._client = storage.Client()
         self._bucket = self._client.bucket(self._bucket_name)
+        logger.info("usage_buffer.gcs.ready bucket=%s prefix=%s", self._bucket_name, self._prefix)
 
     async def _write_lines(self, dt: str, lines: list[str], part_id: str) -> None:
         name = f"dt={dt}/part-{part_id}.jsonl"
@@ -200,6 +204,7 @@ class GcsUsageBuffer(_BaseUsageBuffer):
 
 
 def create_usage_buffer(app_config: AppConfig) -> UsageBuffer:
+    logger.info("usage_buffer.select backend=%s", app_config.usage_buffer_backend)
     match app_config.usage_buffer_backend:
         case UsageBufferBackend.local:
             return LocalUsageBuffer(

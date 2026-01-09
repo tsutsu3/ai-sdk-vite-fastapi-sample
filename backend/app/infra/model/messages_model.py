@@ -24,9 +24,11 @@ class ImagePartDoc(MessagePartBase):
     type: Literal["image"]
     image_id: str = Field(alias="imageId")
 
+
 class RagProgressPartDoc(MessagePartBase):
     type: Literal["rag-progress"]
     text: str
+
 
 class RagSourcesPartDoc(MessagePartBase):
     type: Literal["rag-sources"]
