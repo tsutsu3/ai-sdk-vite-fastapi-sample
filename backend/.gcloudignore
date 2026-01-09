@@ -1,0 +1,5 @@
+# Use .gitignore as a base.
+.gitignore
+
+# Include retrieval tool config in Cloud Build context.
+!backend/retrieval_tools.yaml
