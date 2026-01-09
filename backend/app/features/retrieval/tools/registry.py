@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import logging
 from typing import Any
 
 import yaml
@@ -25,6 +26,8 @@ class RetrievalToolSpec(BaseModel):
 DEFAULT_TOOL_SPECS: dict[str, RetrievalToolSpec] = {}
 TOOL_SPECS: dict[str, RetrievalToolSpec] = {}
 
+logger = logging.getLogger(__name__)
+
 
 def initialize_tool_specs(config_path: str | None) -> None:
     """Load tool specs from YAML and store them in the registry."""
@@ -32,6 +35,16 @@ def initialize_tool_specs(config_path: str | None) -> None:
         TOOL_SPECS.clear()
         return
     path = Path(config_path)
+    if not path.is_absolute() and not path.exists():
+        candidate = Path(__file__).resolve().parents[4] / path
+        if candidate.exists():
+            path = candidate
+        else:
+            logger.debug(
+                "retrieval.tools.config.missing path=%s fallback=%s",
+                path,
+                candidate,
+            )
     tool_specs = _load_tool_specs_from_yaml(path)
     TOOL_SPECS.clear()
     TOOL_SPECS.update(tool_specs)

@@ -1,0 +1,32 @@
+$ProjectId = "xxxx"
+$Region = "xxxx"
+$ServiceName = "xxxx"
+$Repository = ""xxxx"
+$ImageName = "xxxx"
+
+$Image = "$Region-docker.pkg.dev/$ProjectId/${Repository}/${ImageName}:latest"
+$CacheImage = "$Region-docker.pkg.dev/$ProjectId/${Repository}/${ImageName}-cache:latest"
+
+$Substitutions = "_IMAGE=$Image,_CACHE_IMAGE=$CacheImage"
+
+Write-Host "IMAGE = $Image"
+Write-Host "CACHE = $CacheImage"
+Write-Host "SUBS  = $Substitutions"
+
+gcloud builds submit `
+    --region=$Region `
+    --config=cloudbuild.yaml `
+    --substitutions="$Substitutions"
+
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "❌ Cloud Build failed"
+    exit 1
+}
+
+gcloud run deploy $ServiceName `
+    --image $Image `
+    --platform managed `
+    --region $Region `
+    --no-allow-unauthenticated `
+    --labels="user=tsutsumi,env=dev" `
+    --env-vars-file backend/.env

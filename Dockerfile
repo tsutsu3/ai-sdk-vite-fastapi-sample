@@ -19,11 +19,11 @@ FROM python:3.13-slim AS backend-build
 WORKDIR /backend
 
 COPY backend/pyproject.toml backend/requirements.lock ./
+COPY backend .
 # RUN pip install --no-cache-dir -r requirements.lock
 RUN pip install --no-cache-dir .[duck,azure]
-COPY backend .
 
-COPY --from=frontend-build /frontend/dist /backend/app/frontend/dist
+COPY --from=frontend-build /frontend/dist /backend/frontend/dist
 
 # 3. Final image
 FROM python:3.13-slim
