@@ -4,7 +4,7 @@ import sys
 import uuid
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parent / "backend" / "app"
 sys.path.insert(0, str(ROOT))
 
 from app.core.config import Settings  # noqa: E402
@@ -13,7 +13,7 @@ from app.features.authz.models import (  # noqa: E402
     ProvisioningStatus,
     ToolOverridesRecord,
 )
-from app.infra.cosmos_client import CosmosClientProvider  # noqa: E402
+from app.infra.client.cosmos_client import CosmosClientProvider  # noqa: E402
 from app.infra.persistence.factory_selector import (  # noqa: E402
     create_repository_factory,
 )
