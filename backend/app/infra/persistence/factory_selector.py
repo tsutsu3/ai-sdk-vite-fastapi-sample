@@ -181,13 +181,13 @@ class _FirestoreRepositoryFactory:
             from google.cloud import firestore
         except ImportError as exc:
             raise RuntimeError("google-cloud-firestore is required for DB_BACKEND=gcp") from exc
-        from app.infra.repository.gcp.firestore_authz_repository import (
+        from app.infra.repository.firestore.firestore_authz_repository import (
             FirestoreAuthzRepository,
         )
-        from app.infra.repository.gcp.firestore_conversations_repository import (
+        from app.infra.repository.firestore.firestore_conversations_repository import (
             FirestoreConversationRepository,
         )
-        from app.infra.repository.gcp.firestore_messages_repository import (
+        from app.infra.repository.firestore.firestore_messages_repository import (
             FirestoreMessageRepository,
         )
 

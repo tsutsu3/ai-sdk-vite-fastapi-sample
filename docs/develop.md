@@ -33,6 +33,16 @@ Purpose: Document local development workflow, conventions, and contribution prac
 - Backend uses environment variables for storage backend and providers.
 - Local persistence is stored under `backend/.local-data/` when `DB_BACKEND=local`.
 
+## Firestore indexes (DB_BACKEND=gcp)
+
+Firestore queries in this project require composite indexes. Create them in the
+Firebase/Firestore console if you see index errors.
+
+Recommended indexes:
+- `conversations`: tenantId + userId + archived + updatedAt (desc) + id (desc)
+- `messages`: tenantId + userId + conversationId + createdAt (asc/desc) + id (asc/desc)
+- `provisioning`: email + status
+
 ## Common tasks
 
 - Run frontend: `pnpm dev`

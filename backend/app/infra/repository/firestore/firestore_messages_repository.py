@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import base64
+import json
+from datetime import datetime
+import asyncio
 from logging import getLogger
 
 from google.cloud import firestore
@@ -28,6 +32,24 @@ class FirestoreMessageRepository(MessageRepository):
     def _doc_id(self, tenant_id: str, user_id: str, conversation_id: str, message_id: str) -> str:
         return f"{tenant_id}:{user_id}:{conversation_id}:{message_id}"
 
+    def _encode_cursor(self, created_at: datetime, message_id: str) -> str:
+        payload = {"createdAt": created_at.isoformat(), "id": message_id}
+        raw = json.dumps(payload, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+        return base64.urlsafe_b64encode(raw).decode("ascii")
+
+    def _decode_cursor(self, token: str | None) -> tuple[datetime, str] | None:
+        if not token:
+            return None
+        try:
+            raw = base64.urlsafe_b64decode(token.encode("ascii"))
+            payload = json.loads(raw.decode("utf-8"))
+            created_at = datetime.fromisoformat(payload["createdAt"])
+            message_id = str(payload["id"])
+            return created_at, message_id
+        except Exception:
+            logger.debug("firestore.messages.invalid_cursor token=%s", token)
+            return None
+
     async def list_messages(
         self,
         tenant_id: str,
@@ -52,10 +74,13 @@ class FirestoreMessageRepository(MessageRepository):
             .where("userId", "==", user_id)
             .where("conversationId", "==", conversation_id)
             .order_by("createdAt", direction=direction)
+            .order_by("id", direction=direction)
         )
-        offset = int(continuation_token) if continuation_token else 0
+        cursor = self._decode_cursor(continuation_token)
+        if cursor:
+            query = query.start_after([cursor[0], cursor[1]])
         if limit is not None:
-            query = query.offset(offset).limit(limit)
+            query = query.limit(limit)
         results: list[MessageRecord] = []
         async for doc in query.stream():
             try:
@@ -65,7 +90,9 @@ class FirestoreMessageRepository(MessageRepository):
             results.append(message_doc_to_record(item))
         next_token = None
         if limit is not None and len(results) == limit:
-            next_token = str(offset + len(results))
+            last = results[-1]
+            last_created = last.created_at or now_datetime()
+            next_token = self._encode_cursor(last_created, last.id)
         return (results, next_token)
 
     async def upsert_messages(
@@ -82,26 +109,42 @@ class FirestoreMessageRepository(MessageRepository):
             conversation_id,
             len(messages),
         )
-        for message in messages:
-            doc_id = self._doc_id(tenant_id, user_id, conversation_id, message.id)
-            doc_ref = self._collection.document(doc_id)
-            existing = await doc_ref.get()
-            if existing.exists:
-                try:
-                    existing_doc = MessageDoc.model_validate(existing.to_dict())
-                    created_at = message.created_at or existing_doc.created_at
-                    parent_message_id = (
-                        message.parent_message_id
-                        if message.parent_message_id is not None
-                        else existing_doc.parent_message_id
-                    )
-                except Exception:
-                    created_at = message.created_at or now_datetime()
-                    parent_message_id = message.parent_message_id or ""
-            else:
-                created_at = message.created_at or now_datetime()
-                parent_message_id = message.parent_message_id or ""
+        if not messages:
+            return []
 
+        needs_fetch: list[tuple[MessageRecord, firestore.AsyncDocumentReference]] = []
+        for message in messages:
+            if message.created_at is None or message.parent_message_id is None:
+                doc_id = self._doc_id(tenant_id, user_id, conversation_id, message.id)
+                needs_fetch.append((message, self._collection.document(doc_id)))
+
+        if needs_fetch:
+            fetch_tasks = [ref.get() for _, ref in needs_fetch]
+            fetch_results = await asyncio.gather(*fetch_tasks, return_exceptions=True)
+        else:
+            fetch_results = []
+
+        resolved: dict[str, MessageRecord] = {}
+        for (message, _), result in zip(needs_fetch, fetch_results):
+            created_at = message.created_at
+            parent_message_id = message.parent_message_id
+            if isinstance(result, Exception):
+                created_at = created_at or now_datetime()
+                parent_message_id = parent_message_id or ""
+            else:
+                try:
+                    if result.exists:
+                        existing_doc = MessageDoc.model_validate(result.to_dict())
+                        created_at = created_at or existing_doc.created_at
+                        if parent_message_id is None:
+                            parent_message_id = existing_doc.parent_message_id
+                except Exception:
+                    created_at = created_at or now_datetime()
+                    parent_message_id = parent_message_id or ""
+            if created_at is None:
+                created_at = now_datetime()
+            if parent_message_id is None:
+                parent_message_id = ""
             if created_at != message.created_at or parent_message_id != message.parent_message_id:
                 message = message.model_copy(
                     update={
@@ -109,6 +152,14 @@ class FirestoreMessageRepository(MessageRepository):
                         "parent_message_id": parent_message_id,
                     }
                 )
+            resolved[message.id] = message
+
+        batch = self._client.batch()
+        for message in messages:
+            if message.id in resolved:
+                message = resolved[message.id]
+            doc_id = self._doc_id(tenant_id, user_id, conversation_id, message.id)
+            doc_ref = self._collection.document(doc_id)
             doc = message_record_to_doc(
                 message,
                 tenant_id=tenant_id,
@@ -116,7 +167,9 @@ class FirestoreMessageRepository(MessageRepository):
                 conversation_id=conversation_id,
                 tool_id="chat",
             )
-            await doc_ref.set(doc.model_dump(by_alias=True, exclude_none=True, mode="json"))
+            batch.set(doc_ref, doc.model_dump(by_alias=True, exclude_none=True, mode="json"))
+
+        await batch.commit()
         return list(messages)
 
     async def delete_messages(self, tenant_id: str, user_id: str, conversation_id: str) -> None:
@@ -131,8 +184,17 @@ class FirestoreMessageRepository(MessageRepository):
             .where("userId", "==", user_id)
             .where("conversationId", "==", conversation_id)
         )
+        batch = self._client.batch()
+        batch_count = 0
         async for doc in query.stream():
-            await doc.reference.delete()
+            batch.delete(doc.reference)
+            batch_count += 1
+            if batch_count >= 450:
+                await batch.commit()
+                batch = self._client.batch()
+                batch_count = 0
+        if batch_count:
+            await batch.commit()
 
     async def update_message_reaction(
         self,

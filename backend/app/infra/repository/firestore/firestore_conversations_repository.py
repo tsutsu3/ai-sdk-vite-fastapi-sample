@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import base64
+import json
+from datetime import datetime
 from logging import getLogger
 
 from google.cloud import firestore
@@ -29,6 +32,24 @@ class FirestoreConversationRepository(ConversationRepository):
     def _doc_id(self, tenant_id: str, user_id: str, conversation_id: str) -> str:
         return f"{tenant_id}:{user_id}:{conversation_id}"
 
+    def _encode_cursor(self, updated_at: datetime, conversation_id: str) -> str:
+        payload = {"updatedAt": updated_at.isoformat(), "id": conversation_id}
+        raw = json.dumps(payload, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+        return base64.urlsafe_b64encode(raw).decode("ascii")
+
+    def _decode_cursor(self, token: str | None) -> tuple[datetime, str] | None:
+        if not token:
+            return None
+        try:
+            raw = base64.urlsafe_b64decode(token.encode("ascii"))
+            payload = json.loads(raw.decode("utf-8"))
+            updated_at = datetime.fromisoformat(payload["updatedAt"])
+            conversation_id = str(payload["id"])
+            return updated_at, conversation_id
+        except Exception:
+            logger.debug("firestore.conversations.invalid_cursor token=%s", token)
+            return None
+
     async def list_conversations(
         self,
         tenant_id: str,
@@ -48,10 +69,13 @@ class FirestoreConversationRepository(ConversationRepository):
             .where("userId", "==", user_id)
             .where("archived", "==", False)
             .order_by("updatedAt", direction=firestore.Query.DESCENDING)
+            .order_by("id", direction=firestore.Query.DESCENDING)
         )
-        offset = int(continuation_token) if continuation_token else 0
+        cursor = self._decode_cursor(continuation_token)
+        if cursor:
+            query = query.start_after([cursor[0], cursor[1]])
         if limit is not None:
-            query = query.offset(offset).limit(limit)
+            query = query.limit(limit)
         results: list[ConversationRecord] = []
         async for doc in query.stream():
             try:
@@ -61,7 +85,9 @@ class FirestoreConversationRepository(ConversationRepository):
             results.append(conversation_doc_to_record(item))
         next_token = None
         if limit is not None and len(results) == limit:
-            next_token = str(offset + len(results))
+            last = results[-1]
+            last_updated = last.updatedAt or last.createdAt or now_datetime()
+            next_token = self._encode_cursor(last_updated, last.id)
         return (results, next_token)
 
     async def list_archived_conversations(
@@ -83,10 +109,13 @@ class FirestoreConversationRepository(ConversationRepository):
             .where("userId", "==", user_id)
             .where("archived", "==", True)
             .order_by("updatedAt", direction=firestore.Query.DESCENDING)
+            .order_by("id", direction=firestore.Query.DESCENDING)
         )
-        offset = int(continuation_token) if continuation_token else 0
+        cursor = self._decode_cursor(continuation_token)
+        if cursor:
+            query = query.start_after([cursor[0], cursor[1]])
         if limit is not None:
-            query = query.offset(offset).limit(limit)
+            query = query.limit(limit)
         results: list[ConversationRecord] = []
         async for doc in query.stream():
             try:
@@ -96,7 +125,9 @@ class FirestoreConversationRepository(ConversationRepository):
             results.append(conversation_doc_to_record(item))
         next_token = None
         if limit is not None and len(results) == limit:
-            next_token = str(offset + len(results))
+            last = results[-1]
+            last_updated = last.updatedAt or last.createdAt or now_datetime()
+            next_token = self._encode_cursor(last_updated, last.id)
         return (results, next_token)
 
     async def get_conversation(
