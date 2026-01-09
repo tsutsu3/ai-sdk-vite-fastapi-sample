@@ -11,6 +11,13 @@ dependencies = [
   "python-multipart",
   "pydantic-settings",
   "fastapi-ai-sdk",
+  "langchain",
+  "langchain-openai",
+  "langchain-ollama",
+  "langchain-google-vertexai",
+  "google-cloud-aiplatform",
+  "google-cloud-firestore",
+  "google-cloud-storage",
   "opentelemetry-api",
   "opentelemetry-sdk",
   "opentelemetry-exporter-otlp",
@@ -31,7 +38,7 @@ azure = [
   "azure-monitor-opentelemetry-exporter",
   "opentelemetry-instrumentation-openai",
 ]
-gcp = ["google-cloud-storage"]
+gcp = ["google-cloud-storage", "google-cloud-firestore", "google-cloud-aiplatform"]
 
 [tool.uvicorn]
 factory = false

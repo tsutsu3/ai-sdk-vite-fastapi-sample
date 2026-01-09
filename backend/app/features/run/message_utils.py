@@ -1,7 +1,10 @@
 import uuid
 
+from langchain_core.messages import BaseMessage
+
 from app.features.messages.models import MessageRecord
-from app.features.run.models import OpenAIMessage, RunRequest
+from app.features.run.models import RunRequest
+from app.shared.langchain_utils import to_langchain_messages_from_records
 
 
 def extract_messages(payload: RunRequest) -> list[MessageRecord]:
@@ -42,12 +45,6 @@ def extract_file_ids(payload: RunRequest) -> list[str]:
     return [str(file_id) for file_id in payload.file_ids]
 
 
-def to_openai_messages(messages: list[MessageRecord]) -> list[OpenAIMessage]:
-    """Convert chat messages to OpenAI-style messages."""
-    converted: list[OpenAIMessage] = []
-    for message in messages:
-        text_parts = [part.text or "" for part in message.parts if part.type == "text"]
-        content = " ".join(part.strip() for part in text_parts if part).strip()
-        if content:
-            converted.append(OpenAIMessage(role=message.role, content=content))
-    return converted
+def to_langchain_messages(messages: list[MessageRecord]) -> list[BaseMessage]:
+    """Convert stored chat messages into LangChain BaseMessage objects."""
+    return to_langchain_messages_from_records(messages)

@@ -15,7 +15,10 @@ from fastapi_ai_sdk.models import (
     TextEndEvent,
     TextStartEvent,
 )
-from openai import AsyncAzureOpenAI
+from langchain_core.messages import AIMessageChunk, BaseMessage
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder, PromptTemplate
+from langchain_core.runnables import RunnableLambda, RunnablePassthrough
+from langchain_openai import AzureChatOpenAI
 
 from app.core.dependencies import (
     get_conversation_repository,
@@ -39,16 +42,20 @@ from app.features.retrieval.schemas import (
     RetrievalQueryRequest,
     RetrievalQueryResponse,
 )
-from app.features.retrieval.providers.ai_search import AISearchProvider
 from app.features.retrieval.providers.local_files import LocalFileRetrievalProvider
 from app.features.retrieval.providers.memory import MemoryRetrievalProvider
 from app.features.retrieval.providers.postgres import PostgresRetrievalProvider
+from app.features.retrieval.langchain_adapters import (
+    documents_to_results,
+    retrieve_documents,
+)
 from app.features.retrieval.service import RetrievalService
 from app.features.retrieval.tools import resolve_tool
 from app.features.title.utils import generate_fallback_title
 from app.features.usage.models import UsageRecord
 from app.features.usage.ports import UsageRepository
 from app.shared.constants import DEFAULT_CHAT_TITLE
+from app.shared.langchain_utils import to_langchain_messages_from_roles
 from app.shared.time import now_datetime
 
 logger = logging.getLogger(__name__)
@@ -64,9 +71,7 @@ def _is_authorized_for_source(data_source: str, tools: list[str]) -> bool:
     return False
 
 
-def _resolve_azure_client(
-    request: Request, model_id: str | None
-) -> tuple[AsyncAzureOpenAI, str, str]:
+def _resolve_azure_deployment(request: Request, model_id: str | None) -> tuple[str, str]:
     app_config = request.app.state.app_config
     if not app_config.azure_openai_endpoint or not app_config.azure_openai_api_key:
         raise HTTPException(status_code=501, detail="Azure OpenAI is not configured.")
@@ -79,12 +84,25 @@ def _resolve_azure_client(
     deployment = deployments.get(selected_model) if selected_model else None
     if not deployment:
         deployment = next(iter(deployments.values()))
-    client = AsyncAzureOpenAI(
+    return deployment, selected_model or ""
+
+
+def _build_azure_llm(
+    request: Request,
+    *,
+    deployment: str,
+    streaming: bool,
+    temperature: float | None = None,
+) -> AzureChatOpenAI:
+    app_config = request.app.state.app_config
+    return AzureChatOpenAI(
         api_key=app_config.azure_openai_api_key,
         api_version=app_config.azure_openai_api_version,
         azure_endpoint=app_config.azure_openai_endpoint,
+        azure_deployment=deployment,
+        temperature=temperature,
+        streaming=streaming,
     )
-    return client, deployment, selected_model or ""
 
 
 def _resolve_conversation_id(payload: RetrievalQueryRequest) -> str:
@@ -180,9 +198,8 @@ def _build_answer_payload(
     query: str,
     sources: str,
 ) -> list[dict[str, str]]:
-    user_payload = query
-    if sources:
-        user_payload = f"{query}\n\nSources:\n{sources}"
+    user_prompt = PromptTemplate.from_template("{query}\n\nSources:\n{sources}")
+    user_payload = query if not sources else user_prompt.format(query=query, sources=sources)
     history = [
         {"role": message.role, "content": message.content}
         for message in messages
@@ -195,72 +212,100 @@ def _build_answer_payload(
     ]
 
 
+def _extract_delta(chunk: BaseMessage | AIMessageChunk) -> str:
+    content = getattr(chunk, "content", "")
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        text_parts = [
+            part.get("text", "")
+            for part in content
+            if isinstance(part, dict) and part.get("type") == "text"
+        ]
+        return "".join(text_parts)
+    return ""
+
+
 async def _generate_search_query(
-    client: AsyncAzureOpenAI,
-    deployment: str,
     *,
+    request: Request,
+    deployment: str,
     prompt: str,
     messages: list[RetrievalMessage],
     query: str,
 ) -> str:
-    history = [
-        {"role": message.role, "content": message.content}
-        for message in messages
-        if message.content
-    ]
-    payload = [
-        {"role": "system", "content": prompt},
-        *history,
-        {"role": "user", "content": query},
-    ]
-    response = await client.chat.completions.create(
-        model=deployment,
-        messages=payload,
-        temperature=0.0,
-        max_tokens=120,
-        n=1,
+    llm = _build_azure_llm(request, deployment=deployment, streaming=False, temperature=0.0).bind(
+        max_tokens=120
     )
-    content = response.choices[0].message.content if response.choices else None
-    if not content:
-        return ""
-    return content.strip()
+    history = to_langchain_messages_from_roles(messages)
+    prompt_template = ChatPromptTemplate.from_messages(
+        [
+            ("system", "{query_prompt}"),
+            MessagesPlaceholder("history"),
+            ("human", "{query}"),
+        ]
+    )
+    chain = prompt_template | llm
+    response = await chain.ainvoke(
+        {"query_prompt": prompt, "history": history, "query": query},
+    )
+    return (response.content or "").strip()
 
 
 async def _stream_answer(
     *,
-    client: AsyncAzureOpenAI,
+    request: Request,
     deployment: str,
     system_prompt: str,
     messages: list[RetrievalMessage],
     query: str,
     sources: str,
 ) -> AsyncIterator[str]:
-    payload = _build_answer_payload(
-        system_prompt=system_prompt,
-        messages=messages,
-        query=query,
-        sources=sources,
+    llm = _build_azure_llm(request, deployment=deployment, streaming=True, temperature=0.3).bind(
+        max_tokens=1024
     )
-    stream = await client.chat.completions.create(
-        model=deployment,
-        messages=payload,
-        temperature=0.3,
-        max_tokens=1024,
-        n=1,
-        stream=True,
-    )
+    history = to_langchain_messages_from_roles(messages)
+    user_prompt_template = PromptTemplate.from_template("{query}\n\nSources:\n{sources}")
 
+    def _format_user_prompt(values: dict[str, str]) -> str:
+        if values.get("sources"):
+            return user_prompt_template.format(
+                query=values["query"], sources=values["sources"]
+            )
+        return values["query"]
+
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", "{system_prompt}"),
+            MessagesPlaceholder("history"),
+            ("human", "{user_prompt}"),
+        ]
+    )
+    chain = (
+        RunnablePassthrough.assign(
+            user_prompt=RunnableLambda(_format_user_prompt),
+        )
+        | prompt
+        | llm
+    )
     buffer = ""
-    async for event in stream:
-        choice = event.choices[0] if event.choices else None
-        delta = choice.delta.content if choice and choice.delta else None
-        if delta:
-            # Small chunks cause the UI to render everything at once,
-            # so we buffer the output to preserve the streaming effect.
-            buffer += delta
-            if len(buffer) >= 8:
-                yield buffer
-                buffer = ""
+    async for chunk in chain.astream(
+        {
+            "system_prompt": system_prompt,
+            "history": history,
+            "query": query,
+            "sources": sources,
+        }
+    ):
+        delta = _extract_delta(chunk)
+        if not delta:
+            continue
+        # Small chunks cause the UI to render everything at once,
+        # so we buffer the output to preserve the streaming effect.
+        buffer += delta
+        if len(buffer) >= 8:
+            yield buffer
+            buffer = ""
 
     # Flush any remaining buffer.
     if buffer:
@@ -329,10 +374,10 @@ async def query_rag(
         user_query = last_user
     search_query = user_query
     if mode == "chatreadretrieveread" and tool and tool.query_prompt:
-        client, deployment, _ = _resolve_azure_client(request, payload.model)
+        deployment, _ = _resolve_azure_deployment(request, payload.model)
         generated = await _generate_search_query(
-            client,
-            deployment,
+            request=request,
+            deployment=deployment,
             prompt=tool.query_prompt,
             messages=payload.messages,
             query=user_query,
@@ -379,12 +424,18 @@ async def query_rag(
         )
 
     try:
-        results = await provider.search(
-            search_query,
-            data_source,
-            payload.top_k,
-            query_embedding=payload.query_embedding,
-        )
+        async def _retrieve(_: str) -> list:
+            return await retrieve_documents(
+                service,
+                provider_id=provider.id,
+                data_source=data_source,
+                query=search_query,
+                top_k=payload.top_k,
+                query_embedding=payload.query_embedding,
+            )
+
+        documents = await RunnableLambda(_retrieve).ainvoke(search_query)
+        results = documents_to_results(documents)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except RuntimeError as exc:
@@ -429,7 +480,7 @@ async def query_rag(
     if mode != "retrievethenread":
         user_query = last_user or user_query
 
-    client, deployment, selected_model = _resolve_azure_client(request, payload.model)
+    deployment, selected_model = _resolve_azure_deployment(request, payload.model)
     message_id = f"msg-{uuid.uuid4()}"
     text_id = "text-1"
     response_text = ""
@@ -544,7 +595,7 @@ async def query_rag(
         )
         yield TextStartEvent(id=text_id)
         async for delta in _stream_answer(
-            client=client,
+            request=request,
             deployment=deployment,
             system_prompt=system_prompt,
             messages=payload.messages,

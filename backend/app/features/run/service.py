@@ -5,6 +5,8 @@ from collections.abc import AsyncIterator
 from logging import getLogger
 from typing import Any
 
+from langchain_core.messages import BaseMessage, SystemMessage
+
 from fastapi_ai_sdk.models import (
     AnyStreamEvent,
     DataEvent,
@@ -31,9 +33,9 @@ from app.features.run.message_utils import (
     extract_messages,
     extract_model_id,
     select_latest_user_message,
-    to_openai_messages,
+    to_langchain_messages,
 )
-from app.features.run.models import OpenAIMessage, RunRequest, StreamContext
+from app.features.run.models import RunRequest, StreamContext
 from app.features.run.retrieval_context import build_retrieval_context
 from app.features.run.streamers import ChatStreamer
 from app.features.run.web_search_utils import (
@@ -125,7 +127,7 @@ class RunService:
             conversation_id,
             incoming_messages,
         )
-        message_id, model_id, openai_messages = self._build_message_context(
+        message_id, model_id, langchain_messages = self._build_message_context(
             payload,
             merged_messages,
         )
@@ -139,7 +141,7 @@ class RunService:
             title=title,
             should_generate_title=should_generate_title,
             messages=merged_messages,
-            openai_messages=openai_messages,
+            langchain_messages=langchain_messages,
             web_search=extract_web_search(payload),
             tool_id=payload.tool_id,
         )
@@ -256,23 +258,23 @@ class RunService:
         self,
         payload: RunRequest,
         messages: list[MessageRecord],
-    ) -> tuple[str, str | None, list[OpenAIMessage]]:
+    ) -> tuple[str, str | None, list[BaseMessage]]:
         """Build message context for streaming.
 
-        This resolves the message id, model id, and OpenAI-formatted messages.
+        This resolves the message id, model id, and LangChain messages.
 
         Args:
             payload: Chat request payload.
             messages: Parsed chat messages.
 
         Returns:
-            tuple[str, str | None, list[OpenAIMessage]]: Message id, model id,
+            tuple[str, str | None, list[BaseMessage]]: Message id, model id,
             and formatted messages.
         """
         message_id = f"msg-{uuid.uuid4()}"
         model_id = extract_model_id(payload)
-        openai_messages = to_openai_messages(messages)
-        return message_id, model_id, openai_messages
+        langchain_messages = to_langchain_messages(messages)
+        return message_id, model_id, langchain_messages
 
     async def _send_title_update(
         self,
@@ -356,7 +358,7 @@ class RunService:
         title_sent = False
         request_payload: list[dict[str, Any]] = []
         try:
-            openai_payload = list(context.openai_messages)
+            langchain_payload = list(context.langchain_messages)
             if context.tool_id and not self._retrieval_service:
                 raise RunServiceError("Retrieval service is not configured.")
             if context.tool_id and self._retrieval_service:
@@ -372,12 +374,9 @@ class RunService:
                     retrieval_service=self._retrieval_service,
                 )
                 if retrieval_context:
-                    openai_payload = [
-                        OpenAIMessage(
-                            role="system",
-                            content=retrieval_context.system_message,
-                        ),
-                        *openai_payload,
+                    langchain_payload = [
+                        SystemMessage(content=retrieval_context.system_message),
+                        *langchain_payload,
                     ]
                     query_preview = retrieval_context.query
                     if len(query_preview) > 120:
@@ -440,9 +439,9 @@ class RunService:
                                 content_by_url=content_by_url,
                             )
                             # logger.debug("Web search results: %s", search_block)
-                            openai_payload = [
-                                OpenAIMessage(role="system", content=search_block),
-                                *openai_payload,
+                            langchain_payload = [
+                                SystemMessage(content=search_block),
+                                *langchain_payload,
                             ]
                             yield ReasoningDeltaEvent(
                                 id=reasoning_id,
@@ -465,9 +464,12 @@ class RunService:
                             )
                     yield ReasoningEndEvent(id=reasoning_id)
             request_payload = [
-                message.model_dump(by_alias=True, exclude_none=True) for message in openai_payload
+                {"role": message.type, "content": message.content}
+                for message in langchain_payload
             ]
-            async for delta in self._streamer.stream_chat(openai_payload, context.model_id):
+            async for delta in self._streamer.stream_chat(
+                langchain_payload, context.model_id
+            ):
                 response_text += delta
                 async for chunk in self._streamer.stream_text_delta(delta, context.message_id):
                     yield chunk

@@ -2,8 +2,8 @@ import asyncio
 import random
 from collections.abc import AsyncIterator
 
-from app.features.run.models import OpenAIMessage
 from app.features.run.streamers.base import BaseStreamer
+from langchain_core.messages import BaseMessage
 
 
 class MemoryStreamer(BaseStreamer):
@@ -102,7 +102,7 @@ By following these rules, React can reliably manage component state and updates.
 
     async def stream_chat(
         self,
-        messages: list[OpenAIMessage],
+        messages: list[BaseMessage],
         model_id: str | None,
     ) -> AsyncIterator[str]:
         response_text = random.choice(self._responses)

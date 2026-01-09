@@ -12,16 +12,9 @@ from pydantic import (
     model_validator,
 )
 
+from langchain_core.messages import BaseMessage
+
 from app.features.messages.models import MessageRecord
-
-
-class OpenAIMessage(BaseModel):
-    """OpenAI-style message payload."""
-
-    model_config = ConfigDict(frozen=True)
-
-    role: str
-    content: str
 
 
 class RunRequest(BaseModel):
@@ -126,5 +119,5 @@ class StreamContext(BaseModel):
     should_generate_title: bool
 
     messages: list[MessageRecord]
-    openai_messages: list[OpenAIMessage]
+    langchain_messages: list[BaseMessage]
     web_search: WebSearchRequest = Field(default_factory=WebSearchRequest)

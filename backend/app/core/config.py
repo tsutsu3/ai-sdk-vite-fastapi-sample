@@ -94,6 +94,8 @@ class AppConfig(BaseModel):
     # GCP
     gcp_project_id: str = ""
     gcp_location: str = ""
+    gcs_bucket: str = ""
+    gcs_prefix: str = "uploads"
 
     # Ollama
     ollama_base_url: str = "http://localhost:11434"
@@ -170,6 +172,7 @@ class AppConfig(BaseModel):
     otel_exporter_otlp_protocol: str = "grpc"
     otel_exporter_otlp_endpoint: str = ""
     azure_monitor_connection_string: str = ""
+
 
 
 class StorageCapabilities(BaseModel):
@@ -273,6 +276,8 @@ class Settings(BaseSettings):
     # GCP
     gcp_project_id: str = ""
     gcp_location: str = ""
+    gcs_bucket: str = ""
+    gcs_prefix: str = "uploads"
 
     # Ollama
     ollama_base_url: str = "http://localhost:11434"
@@ -341,6 +346,7 @@ class Settings(BaseSettings):
     otel_exporter_otlp_protocol: str = "grpc"
     otel_exporter_otlp_endpoint: str = ""
     azure_monitor_connection_string: str = ""
+
 
     @property
     def chat_providers_set(self) -> Set[str]:
@@ -497,7 +503,8 @@ class Settings(BaseSettings):
             if not (self.cosmos_endpoint and self.cosmos_key and self.cosmos_database):
                 raise ValueError("Cosmos settings are required for DB_BACKEND=azure")
         elif self.db_backend == StorageBackend.gcp:
-            raise ValueError("GCP backend is not yet supported for DB_BACKEND")
+            if not self.gcp_project_id:
+                raise ValueError("GCP_PROJECT_ID is required for DB_BACKEND=gcp")
         return self
 
     @model_validator(mode="after")
@@ -513,7 +520,10 @@ class Settings(BaseSettings):
                     "AZURE_BLOB_ENDPOINT and AZURE_BLOB_API_KEY are required for BLOB_BACKEND=azure"
                 )
         elif self.blob_backend == StorageBackend.gcp:
-            raise ValueError("GCP backend is not yet supported for BLOB_BACKEND")
+            if not self.gcp_project_id:
+                raise ValueError("GCP_PROJECT_ID is required for BLOB_BACKEND=gcp")
+            if not self.gcs_bucket:
+                raise ValueError("GCS_BUCKET is required for BLOB_BACKEND=gcp")
         return self
 
     @model_validator(mode="after")
@@ -532,7 +542,10 @@ class Settings(BaseSettings):
                 raise ValueError("AZURE_OPENAI_DEPLOYMENTS must be configured")
 
         if "gcp" in self.chat_providers_set:
-            raise ValueError("GCP chat provider is not yet supported")
+            if not self.gcp_project_id or not self.gcp_location:
+                raise ValueError("GCP_PROJECT_ID and GCP_LOCATION are required for GCP chat")
+            if not self.gcp_chat_models_set:
+                raise ValueError("GCP_CHAT_MODELS must be configured")
 
         if "ollama" in self.chat_providers_set and not self.ollama_chat_models_set:
             raise ValueError("OLLAMA_CHAT_MODELS must be configured")
@@ -589,6 +602,8 @@ class Settings(BaseSettings):
             azure_blob_container=self.azure_blob_container,
             gcp_project_id=self.gcp_project_id,
             gcp_location=self.gcp_location,
+            gcs_bucket=self.gcs_bucket,
+            gcs_prefix=self.gcs_prefix,
             ollama_base_url=self.ollama_base_url,
             chat_model_chefs=self.chat_model_chefs_dict,
             chat_model_chef_slugs=self.chat_model_chef_slugs_dict,

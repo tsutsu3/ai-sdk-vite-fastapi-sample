@@ -30,11 +30,9 @@ from app.features.retrieval.service import RetrievalService
 from app.features.retrieval.tools import initialize_tool_specs
 from app.features.run.service import RunService
 from app.features.run.streamers import (
-    AzureOpenAIStreamer,
     ChatStreamer,
+    LangChainChatStreamer,
     MemoryStreamer,
-    MultiChatStreamer,
-    OllamaStreamer,
 )
 from app.features.spa import routes as spa_api
 from app.features.title.title_generator import TitleGenerator
@@ -55,6 +53,7 @@ from app.infra.persistence.factory_selector import create_repository_factory
 from app.infra.storage import (
     AzureBlobStorage,
     BlobStorage,
+    GcsBlobStorage,
     LocalBlobStorage,
     MemoryBlobStorage,
 )
@@ -75,6 +74,8 @@ def _build_blob_storage(app_config: AppConfig, storage_caps: StorageCapabilities
             return MemoryBlobStorage()
         case "azure":
             return AzureBlobStorage(app_config)
+        case "gcp":
+            return GcsBlobStorage(app_config)
         case "local":
             return LocalBlobStorage(app_config)
         case _:
@@ -97,36 +98,11 @@ def _build_run_service(
     Returns:
         RunService: Run service instance.
     """
-    provider_streamers: dict[str, ChatStreamer] = {}
-    model_to_provider: dict[str, str] = {}
-    for provider, models in chat_caps.providers.items():
-        for model_id in models:
-            if model_id in model_to_provider:
-                raise RuntimeError(f"Model '{model_id}' is configured for multiple providers.")
-            model_to_provider[model_id] = provider
-
-    if chat_caps.has_provider("memory"):
-        provider_streamers["memory"] = MemoryStreamer()
-    if chat_caps.has_provider("azure"):
-        provider_streamers["azure"] = AzureOpenAIStreamer(app_config)
-    if chat_caps.has_provider("ollama"):
-        provider_streamers["ollama"] = OllamaStreamer(app_config)
-
-    if not provider_streamers:
-        provider_streamers["memory"] = MemoryStreamer()
-        model_to_provider["dummy"] = "memory"
-
-    default_model_id = None
-    if app_config.chat_default_model in model_to_provider:
-        default_model_id = app_config.chat_default_model
-    elif len(model_to_provider) == 1:
-        default_model_id = next(iter(model_to_provider))
-
-    streamer = MultiChatStreamer(
-        provider_streamers,
-        model_to_provider,
-        default_model_id=default_model_id,
-    )
+    streamer: ChatStreamer
+    if chat_caps.providers:
+        streamer = LangChainChatStreamer(app_config, chat_caps)
+    else:
+        streamer = MemoryStreamer()
     return RunService(
         streamer,
         TitleGenerator(app_config, streamer),

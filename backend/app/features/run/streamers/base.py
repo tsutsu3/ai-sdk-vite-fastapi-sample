@@ -9,9 +9,9 @@ from fastapi_ai_sdk.models import (
     TextEndEvent,
     TextStartEvent,
 )
+from langchain_core.messages import BaseMessage
 
 from app.features.messages.models import MessageRecord
-from app.features.run.models import OpenAIMessage
 from app.features.title.utils import generate_fallback_title
 
 
@@ -26,7 +26,7 @@ class ChatStreamer(Protocol):
 
     def stream_chat(
         self,
-        messages: list[OpenAIMessage],
+        messages: list[BaseMessage],
         model_id: str | None,
     ) -> AsyncIterator[str]:
         """Stream raw text deltas from a provider.

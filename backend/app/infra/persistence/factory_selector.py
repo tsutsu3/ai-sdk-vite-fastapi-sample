@@ -136,6 +136,7 @@ class _LocalRepositoryFactory:
     ) -> None:
         self._config = config
         self._path = Path(config.local_storage_path)
+        self._path.mkdir(parents=True, exist_ok=True)
         self._tenants = tenants
         self._users = users
         self._user_identities = user_identities
@@ -166,6 +167,45 @@ class _LocalRepositoryFactory:
 
     def messages(self):
         return LocalMessageRepository(self._path)
+
+    def usage(self):
+        return create_usage_repository(self._config)
+
+
+class _FirestoreRepositoryFactory:
+    """Firestore-backed repository factory."""
+
+    def __init__(self, config: AppConfig) -> None:
+        self._config = config
+        try:
+            from google.cloud import firestore
+        except ImportError as exc:
+            raise RuntimeError(
+                "google-cloud-firestore is required for DB_BACKEND=gcp"
+            ) from exc
+        from app.infra.repository.gcp.firestore_authz_repository import (
+            FirestoreAuthzRepository,
+        )
+        from app.infra.repository.gcp.firestore_conversations_repository import (
+            FirestoreConversationRepository,
+        )
+        from app.infra.repository.gcp.firestore_messages_repository import (
+            FirestoreMessageRepository,
+        )
+
+        self._authz_repo = FirestoreAuthzRepository
+        self._conversation_repo = FirestoreConversationRepository
+        self._message_repo = FirestoreMessageRepository
+        self._client = firestore.AsyncClient(project=config.gcp_project_id or None)
+
+    def authz(self):
+        return self._authz_repo(self._client, config=self._config)
+
+    def conversations(self):
+        return self._conversation_repo(self._client, config=self._config)
+
+    def messages(self):
+        return self._message_repo(self._client, config=self._config)
 
     def usage(self):
         return create_usage_repository(self._config)
@@ -221,6 +261,8 @@ def create_repository_factory(
                 provider=cosmos_provider,
                 config=app_config,
             )
+        case "gcp":
+            return _FirestoreRepositoryFactory(app_config)
 
         case _:
             raise RuntimeError(f"Unsupported db backend: {storage_caps.db_backend}")

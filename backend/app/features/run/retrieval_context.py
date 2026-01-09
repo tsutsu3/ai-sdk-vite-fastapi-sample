@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from langchain_core.prompts import PromptTemplate
+
 from app.features.authz.request_context import (
     get_current_tenant_record,
     get_current_user_record,
 )
 from app.features.authz.tool_merge import merge_tools
 from app.features.messages.models import MessageRecord
+from app.features.retrieval.langchain_adapters import documents_to_results, retrieve_documents
 from app.features.retrieval.schemas import RetrievalResult
 from app.features.retrieval.service import RetrievalService
 from app.features.retrieval.tools import RetrievalToolSpec, resolve_tool
@@ -81,17 +84,18 @@ async def build_retrieval_context(
         return None
 
     top_k = max(1, min(tool.top_k, 20))
-    results = list(
-        await retrieval_service.search(
-            query,
-            tool.data_source,
-            tool.provider,
-            top_k=top_k,
-        )
+    documents = await retrieve_documents(
+        retrieval_service,
+        provider_id=tool.provider,
+        data_source=tool.data_source,
+        query=query,
+        top_k=top_k,
     )
+    results = documents_to_results(documents)
     formatted = _format_results(results, tool.max_result_chars)
     if formatted:
-        system_message = f"{tool.system_prompt}\n\nSources:\n{formatted}"
+        prompt = PromptTemplate.from_template("{system_prompt}\n\nSources:\n{sources}")
+        system_message = prompt.format(system_prompt=tool.system_prompt, sources=formatted)
     else:
         system_message = tool.system_prompt
 
