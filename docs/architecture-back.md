@@ -90,6 +90,115 @@ The module map emphasizes that routers never talk to storage directly. They only
 call services or repository interfaces, and concrete storage implementations live
 under `infra/`.
 
+## Feature dependency map (ai / chat / retrieval)
+
+```mermaid
+flowchart TD
+  subgraph AI["app/ai (chains, models, retrievers, runtime)"]
+    Chains["chains/*"]
+    LLMs["llms/*"]
+    Retrievers["retrievers/*"]
+    History["history/*"]
+    Runtime["runtime.py"]
+  end
+
+  subgraph Chat["app/features/chat"]
+    ChatRoutes["routes.py"]
+    ChatRun["run/*"]
+  end
+
+  subgraph Retrieval["app/features/retrieval"]
+    RagRoutes["routes.py"]
+    RagRun["run/*"]
+    RagTools["tools/*"]
+  end
+
+  ChatRoutes --> ChatRun
+  RagRoutes --> RagRun
+
+  ChatRun --> Chains
+  ChatRun --> LLMs
+  ChatRun --> Runtime
+  ChatRun --> History
+  ChatRun --> RagTools
+
+  RagRun --> Chains
+  RagRun --> LLMs
+  RagRun --> Retrievers
+  RagRun --> History
+  RagRun --> RagTools
+```
+
+Notes:
+
+- `app/ai` is lower-level; feature modules consume it but do not mutate it.
+- Retrieval tools are shared between `chat` (tool-assisted chat) and `retrieval` (RAG).
+
+## Run/Chat/Retrieval dependency detail
+
+```mermaid
+flowchart LR
+  subgraph ChatRun["chat/run"]
+    ChatFacade["service.py"]
+    ChatCoordinator["stream_coordinator.py"]
+    ChatExecution["chat_execution_service.py"]
+    ChatPersistence["persistence_service.py"]
+    ChatFacade --> ChatCoordinator
+    ChatCoordinator --> ChatExecution
+    ChatCoordinator --> ChatPersistence
+  end
+
+  subgraph RetrievalRun["retrieval/run"]
+    RagFacade["service.py"]
+    RagPlanner["query_planner.py"]
+    RagCoordinator["stream_coordinator.py"]
+    RagExecution["execution_service.py"]
+    RagEvents["event_builder.py"]
+    RagPersistence["persistence_service.py"]
+    RagFacade --> RagPlanner
+    RagPlanner --> RagCoordinator
+    RagCoordinator --> RagExecution
+    RagCoordinator --> RagEvents
+    RagCoordinator --> RagPersistence
+  end
+
+  subgraph AI["app/ai"]
+    Chains
+    LLMs
+    History
+    Retrievers
+    Runtime
+  end
+
+  subgraph Infra["infra repos + cache"]
+    AuthzRepo
+    MessageRepo
+    ConversationRepo
+    UsageRepo
+    Cache
+  end
+
+  ChatExecution --> Chains
+  ChatExecution --> LLMs
+  ChatExecution --> History
+  ChatExecution --> Runtime
+  ChatPersistence --> MessageRepo
+  ChatPersistence --> ConversationRepo
+  ChatPersistence --> UsageRepo
+
+  RagExecution --> Chains
+  RagExecution --> LLMs
+  RagExecution --> History
+  RagExecution --> Retrievers
+  RagPlanner --> AuthzRepo
+  RagPersistence --> MessageRepo
+  RagPersistence --> ConversationRepo
+  RagPersistence --> UsageRepo
+
+  AuthzRepo --> Cache
+  MessageRepo --> Cache
+```
+
 ## Core modules
 
 - `features/run`: orchestrates chat streaming and persistence.
@@ -102,6 +211,19 @@ under `infra/`.
 - `features/file`: blob upload/download endpoints.
 - `features/capabilities`, `features/health`: support endpoints.
 - `features/*/routes.py`: FastAPI routers per feature.
+
+## Model resolution rules
+
+- Selection order: request `model_id` (if provided) → `app_config.chat_default_model` → if only one
+  model exists in `ChatCapabilities.providers`, use it; otherwise raise an error.
+- `resolve_chat_model` validates that the selected model exists in capabilities and returns
+  provider + model_id. Unknown models raise an error.
+- Chat runtime resolution caches per-model runtime and falls back to the base runtime when a
+  requested model is unavailable (with a warning).
+- Provider constraints:
+  - `azure`: `model_id` must map to `app_config.azure_openai_deployments`.
+  - `gcp`: `langchain-google-genai` must be installed and `google_api_key` provided.
+  - `fake`: uses local fake model with optional `chat_fake_stream_delay_ms`.
 
 ## Storage backends
 
@@ -116,6 +238,22 @@ and wrap authz/messages repositories.
 Usage logs are buffered via `infra/storage/usage_buffer.py` with `off | local | azure | gcp`
 backends.
 
+## Cache strategy
+
+- Authz cache (`CachedAuthzRepository`):
+  - Keys: `authz:user:{id}`, `authz:tenant:{id}`, `authz:identity:{id}`.
+  - TTL: `authz_cache_ttl_seconds` from `app/core/config.py`.
+  - Cache disabled when `cache_backend=off`.
+  - Cache invalidated on save; list queries are not cached.
+- Messages cache (`CachedMessageRepository`):
+  - Keys: `messages:{tenant}:{user}:{conversation}`.
+  - TTL: `messages_cache_ttl_seconds` from `app/core/config.py`.
+  - Cache is only populated for full conversation reads (`limit=None`, no storage continuation).
+  - Cache bypasses:
+    - partial lists with `limit` set,
+    - continuation tokens from storage (non-cache tokens).
+  - Cache is updated on upsert and invalidated on delete.
+
 ## Authorization data flow
 
 - `AuthzContextMiddleware` resolves authz context for most `/api/*` routes.
@@ -124,6 +262,21 @@ backends.
   - provision a new user from a `ProvisioningRecord` if eligible.
 - `CachedAuthzRepository` wraps the backing repository with TTL caching.
 - Effective tools are computed by merging tenant defaults with user overrides.
+
+## Tool authorization rules (chat + retrieval)
+
+- Tool scope is tenant/user scoped via request context (`tenant_id`, `user_id`).
+- Allowed tools are computed by `merge_tools(default_tools, tool_overrides)`:
+  - apply user allow list on top of tenant defaults,
+  - remove any deny-listed tools,
+  - de-duplicate by insertion order.
+- Authorization checks accept exact tool id or prefix match (tool id as namespace).
+- Retrieval:
+  - `QueryPlanner.resolve_tool_context` validates access and requires a provider.
+  - Unauthorized access returns HTTP 403.
+- Chat tool-assisted retrieval:
+  - `chat/run/retrieval_context.build_retrieval_context` validates access.
+  - Unauthorized access raises `RunServiceError` which is streamed as an error event.
 
 ## Blob storage contracts
 
@@ -141,6 +294,18 @@ backends.
 
 - Tenant resolution happens per request and is stored in request context.
 - Service-layer code uses tenant-scoped adapters to keep infra repositories request-agnostic.
+
+## Memory and history usage
+
+- Memory policy is defined in `app/ai/models.py` (`MemoryPolicy.window_size` default 16).
+- `build_history_factory` constructs a `RepositoryChatMessageHistory` with:
+  - `limit=window_size` and `descending=True` for windowed loads,
+  - results reversed to chronological order before passing to LangChain.
+- History is injected via `MessagesPlaceholder("history")`:
+  - chat chains: system message → history → latest user input,
+  - retrieval answer chains: system message → history → user question + sources.
+- Streaming runs set `write_enabled=False` for LangChain history; persistence happens in
+  `persistence_service.py` after streaming completes.
 
 ## Dependency injection flow
 
@@ -334,16 +499,30 @@ in the retrieval request payload.
 
 ```mermaid
 flowchart TD
-  User[User query + history] --> Hypo[Generate hypothetical answer (HyDE)]
-  Hypo --> SearchQuery[Derive search query from hypothetical answer]
-  SearchQuery --> Retrieve[Retrieve documents]
-  Retrieve --> Answer[Generate final answer]
+  User["User query + history"] --> Hypo["Generate hypothetical answer - HyDE"]
+  Hypo --> SearchQuery["Derive search query from hypothetical answer"]
+  SearchQuery --> Retrieve["Retrieve documents"]
+  Retrieve --> Answer["Generate final answer"]
 ```
 
 Behavior:
 
 - HyDE is optional (toggle) and does not change event order or payload shape.
 - When disabled, the flow remains identical to `simple` / `chat` mode behavior.
+
+### HyDE / query_prompt / answer comparison
+
+| Scenario | Search query source | LLM for query | LLM for answer | Provider behavior |
+| --- | --- | --- | --- | --- |
+| `simple` | user query | no | yes | provider from tool |
+| `chat` + `query_prompt` | generated from history + last user message | yes | yes | provider from tool |
+| HyDE enabled | hypothetical answer from history + last user message | yes | yes | provider from tool (unless `answer`) |
+| `answer` | user query (HyDE disabled) | no | no | provider forced to `vertex-answer` |
+
+Notes:
+
+- HyDE takes precedence over `query_prompt` when `hydeEnabled=true` and mode is not `answer`.
+- `query_prompt` only affects `search_query`, not the final answer question.
 
 ## API responsibilities and boundaries
 
