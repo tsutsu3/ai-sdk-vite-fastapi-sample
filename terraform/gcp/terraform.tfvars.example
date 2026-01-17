@@ -1,0 +1,13 @@
+project_id   = "your-gcp-project-id"
+project_name = "ai-chat"
+environment  = "dev"
+region       = "asia-northeast1"
+
+# Firestore database and collection names (optional)
+firestore_database_id = "(default)"
+conversations_collection = "conversations"
+messages_collection = "messages"
+users_collection = "users"
+tenants_collection = "tenants"
+useridentities_collection = "useridentities"
+provisioning_collection = "provisioning"

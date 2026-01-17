@@ -84,7 +84,7 @@ def user_doc_to_record(doc: UserDoc) -> UserRecord:
 def user_record_to_doc(record: UserRecord) -> UserDoc:
     return UserDoc(
         id=record.id or "",
-        user_id=record.id or "",
+        # idp_id=record.idp_id or "",
         tenant_id=record.tenant_id,
         email=record.email or "",
         first_name=record.first_name or "",

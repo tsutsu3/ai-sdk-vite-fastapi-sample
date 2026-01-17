@@ -62,9 +62,9 @@ class UserDoc(BaseModel):
 
     model_config = ConfigDict(frozen=True, populate_by_name=True)
 
-    id: str  # Internal user ID
+    id: str  # UserIdentityDoc.user_id
     tenant_id: str
-    user_id: str | None = Field(default=None, alias="userId")
+    idp_id: str | None = Field(default=None)  # UserIdentityDoc.id
     email: str | None = None
     first_name: str | None = None
     last_name: str | None = None

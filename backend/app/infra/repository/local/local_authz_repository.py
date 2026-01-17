@@ -78,6 +78,9 @@ class LocalAuthzRepository(AuthzRepository):
     async def save_provisioning(self, record: ProvisioningRecord) -> None:
         self._write_provisioning(record.id, record)
 
+    async def save_tenant(self, record: TenantRecord) -> None:
+        self._write_tenant(record.id, record)
+
     def _tenant_dir(self) -> Path:
         return self._base_path / "tenants"
 
@@ -95,21 +98,21 @@ class LocalAuthzRepository(AuthzRepository):
         tenant_dir.mkdir(parents=True, exist_ok=True)
         tenant_path = tenant_dir / f"{tenant_id}.json"
         doc = tenant_record_to_doc(tenant_record)
-        tenant_path.write_text(doc.model_dump_json(), encoding="utf-8")
+        tenant_path.write_text(doc.model_dump_json(ensure_ascii=False), encoding="utf-8")
 
     def _write_user(self, user_id: str, user_record: UserRecord) -> None:
         user_dir = self._user_dir()
         user_dir.mkdir(parents=True, exist_ok=True)
         user_path = user_dir / f"{user_id}.json"
         doc = user_record_to_doc(user_record)
-        user_path.write_text(doc.model_dump_json(), encoding="utf-8")
+        user_path.write_text(doc.model_dump_json(ensure_ascii=False), encoding="utf-8")
 
     def _write_user_identity(self, identity_id: str, identity_record: UserIdentityRecord) -> None:
         identity_dir = self._user_identity_dir()
         identity_dir.mkdir(parents=True, exist_ok=True)
         identity_path = identity_dir / f"{identity_id}.json"
         doc = user_identity_record_to_doc(identity_record)
-        identity_path.write_text(doc.model_dump_json(), encoding="utf-8")
+        identity_path.write_text(doc.model_dump_json(ensure_ascii=False), encoding="utf-8")
 
     def _write_provisioning(
         self, provisioning_id: str, provisioning_record: ProvisioningRecord
@@ -118,7 +121,7 @@ class LocalAuthzRepository(AuthzRepository):
         provisioning_dir.mkdir(parents=True, exist_ok=True)
         provisioning_path = provisioning_dir / f"{provisioning_id}.json"
         doc = provisioning_record_to_doc(provisioning_record)
-        provisioning_path.write_text(doc.model_dump_json(), encoding="utf-8")
+        provisioning_path.write_text(doc.model_dump_json(ensure_ascii=False), encoding="utf-8")
 
     def _read_user_item(self, user_id: str) -> UserRecord | None:
         user_path = self._user_dir() / f"{user_id}.json"

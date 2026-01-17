@@ -21,11 +21,14 @@
   "caseStudies": "Case Studies",
   "tool01": "RAG Examples 1",
   "tool02": "RAG Examples 2",
+  "tool03": "RAG Examples 3",
   "tool0101": "Basic RAG Example",
   "tool0102": "RAG with Different Vector Store",
   "tool0201": "RAG with Custom Retriever",
   "tool0202": "RAG with Context Filtering",
   "tool0203": "RAG with Alternative LLM",
+  "tool0301": "Press Release RAG",
+  "tool0302": "Press Release Drafting",
   "system": "System",
   "light": "Light",
   "dark": "Dark",
@@ -41,9 +44,6 @@
   "cool": "Cool",
   "mint": "Mint",
   "search": "Search",
-  "webSearchEngine": "Search engine",
-  "webSearchInProgress": "Searching the web...",
-  "webSearchCompleted": "Web search finished.",
   "addPhotosOrFiles": "Add Photos or Files",
   "searchModels": "Search models...",
   "chatPromptPlaceholder": "What would you like to know?",
@@ -59,6 +59,8 @@
   "hydeEnabled": "HyDE enabled",
   "hydeDisabled": "HyDE disabled",
   "maxDocuments": "Max documents",
+  "injectedPrompt": "Injected prompt",
+  "injectedPromptPlaceholder": "Optional: add a system prompt snippet for this run.",
   "confirmDelete": "Are you sure you want to delete \"{{title}}\"?\nThis action cannot be undone.",
   "archivedChats": "Archived chats",
   "archivedChatsDescription": "Manage archived conversations.",
@@ -97,6 +99,8 @@
   "homeToolDescription.tool0201": "Tune custom retrievers with document-backed tips.",
   "homeToolDescription.tool0202": "Filter by context and pull only relevant sources.",
   "homeToolDescription.tool0203": "Compare model trade-offs with cited evidence.",
+  "homeToolDescription.tool0301": "Search Vertex AI Search data stores and summarize.",
+  "homeToolDescription.tool0302": "Draft press releases from structured inputs.",
   "toolsEmptyFallbackToolLabel": "Tool",
   "toolsEmptyEyebrow": "{{tool}}",
   "toolsEmptyTitle": "Ask domain-specific questions",
@@ -199,6 +203,15 @@
         "Compare model choices and trade-offs.",
         "Summarize performance notes with sources.",
         "List recommended defaults and why."
+      ]
+    },
+    "tool0301": {
+      "title": "Press release research",
+      "subtitle": "Collect evidence from Vertex AI Search data stores.",
+      "samples": [
+        "Find three recent press release source documents.",
+        "Summarize relevant sources with citations.",
+        "Gather evidence that supports the announcement."
       ]
     }
   }

@@ -1,10 +1,8 @@
-import asyncio
-import json
 from logging import getLogger
 
 from app.features.messages.models import MessageRecord
 from app.features.messages.ports import MessageRepository
-from app.infra.cache.lru_cache import LruTtlCache
+from app.infra.cache.cache_provider import CacheProvider
 
 logger = getLogger(__name__)
 
@@ -12,39 +10,37 @@ _CACHE_TOKEN_PREFIX = "cache:"
 
 
 class CachedMessageRepository(MessageRepository):
-    """Message repository decorator that hides cache behavior from callers.
+    """Message repository with pluggable cache provider.
 
-    We only cache full conversation lists so paging stays consistent, and we
-    merge write-sets into the cached list to keep it coherent without re-reading.
+    Caches full conversation message lists for consistent pagination.
     """
 
-    def __init__(self, repo: MessageRepository, ttl_seconds: int, max_bytes: int) -> None:
+    def __init__(
+        self,
+        repo: MessageRepository,
+        cache_provider: CacheProvider[list[MessageRecord]],
+        ttl_seconds: int,
+    ) -> None:
+        """Initialize cached message repository.
+
+        Args:
+            repo: Underlying message repository.
+            cache_provider: Cache provider implementation.
+            ttl_seconds: Cache TTL in seconds.
+        """
         self._repo = repo
-        self._lock = asyncio.Lock()
-        self._cache = LruTtlCache(
-            ttl_seconds,
-            max_size=1000000,  # Large number to avoid size-based evictions
-            max_bytes=max_bytes,
-            size_estimator=self._estimate_messages_bytes,
-        )
+        self._cache = cache_provider
+        self._ttl_seconds = ttl_seconds
 
     def _cache_key(self, tenant_id: str, user_id: str, conversation_id: str) -> str:
-        return f"{tenant_id}:{user_id}:{conversation_id}"
-
-    def _estimate_messages_bytes(self, messages: list[MessageRecord] | None) -> int:
-        if not messages:
-            return 0
-        payload = [
-            message.model_dump(by_alias=True, exclude_none=True, mode="json")
-            for message in messages
-        ]
-        return len(json.dumps(payload, ensure_ascii=True).encode("utf-8"))
+        return f"messages:{tenant_id}:{user_id}:{conversation_id}"
 
     def _merge_messages(
         self,
         existing: list[MessageRecord],
         incoming: list[MessageRecord],
     ) -> list[MessageRecord]:
+        """Merge incoming messages into existing list."""
         merged = list(existing)
         index_by_id = {message.id: idx for idx, message in enumerate(merged)}
         for message in incoming:
@@ -63,6 +59,7 @@ class CachedMessageRepository(MessageRepository):
         continuation_token: str | None,
         descending: bool,
     ) -> tuple[list[MessageRecord], str | None]:
+        """Slice messages for pagination."""
         ordered = list(reversed(messages)) if descending else list(messages)
         offset = 0
         if continuation_token and continuation_token.startswith(_CACHE_TOKEN_PREFIX):
@@ -82,6 +79,7 @@ class CachedMessageRepository(MessageRepository):
     async def _load_full_conversation(
         self, tenant_id: str, user_id: str, conversation_id: str
     ) -> list[MessageRecord]:
+        """Load full conversation from repository."""
         messages, _ = await self._repo.list_messages(
             tenant_id,
             user_id,
@@ -101,6 +99,7 @@ class CachedMessageRepository(MessageRepository):
         continuation_token: str | None = None,
         descending: bool = False,
     ) -> tuple[list[MessageRecord], str | None]:
+        """List messages with caching."""
         if not self._cache.is_enabled():
             return await self._repo.list_messages(
                 tenant_id,
@@ -116,32 +115,27 @@ class CachedMessageRepository(MessageRepository):
             _CACHE_TOKEN_PREFIX
         )
 
-        async with self._lock:
-            result = self._cache.get(cache_key, refresh_ttl=True)
-        if result.hit:
+        # Try cache
+        cached = await self._cache.get(cache_key)
+        if cached is not None and (continuation_token is None or use_cache_token):
             logger.debug(
-                "Cache hit for conversation_id=%s. message count=%d. messages bytes=%d",
+                "Cache hit for conversation_id=%s. message count=%d",
                 conversation_id,
-                len(result.value or []),
-                result.byte_size or 0,
+                len(cached),
             )
-        if (
-            result.hit
-            and result.value is not None
-            and (continuation_token is None or use_cache_token)
-        ):
-            # Cache hit: we serve pages from the cached full list so pagination
-            # stays consistent with earlier pages emitted from this cache.
             return self._slice_messages(
-                result.value,
+                cached,
                 limit=limit,
                 continuation_token=continuation_token if use_cache_token else None,
                 descending=descending,
             )
 
+        # Bypass cache if continuation token from storage
         if continuation_token and not use_cache_token:
-            # We must honor the storage continuation token to avoid paging drift,
-            # so we bypass the cache entirely when the caller owns the token.
+            logger.debug(
+                "Cache bypass for conversation_id=%s reason=storage_token",
+                conversation_id,
+            )
             return await self._repo.list_messages(
                 tenant_id,
                 user_id,
@@ -151,9 +145,13 @@ class CachedMessageRepository(MessageRepository):
                 descending=descending,
             )
 
+        # Skip caching for partial lists
         if limit is not None:
-            # For partial lists we skip caching to avoid creating a "partial"
-            # cache that would break later pagination or merge semantics.
+            logger.debug(
+                "Cache bypass for conversation_id=%s reason=partial_list limit=%s",
+                conversation_id,
+                limit,
+            )
             return await self._repo.list_messages(
                 tenant_id,
                 user_id,
@@ -163,10 +161,9 @@ class CachedMessageRepository(MessageRepository):
                 descending=descending,
             )
 
+        # Load full conversation and cache
         messages = await self._load_full_conversation(tenant_id, user_id, conversation_id)
-
-        async with self._lock:
-            self._cache.set(cache_key, messages)
+        await self._cache.set(cache_key, messages, self._ttl_seconds)
 
         return self._slice_messages(
             messages,
@@ -182,28 +179,29 @@ class CachedMessageRepository(MessageRepository):
         conversation_id: str,
         messages: list[MessageRecord],
     ) -> list[MessageRecord]:
+        """Upsert messages and update cache."""
         stored = await self._repo.upsert_messages(tenant_id, user_id, conversation_id, messages)
+
         if not self._cache.is_enabled():
             return stored
 
         cache_key = self._cache_key(tenant_id, user_id, conversation_id)
-        async with self._lock:
-            result = self._cache.get(cache_key, refresh_ttl=True)
-            if not result.hit or result.value is None:
-                return stored
-            # Keep list caches consistent with writes by merging the write-set
-            # into the cached full list instead of re-reading all pages.
-            merged = self._merge_messages(result.value, stored)
-            self._cache.set(cache_key, merged)
+        cached = await self._cache.get(cache_key)
+
+        if cached is not None:
+            # Merge into cached list
+            merged = self._merge_messages(cached, stored)
+            await self._cache.set(cache_key, merged, self._ttl_seconds)
+
         return stored
 
     async def delete_messages(self, tenant_id: str, user_id: str, conversation_id: str) -> None:
+        """Delete messages and invalidate cache."""
         await self._repo.delete_messages(tenant_id, user_id, conversation_id)
-        if not self._cache.is_enabled():
-            return
-        cache_key = self._cache_key(tenant_id, user_id, conversation_id)
-        async with self._lock:
-            self._cache.set(cache_key, [])
+
+        if self._cache.is_enabled():
+            cache_key = self._cache_key(tenant_id, user_id, conversation_id)
+            await self._cache.delete(cache_key)
 
     async def update_message_reaction(
         self,
@@ -213,6 +211,7 @@ class CachedMessageRepository(MessageRepository):
         message_id: str,
         reaction: str | None,
     ) -> MessageRecord | None:
+        """Update message reaction and update cache."""
         updated = await self._repo.update_message_reaction(
             tenant_id,
             user_id,
@@ -220,14 +219,16 @@ class CachedMessageRepository(MessageRepository):
             message_id,
             reaction,
         )
+
         if not self._cache.is_enabled() or updated is None:
             return updated
 
         cache_key = self._cache_key(tenant_id, user_id, conversation_id)
-        async with self._lock:
-            result = self._cache.get(cache_key, refresh_ttl=True)
-            if not result.hit or result.value is None:
-                return updated
-            merged = self._merge_messages(result.value, [updated])
-            self._cache.set(cache_key, merged)
+        cached = await self._cache.get(cache_key)
+
+        if cached is not None:
+            # Merge updated message into cache
+            merged = self._merge_messages(cached, [updated])
+            await self._cache.set(cache_key, merged, self._ttl_seconds)
+
         return updated

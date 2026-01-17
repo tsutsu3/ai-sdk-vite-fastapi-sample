@@ -24,6 +24,6 @@ class LocalUsageRepository(UsageRepository):
     async def record_usage(self, record: UsageRecord) -> None:
         path = self._usage_path(record.tenant_id, record.user_id)
         path.parent.mkdir(parents=True, exist_ok=True)
-        line = json.dumps(record.model_dump(mode="json"), ensure_ascii=True)
+        line = json.dumps(record.model_dump(mode="json"), ensure_ascii=False)
         with path.open("a", encoding="utf-8") as handle:
             handle.write(f"{line}\n")

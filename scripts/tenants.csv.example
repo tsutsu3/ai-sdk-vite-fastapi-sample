@@ -1,0 +1,5 @@
+tenant_id,tenant_key,tenant_name,default_tools
+,Tenant 001,"tool01,tool02,tool03"
+,Tenant 002,"tool01,tool03"
+,Tenant 003,"tool02,tool03"
+,Tenant 004,

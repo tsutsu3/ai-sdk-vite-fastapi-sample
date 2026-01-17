@@ -1,0 +1,42 @@
+[
+  {
+    "id": "doc001",
+    "title": "Regional Sales Performance Overview",
+    "content": "Regional sales performance analysis provides insights into market trends, growth patterns, and revenue distribution across geographic regions. Key metrics include quarter-over-quarter growth, market penetration, and customer acquisition costs. Example: EMEA region showed 7.2% growth in Q2-2025.",
+    "url": "https://example.com/docs/sales-performance-overview.pdf",
+    "tags": ["sales", "performance", "regional", "metrics"],
+    "category": "analytics"
+  },
+  {
+    "id": "doc002",
+    "title": "Sales Data Source Templates",
+    "content": "Source brief templates for sales data should include: region identifier (e.g., EMEA, APAC, Americas), reporting period (quarter/year), growth percentage, and comparison baseline. Use these templates to ensure consistent data citation and reporting across sales documents.",
+    "url": "https://example.com/docs/source-templates.md",
+    "tags": ["templates", "sources", "citation", "standards"],
+    "category": "documentation"
+  },
+  {
+    "id": "doc003",
+    "title": "Q2 2025 EMEA Sales Snapshot",
+    "content": "EMEA region performance snapshot for Q2-2025 shows positive growth trajectory. Key facts: region=EMEA, quarter=Q2-2025, growth=7.2%. This represents a strong performance compared to Q1-2025. Contributing factors include expanded partner network and successful product launches.",
+    "url": "https://example.com/reports/emea-q2-2025.html",
+    "tags": ["emea", "q2-2025", "snapshot", "growth"],
+    "category": "reports"
+  },
+  {
+    "id": "doc004",
+    "title": "Sales Reporting Best Practices",
+    "content": "Sales reporting best practices emphasize accuracy, timeliness, and proper source attribution. Always cite data sources with complete metadata (region, period, metric type). Use consistent formatting and terminology across reports. Include confidence intervals for projections and forecasts.",
+    "url": "https://example.com/docs/reporting-practices.pdf",
+    "tags": ["reporting", "best-practices", "accuracy"],
+    "category": "guidelines"
+  },
+  {
+    "id": "doc005",
+    "title": "Geographic Market Segmentation",
+    "content": "Geographic market segmentation divides sales territories into regions: EMEA (Europe, Middle East, Africa), Americas (North and South America), and APAC (Asia-Pacific). Each region has distinct market characteristics, customer behaviors, and regulatory requirements that impact sales strategies.",
+    "url": "https://example.com/docs/market-segmentation.md",
+    "tags": ["geography", "segmentation", "markets", "regions"],
+    "category": "strategy"
+  }
+]

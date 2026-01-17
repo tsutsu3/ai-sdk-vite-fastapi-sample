@@ -7,8 +7,6 @@ import { requestJson } from "@/lib/http/client";
 export type CapabilitiesResponse = {
   models?: ChatModel[];
   defaultModel?: string;
-  webSearchEngines?: { id: string; name: string }[];
-  defaultWebSearchEngine?: string;
   apiPageSizes?: {
     messagesPageSizeDefault?: number;
     messagesPageSizeMax?: number;
@@ -18,7 +16,7 @@ export type CapabilitiesResponse = {
 };
 
 /**
- * Fetches model and web search capabilities.
+ * Fetches model capabilities.
  */
 export async function fetchCapabilities(): Promise<CapabilitiesResponse> {
   const result = await requestJson<CapabilitiesResponse>("/api/capabilities");

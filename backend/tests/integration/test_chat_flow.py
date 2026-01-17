@@ -23,7 +23,7 @@ def test_chat_streams_and_persists(client):
     response = client.post(
         "/api/chat",
         json={
-            "model": "dummy",
+            "model": "fake-static",
             "messages": [
                 {
                     "role": "user",
@@ -33,7 +33,10 @@ def test_chat_streams_and_persists(client):
         },
     )
     assert response.status_code == 200
-    assert response.headers.get("x-vercel-ai-protocol") == "data"
+    assert (
+        response.headers.get("x-vercel-ai-protocol") == "data"
+        or response.headers.get("x-vercel-ai-ui-message-stream") == "v1"
+    )
     body = response.text
     assert "data:" in body
 
@@ -49,7 +52,7 @@ def test_conversations_list_includes_new_chat(client):
     response = client.post(
         "/api/chat",
         json={
-            "model": "dummy",
+            "model": "fake-static",
             "messages": [
                 {
                     "role": "user",

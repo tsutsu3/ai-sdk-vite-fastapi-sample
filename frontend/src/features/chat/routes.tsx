@@ -13,12 +13,4 @@ export const chatRoutes = [
       breadcrumb: (params: { id: string }) => `Chat / ${params.id}`,
     },
   },
-  {
-    path: "/tools/:type/c/:id",
-    element: <ChatPage />,
-    handle: {
-      breadcrumb: (params: { type: string; id: string }) =>
-        `Tools / ${params.type} / ${params.id}`,
-    },
-  },
 ];

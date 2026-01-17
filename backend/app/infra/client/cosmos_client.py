@@ -39,7 +39,7 @@ class CosmosClientProvider:
             config.cosmos_endpoint,
             credential=config.cosmos_key,
         )
-        self._database_name = config.cosmos_database
+        self._database_name = config.database
         self._database = self._client.get_database_client(self._database_name)
 
     @property

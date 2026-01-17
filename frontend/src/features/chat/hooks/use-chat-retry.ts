@@ -11,16 +11,12 @@ type UseChatRetryArgs = {
   activeConversationId: string;
   messagesRef: React.RefObject<UIMessage<unknown, UIDataTypes, UITools>[]>;
   regenerate: ReturnType<typeof useChat>["regenerate"];
-  defaultWebSearchEngine: string;
-  useWebSearch: boolean;
 };
 
 export const useChatRetry = ({
   activeConversationId,
   messagesRef,
   regenerate,
-  defaultWebSearchEngine,
-  useWebSearch,
 }: UseChatRetryArgs) => {
   const handleRetryMessage = useCallback(
     (messageId: string) => {
@@ -32,26 +28,16 @@ export const useChatRetry = ({
         // Only allow retry for assistant replies with a known parent user message.
         return;
       }
-      const webSearchEngine = defaultWebSearchEngine.trim();
-      const webSearch = useWebSearch
-        ? {
-            enabled: true,
-            ...(webSearchEngine ? { engine: webSearchEngine } : {}),
-          }
-        : undefined;
       const body = buildRetryBody({
         activeConversationId,
-        webSearch,
         parentMessageId: retryContext.parentMessageId,
       });
       void regenerate({ messageId, body });
     },
     [
       activeConversationId,
-      defaultWebSearchEngine,
       messagesRef,
       regenerate,
-      useWebSearch,
     ],
   );
 

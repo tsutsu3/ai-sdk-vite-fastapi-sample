@@ -7,13 +7,12 @@ from app.features.authz.request_context import (
     get_current_tenant_record,
     get_current_user_info,
     get_current_user_record,
-    require_request_context,
 )
 from app.features.authz.schemas import AuthorizationResponse
 from app.features.authz.tool_merge import merge_tools
 from app.features.authz.tools import TOOL_GROUPS
 
-router = APIRouter(dependencies=[Depends(require_request_context)])
+router = APIRouter()
 
 
 @router.get(
@@ -23,6 +22,24 @@ router = APIRouter(dependencies=[Depends(require_request_context)])
     summary="Get user authorization",
     description=("Returns the authenticated user's profile and tool permissions."),
     response_description="Authorization details for the current user.",
+    responses={
+        422: {
+            "description": "Validation Error",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": [
+                            {
+                                "loc": ["query", "include"],
+                                "msg": "Input should be a valid boolean",
+                                "type": "bool_parsing",
+                            }
+                        ]
+                    }
+                }
+            },
+        }
+    },
 )
 async def get_authorization(
     repo: AuthzRepository = Depends(get_authz_repository),

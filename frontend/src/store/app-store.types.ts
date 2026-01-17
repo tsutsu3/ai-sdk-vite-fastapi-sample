@@ -22,19 +22,11 @@ export type HistoryState = {
   error?: string;
 };
 
-/** Web search engine option returned by capabilities. */
-export type WebSearchEngine = {
-  id: string;
-  name: string;
-};
-
 /** Model and tool capabilities returned from the backend. */
 export type CapabilitiesState = {
   status: "idle" | "loading" | "success" | "error";
   models: ChatModel[];
   defaultModel: string;
-  webSearchEngines: WebSearchEngine[];
-  defaultWebSearchEngine: string;
   apiPageSizes: {
     messagesPageSizeDefault: number;
     messagesPageSizeMax: number;
@@ -73,10 +65,10 @@ export type HistorySlice = {
   removeHistoryItem: (url: string) => void;
 };
 
-/** Chat capabilities used for model and web search UI. */
+/** Chat capabilities used for model UI. */
 export type CapabilitiesSlice = {
   capabilities: CapabilitiesState;
-  /** Fetches model and web search capabilities for chat flows. */
+  /** Fetches model capabilities for chat flows. */
   fetchCapabilities: () => Promise<void>;
 };
 

@@ -11,6 +11,8 @@ dependencies = [
   "python-multipart",
   "pydantic-settings",
   "fastapi-ai-sdk",
+  "langchain",
+  "langchain-community",
   "opentelemetry-api",
   "opentelemetry-sdk",
   "opentelemetry-exporter-otlp",
@@ -21,17 +23,38 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-asyncio", "pytest-cov", "black", "isort", "flake8", "mypy", "pip-tools", "import-linter"]
-duck =["ddgs"]
-postgres = ["asyncpg"]
+dev = [
+  "pytest",
+  "pytest-asyncio",
+  "pytest-cov",
+  "black",
+  "isort",
+  "flake8",
+  "mypy",
+  "pip-tools",
+  "import-linter",
+]
 azure = [
   "openai",
   "azure-cosmos",
   "azure-storage-blob",
+  "azure-search-documents",
   "azure-monitor-opentelemetry-exporter",
   "opentelemetry-instrumentation-openai",
+  "langchain-openai",
 ]
-gcp = ["google-cloud-storage"]
+gcp = [
+  "langchain-google-genai",
+  "langchain-google-community",
+  "google_cloud_core==2.4.3",
+  "google-cloud-firestore==2.22.0",
+  "google-cloud-storage==3.7.0",
+  "google-cloud-discoveryengine==0.16.0",
+  "google-generativeai",
+  "google-resumable-media==2.8.0",
+]
+ollama = ["langchain-ollama"]
+redis = ["redis"]
 
 [tool.uvicorn]
 factory = false

@@ -5,7 +5,7 @@ import { fetchCapabilities } from "@/services/api/capabilities";
 /**
  * Capabilities slice for chat configuration.
  *
- * Loads available models and web search engines for the chat page.
+ * Loads available models for the chat page.
  */
 export const createCapabilitiesSlice: StateCreator<
   AppState,
@@ -17,8 +17,6 @@ export const createCapabilitiesSlice: StateCreator<
     status: "idle",
     models: [],
     defaultModel: "",
-    webSearchEngines: [],
-    defaultWebSearchEngine: "",
     apiPageSizes: {
       messagesPageSizeDefault: 30,
       messagesPageSizeMax: 200,
@@ -26,7 +24,7 @@ export const createCapabilitiesSlice: StateCreator<
       conversationsPageSizeMax: 200,
     },
   },
-  // Controls available models and web search toggles in the chat page.
+  // Controls available models in the chat page.
   fetchCapabilities: async () => {
     const { capabilities } = get();
     if (
@@ -47,13 +45,6 @@ export const createCapabilitiesSlice: StateCreator<
           defaultModel:
             typeof payload?.defaultModel === "string"
               ? payload.defaultModel
-              : "",
-          webSearchEngines: Array.isArray(payload?.webSearchEngines)
-            ? payload.webSearchEngines
-            : [],
-          defaultWebSearchEngine:
-            typeof payload?.defaultWebSearchEngine === "string"
-              ? payload.defaultWebSearchEngine
               : "",
           apiPageSizes: {
             messagesPageSizeDefault:
@@ -83,8 +74,6 @@ export const createCapabilitiesSlice: StateCreator<
           status: "error",
           models: [],
           defaultModel: "",
-          webSearchEngines: [],
-          defaultWebSearchEngine: "",
           apiPageSizes: {
             messagesPageSizeDefault: 30,
             messagesPageSizeMax: 200,

@@ -13,18 +13,18 @@ class RepositoryFactory(Protocol):
     (Cosmos, Firestore, Local, etc.) from application code.
     """
 
-    def authz(self) -> AuthzRepository:
+    async def authz(self) -> AuthzRepository:
         """Return an authorization repository."""
         raise NotImplementedError
 
-    def conversations(self) -> ConversationRepository:
+    async def conversations(self) -> ConversationRepository:
         """Return a conversation repository."""
         raise NotImplementedError
 
-    def messages(self) -> MessageRepository:
+    async def messages(self) -> MessageRepository:
         """Return a message repository."""
         raise NotImplementedError
 
-    def usage(self) -> UsageRepository:
+    async def usage(self) -> UsageRepository:
         """Return a usage repository."""
         raise NotImplementedError

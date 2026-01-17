@@ -25,7 +25,17 @@ class ImagePartDoc(MessagePartBase):
     image_id: str = Field(alias="imageId")
 
 
-MessagePartDoc = TextPartDoc | FilePartDoc | ImagePartDoc
+class RagProgressPartDoc(MessagePartBase):
+    type: Literal["rag-progress"]
+    text: str
+
+
+class RagSourcesPartDoc(MessagePartBase):
+    type: Literal["rag-sources"]
+    text: str
+
+
+MessagePartDoc = TextPartDoc | FilePartDoc | ImagePartDoc | RagProgressPartDoc | RagSourcesPartDoc
 
 
 class MessageDoc(BaseModel):
@@ -35,7 +45,6 @@ class MessageDoc(BaseModel):
 
     id: str
     tenant_id: str = Field(alias="tenantId")
-    conv_id: str = Field(alias="convId")
     tool_id: str = Field(alias="toolId")  # `chat` or tool id ( = tool name)
     user_id: str = Field(alias="userId")
     conversation_id: str = Field(alias="conversationId")

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from datetime import datetime
 from typing import Any, Literal
 
@@ -11,7 +9,12 @@ class ChatFileProviderMetadata(BaseModel):
 
     model_config = ConfigDict(frozen=True, populate_by_name=True)
 
-    file_id: str | None = Field(default=None, alias="fileId")
+    file_id: str | None = Field(
+        default=None,
+        alias="fileId",
+        description="Uploaded file identifier.",
+        examples=["file_abc123"],
+    )
 
 
 class ChatPartProviderMetadata(BaseModel):
@@ -19,7 +22,10 @@ class ChatPartProviderMetadata(BaseModel):
 
     model_config = ConfigDict(frozen=True, populate_by_name=True)
 
-    file: ChatFileProviderMetadata | None = None
+    file: ChatFileProviderMetadata | None = Field(
+        default=None,
+        description="File metadata for file parts.",
+    )
 
 
 class ChatMessagePart(BaseModel):
@@ -27,16 +33,43 @@ class ChatMessagePart(BaseModel):
 
     model_config = ConfigDict(frozen=True, populate_by_name=True)
 
-    type: Literal["text", "file", "image"]
-    text: str | None = None
-    url: str | None = None
-    media_type: str | None = Field(default=None, alias="mediaType")
-    filename: str | None = None
-    file_id: str | None = Field(default=None, alias="fileId")
-    image_id: str | None = Field(default=None, alias="imageId")
+    type: Literal["text", "file", "image"] = Field(
+        description="Part type.",
+        examples=["text"],
+    )
+    text: str | None = Field(
+        default=None,
+        description="Text payload for text parts.",
+        examples=["Hello"],
+    )
+    url: str | None = Field(
+        default=None,
+        description="External URL for file/image parts.",
+    )
+    media_type: str | None = Field(
+        default=None,
+        alias="mediaType",
+        description="Media type (MIME).",
+        examples=["image/png"],
+    )
+    filename: str | None = Field(
+        default=None,
+        description="Original file name.",
+    )
+    file_id: str | None = Field(
+        default=None,
+        alias="fileId",
+        description="Uploaded file identifier.",
+    )
+    image_id: str | None = Field(
+        default=None,
+        alias="imageId",
+        description="Uploaded image identifier.",
+    )
     provider_metadata: ChatPartProviderMetadata | None = Field(
         default=None,
         alias="providerMetadata",
+        description="Provider-specific metadata.",
     )
 
 
@@ -45,8 +78,18 @@ class ChatMessageMetadata(BaseModel):
 
     model_config = ConfigDict(frozen=True, populate_by_name=True)
 
-    model_id: str | None = Field(default=None, alias="modelId")
-    model_name: str | None = Field(default=None, alias="modelName")
+    model_id: str | None = Field(
+        default=None,
+        alias="modelId",
+        description="Model identifier used for generation.",
+        examples=["gpt-4o"],
+    )
+    model_name: str | None = Field(
+        default=None,
+        alias="modelName",
+        description="Display name for the model.",
+        examples=["GPT-4o"],
+    )
 
 
 class ChatMessage(BaseModel):
@@ -54,45 +97,86 @@ class ChatMessage(BaseModel):
 
     model_config = ConfigDict(frozen=True, populate_by_name=True)
 
-    id: str | None = None
-    role: Literal["user", "assistant", "system"]
-    parts: list[ChatMessagePart] = Field(default_factory=list)
-    parent_message_id: str | None = Field(default=None, alias="parentMessageId")
-    created_at: datetime | None = Field(default=None, alias="createdAt")
-    metadata: ChatMessageMetadata | None = None
-
-
-class ChatWebSearchRequest(BaseModel):
-    """Web search request configuration."""
-
-    model_config = ConfigDict(frozen=True, populate_by_name=True)
-
-    enabled: bool = False
-    engine: str | None = None
+    id: str | None = Field(
+        default=None,
+        description="Message identifier.",
+    )
+    role: Literal["user", "assistant", "system"] = Field(
+        description="Message role.",
+        examples=["user"],
+    )
+    parts: list[ChatMessagePart] = Field(
+        default_factory=list,
+        description="Message parts in order.",
+    )
+    parent_message_id: str | None = Field(
+        default=None,
+        alias="parentMessageId",
+        description="Parent message id for threading.",
+    )
+    created_at: datetime | None = Field(
+        default=None,
+        alias="createdAt",
+        description="Client-side created timestamp.",
+    )
+    metadata: ChatMessageMetadata | None = Field(
+        default=None,
+        description="Model and provider metadata.",
+    )
 
 
 class ChatPayload(BaseModel):
     """Chat request payload schema."""
 
-    model_config = ConfigDict(frozen=True, populate_by_name=True)
+    model_config = ConfigDict(
+        frozen=True,
+        populate_by_name=True,
+        json_schema_extra={
+            "examples": [
+                {
+                    "conversationId": "conv-quickstart",
+                    "model": "gpt-4o",
+                    "messages": [
+                        {
+                            "role": "user",
+                            "parts": [{"type": "text", "text": "Hello"}],
+                        }
+                    ],
+                }
+            ]
+        },
+    )
 
-    id: str | None = None
-    conversation_id: str | None = Field(default=None, alias="conversationId")
-    chat_id: str | None = Field(default=None, alias="chatId")
-    messages: list[ChatMessage] = Field(default_factory=list)
-    model: str | None = None
-    file_ids: list[str] | None = Field(default=None, alias="fileIds")
-    web_search: ChatWebSearchRequest | None = Field(default=None, alias="webSearch")
-    web_search_engine: str | None = Field(default=None, alias="webSearchEngine")
+    id: str | None = Field(
+        default=None,
+        description="Client request id.",
+    )
+    conversation_id: str | None = Field(
+        default=None,
+        alias="conversationId",
+        description="Conversation identifier (preferred).",
+    )
+    chat_id: str | None = Field(
+        default=None,
+        alias="chatId",
+        description="Legacy conversation id (alias).",
+    )
+    messages: list[ChatMessage] = Field(
+        description="Messages for the current turn.",
+    )
+    model: str | None = Field(
+        default=None,
+        description="Target model id.",
+        examples=["gpt-4o"],
+    )
+    file_ids: list[str] | None = Field(
+        default=None,
+        alias="fileIds",
+        description="Uploaded file ids referenced by parts.",
+    )
 
     @classmethod
     def from_raw(cls, data: Any) -> "ChatPayload":
         if not isinstance(data, dict):
             return cls()
-        if "webSearch" not in data and "websearch" in data:
-            data = dict(data)
-            data["webSearch"] = data.get("websearch")
-        if "webSearchEngine" not in data and "websearchEngine" in data:
-            data = dict(data)
-            data["webSearchEngine"] = data.get("websearchEngine")
         return cls.model_validate(data)

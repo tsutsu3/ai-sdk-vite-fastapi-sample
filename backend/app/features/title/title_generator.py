@@ -1,7 +1,11 @@
+from logging import getLogger
+
 from app.core.config import AppConfig
-from app.features.chat.streamers import ChatStreamer
+from app.features.chat.run.streamers import ChatStreamer
 from app.features.messages.models import MessageRecord
 from app.features.title.utils import generate_fallback_title
+
+logger = getLogger(__name__)
 
 
 class TitleGenerator:
@@ -35,9 +39,14 @@ class TitleGenerator:
         """
         model_id = self._config.chat_title_model.strip()
         if not model_id:
+            logger.warning("Chat title model is not configured; using fallback.")
             return generate_fallback_title(messages)
+
         try:
             title = await self._streamer.generate_title(messages, model_id)
+            logger.info("Generated title using model '%s'", model_id)
         except Exception:
+            logger.exception("Failed to generate title using model; using fallback.")
             return generate_fallback_title(messages)
+
         return title.strip() or generate_fallback_title(messages)

@@ -1,0 +1,42 @@
+[
+  {
+    "id": "doc001",
+    "title": "RAG Quickstart Guide",
+    "content": "RAG (Retrieval-Augmented Generation) quickstart covers essential topics including document chunking strategies, metadata extraction, and vector embedding techniques. Start with preprocessing your documents into manageable chunks of 500-1000 tokens.",
+    "url": "https://example.com/docs/rag-quickstart.pdf",
+    "tags": ["quickstart", "chunking", "metadata", "embedding"],
+    "category": "getting-started"
+  },
+  {
+    "id": "doc002",
+    "title": "Retrieval Evaluation Best Practices",
+    "content": "Evaluation tips for retrieval quality assessment. Use metrics like precision@k, recall@k, and MRR (Mean Reciprocal Rank) to measure retrieval performance. Consider using relevance judgments from domain experts.",
+    "url": "https://example.com/docs/retrieval-eval.md",
+    "tags": ["evaluation", "metrics", "quality", "testing"],
+    "category": "advanced"
+  },
+  {
+    "id": "doc003",
+    "title": "Vector Database Selection",
+    "content": "Choosing the right vector database depends on your scale, latency requirements, and budget. Popular options include Pinecone for managed solutions, Weaviate for hybrid search, and FAISS for in-memory operations.",
+    "url": "https://example.com/docs/vector-db-comparison.html",
+    "tags": ["vector-database", "architecture", "scaling"],
+    "category": "infrastructure"
+  },
+  {
+    "id": "doc004",
+    "title": "Prompt Engineering for RAG",
+    "content": "Effective prompt engineering techniques for RAG systems include context window optimization, query reformulation, and result reranking. Always include source citations in your responses to maintain transparency.",
+    "url": "https://example.com/docs/prompt-engineering-rag.md",
+    "tags": ["prompts", "engineering", "optimization"],
+    "category": "best-practices"
+  },
+  {
+    "id": "doc005",
+    "title": "Hybrid Search Strategies",
+    "content": "Hybrid search combines vector similarity search with traditional keyword-based BM25 ranking. This approach improves recall by capturing both semantic and lexical matches. Implement weighted fusion to balance the two methods.",
+    "url": "https://example.com/docs/hybrid-search.pdf",
+    "tags": ["hybrid-search", "bm25", "ranking", "fusion"],
+    "category": "advanced"
+  }
+]

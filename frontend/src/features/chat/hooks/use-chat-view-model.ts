@@ -158,18 +158,15 @@ export const useChatViewModel = (): ChatViewModel => {
     activeConversationId,
     model: modelSettings.selectedModelId,
     selectedModelName: modelSettings.selectedModelName,
-    defaultWebSearchEngine: modelSettings.defaultWebSearchEngine,
     modelSelector: modelSettings.modelSelector,
     advancedSettings: modelSettings.advancedSettings,
   });
 
-  // Provides retry logic for assistant messages, including web search context.
+  // Provides retry logic for assistant messages.
   const { handleRetryMessage } = useChatRetry({
     activeConversationId,
     messagesRef: conversationMessages.messagesRef,
     regenerate,
-    defaultWebSearchEngine: modelSettings.defaultWebSearchEngine,
-    useWebSearch: prompt.useWebSearch,
   });
 
   // Manages optimistic reaction state and persistence.

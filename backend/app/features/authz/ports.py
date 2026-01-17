@@ -75,3 +75,7 @@ class AuthzRepository(Protocol):
     async def save_provisioning(self, record: ProvisioningRecord) -> None:
         """Persist a provisioning record."""
         raise NotImplementedError
+
+    async def save_tenant(self, record: TenantRecord) -> None:
+        """Persist a tenant record."""
+        raise NotImplementedError

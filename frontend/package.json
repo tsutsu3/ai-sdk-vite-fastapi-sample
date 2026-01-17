@@ -8,6 +8,7 @@
     "dev": "vite",
     "dev:msw": "cross-env VITE_MSW=true pnpm dev",
     "build": "tsc -b && vite build",
+    "build:nocheck": "vite build",
     "lint": "tsc -b && eslint .",
     "format": "prettier --write .",
     "preview": "vite preview",

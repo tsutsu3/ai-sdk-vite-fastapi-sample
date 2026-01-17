@@ -12,7 +12,6 @@ type UseChatInputViewModelArgs = {
   activeConversationId: string;
   model: string;
   selectedModelName: string;
-  defaultWebSearchEngine: string;
   modelSelector: ChatPromptInputViewModel["modelSelector"];
   advancedSettings: ChatPromptInputViewModel["advancedSettings"];
 };
@@ -25,12 +24,10 @@ export const useChatInputViewModel = ({
   activeConversationId,
   model,
   selectedModelName,
-  defaultWebSearchEngine,
   modelSelector,
   advancedSettings,
 }: UseChatInputViewModelArgs): ChatPromptInputViewModel => {
   const [text, setText] = useState<string>("");
-  const [useWebSearch, setUseWebSearch] = useState<boolean>(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleSubmit = useCallback(
@@ -39,15 +36,7 @@ export const useChatInputViewModel = ({
       if (!trimmedText) {
         return;
       }
-      const webSearchEngine = defaultWebSearchEngine.trim();
-      const webSearch = useWebSearch
-        ? {
-            enabled: true,
-            ...(webSearchEngine ? { engine: webSearchEngine } : {}),
-          }
-        : undefined;
       const body = {
-        ...(webSearch ? { webSearch } : {}),
         ...(activeConversationId ? { chatId: activeConversationId } : {}),
       };
 
@@ -65,8 +54,6 @@ export const useChatInputViewModel = ({
       activeConversationId,
       model,
       sendMessage,
-      useWebSearch,
-      defaultWebSearchEngine,
       selectedModelName,
     ],
   );
@@ -77,10 +64,6 @@ export const useChatInputViewModel = ({
 
   const handleTranscriptionChange = useCallback((value: string) => {
     setText(value);
-  }, []);
-
-  const handleToggleWebSearch = useCallback(() => {
-    setUseWebSearch((prev) => !prev);
   }, []);
 
   const handleSubmitPrompt = useCallback(
@@ -98,12 +81,10 @@ export const useChatInputViewModel = ({
     t,
     text,
     status,
-    useWebSearch,
     textareaRef,
     onSubmitPrompt: handleSubmitPrompt,
     onTextChange: handleTextChange,
     onTranscriptionChange: handleTranscriptionChange,
-    onToggleWebSearch: handleToggleWebSearch,
     modelSelector,
     advancedSettings,
   };

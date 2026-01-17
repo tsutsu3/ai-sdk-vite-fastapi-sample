@@ -6,7 +6,7 @@ import {
 import type { ChatViewModel } from "@/features/chat/hooks/use-chat-view-model";
 import { useEffect, useRef } from "react";
 import type { StickToBottomContext } from "use-stick-to-bottom";
-import { ChatMessageList } from "./chat-message-list";
+import { ChatMessageList } from "@/components/app/chat/chat-message-list";
 import { ChatPromptInput } from "./chat-prompt-input";
 import { Loader } from "@/components/ai-elements/loader";
 import { useTranslation } from "react-i18next";
@@ -27,6 +27,17 @@ export const ChatView = ({ viewModel }: ChatViewProps) => {
   const scrollContextRef = useRef<StickToBottomContext | null>(null);
   const topSentinelRef = useRef<HTMLDivElement | null>(null);
   const isEmpty = messageList.messages.length === 0;
+  const lastAssistantMessage = [...messageList.messages]
+    .reverse()
+    .find((message) => message.role === "assistant");
+  const lastAssistantTextStarted = Boolean(
+    lastAssistantMessage?.parts.some((part) => part.type === "text"),
+  );
+  const shouldShowLoader =
+    status === "submitted" ||
+    (status === "streaming" &&
+      lastAssistantMessage &&
+      !lastAssistantTextStarted);
 
   useEffect(() => {
     scroll.setScrollContextRef(scrollContextRef.current);
@@ -68,9 +79,7 @@ export const ChatView = ({ viewModel }: ChatViewProps) => {
           <ConversationContent className="mx-auto w-full max-w-3xl px-6 pb-12">
             <div ref={topSentinelRef} className="h-1" />
             <ChatMessageList viewModel={messageList} />
-            <div className="min-h-6">
-              {status === "submitted" && <Loader />}
-            </div>
+            <div className="min-h-6">{shouldShowLoader && <Loader />}</div>
           </ConversationContent>
           <ConversationScrollButton />
         </Conversation>

@@ -1,0 +1,28 @@
+# Use .gitignore as a base.
+.gitignore
+.git/
+
+# Python
+.venv/
+__pycache__/
+.local-data/
+docs/
+.vscode/
+scripts/
+terraform/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.flake8
+
+# Node
+node_modules/
+dist/
+
+!.env
+deploy.ps1
+docker-compose.yml
+.coverage
+
+# Include retrieval tool config in Cloud Build context.
+!backend/retrieval_tools.yaml

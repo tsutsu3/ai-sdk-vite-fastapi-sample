@@ -4,7 +4,6 @@ from app.core.dependencies import get_conversation_repository, get_message_repos
 from app.features.authz.request_context import (
     get_current_tenant_id,
     get_current_user_id,
-    require_request_context,
 )
 from app.features.conversations.models import ConversationRecord
 from app.features.conversations.ports import ConversationRepository
@@ -17,7 +16,7 @@ from app.features.conversations.service import ConversationService
 from app.features.conversations.tenant_scoped import TenantScopedConversationRepository
 from app.features.messages.ports import MessageRepository
 
-router = APIRouter(dependencies=[Depends(require_request_context)])
+router = APIRouter()
 
 
 @router.get(
@@ -27,14 +26,43 @@ router = APIRouter(dependencies=[Depends(require_request_context)])
     summary="List conversations",
     description="Lists conversation metadata for the current user.",
     response_description="Conversation metadata list.",
+    responses={
+        422: {
+            "description": "Validation Error",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": [
+                            {
+                                "loc": ["query", "limit"],
+                                "msg": "Input should be greater than or equal to 1",
+                                "type": "greater_than_equal",
+                            }
+                        ]
+                    }
+                }
+            },
+        }
+    },
 )
 async def conversation_history(
     request: Request,
     repo: ConversationRepository = Depends(get_conversation_repository),
     message_repo: MessageRepository = Depends(get_message_repository),
-    archived: bool = False,
-    limit: int | None = Query(default=None, ge=1),
-    continuation_token: str | None = Query(default=None, alias="continuationToken"),
+    archived: bool = Query(
+        default=False,
+        description="Return archived conversations when true.",
+    ),
+    limit: int | None = Query(
+        default=None,
+        ge=1,
+        description="Maximum number of conversations to return.",
+    ),
+    continuation_token: str | None = Query(
+        default=None,
+        alias="continuationToken",
+        description="Continuation token for paging.",
+    ),
 ) -> ConversationsResponse:
     """List conversations for the current user.
 
@@ -108,6 +136,22 @@ async def conversation_detail(
         400: {
             "description": "Invalid payload. Only archived can be updated in bulk.",
         },
+        422: {
+            "description": "Validation Error",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": [
+                            {
+                                "loc": ["body", "archived"],
+                                "msg": "Input should be a valid boolean",
+                                "type": "bool_parsing",
+                            }
+                        ]
+                    }
+                }
+            },
+        },
     },
 )
 async def bulk_update_conversations(
@@ -144,6 +188,22 @@ async def bulk_update_conversations(
         400: {"description": "No updates provided."},
         404: {"description": "Conversation not found."},
         500: {"description": "Failed to update conversation."},
+        422: {
+            "description": "Validation Error",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": [
+                            {
+                                "loc": ["body", "title"],
+                                "msg": "Input should be a valid string",
+                                "type": "string_type",
+                            }
+                        ]
+                    }
+                }
+            },
+        },
     },
 )
 async def update_conversation(
@@ -194,6 +254,8 @@ async def update_conversation(
     return ConversationResponse(
         id=updated.id,
         title=updated.title,
+        toolId=updated.toolId,
+        archived=updated.archived,
         updatedAt=updated.updatedAt,
         messages=messages,
     )

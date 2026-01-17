@@ -168,7 +168,6 @@ export const BillingDialogView = ({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="assistant">Assistant</SelectItem>
-                      <SelectItem value="search">Web Search</SelectItem>
                       <SelectItem value="files">File Tools</SelectItem>
                     </SelectContent>
                   </Select>

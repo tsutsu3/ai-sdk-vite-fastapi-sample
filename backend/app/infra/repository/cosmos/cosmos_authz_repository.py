@@ -102,6 +102,15 @@ class CosmosAuthzRepository(AuthzRepository):
             doc.model_dump(by_alias=True, exclude_none=True)
         )
 
+    async def save_tenant(self, record: TenantRecord) -> None:
+        from app.infra.mapper.authz_mapper import tenant_record_to_doc
+
+        doc = tenant_record_to_doc(record)
+        await self._tenants_container.upsert_item(
+            doc.model_dump(by_alias=True, exclude_none=True),
+            partition_key=record.id,
+        )
+
     async def _read_user_item(self, user_id: str) -> UserRecord | None:
         """Fetch the user record by user id.
 

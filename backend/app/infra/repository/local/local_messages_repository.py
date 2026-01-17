@@ -145,7 +145,7 @@ class LocalMessageRepository(MessageRepository):
             ).model_dump(by_alias=True, exclude_none=True, mode="json")
             for message in existing
         ]
-        path.write_text(json.dumps(payload, ensure_ascii=True), encoding="utf-8")
+        path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
         return list(messages)
 
     async def delete_messages(self, tenant_id: str, user_id: str, conversation_id: str) -> None:
@@ -198,5 +198,5 @@ class LocalMessageRepository(MessageRepository):
             ).model_dump(by_alias=True, exclude_none=True, mode="json")
             for message in messages
         ]
-        path.write_text(json.dumps(payload, ensure_ascii=True), encoding="utf-8")
+        path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
         return updated

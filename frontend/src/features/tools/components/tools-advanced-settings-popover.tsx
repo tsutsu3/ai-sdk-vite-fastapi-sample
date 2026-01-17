@@ -1,6 +1,7 @@
 import { SlidersHorizontalIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Popover,
   PopoverContent,
@@ -21,6 +22,7 @@ export const ToolsAdvancedSettingsPopover = ({
     topP,
     hydeEnabled,
     maxDocuments,
+    injectedPrompt,
     defaultTemperature,
     defaultTopP,
     defaultHydeEnabled,
@@ -29,6 +31,7 @@ export const ToolsAdvancedSettingsPopover = ({
     onTopPChange,
     onHydeToggle,
     onMaxDocumentsChange,
+    onInjectedPromptChange,
   } = viewModel;
 
   return (
@@ -104,6 +107,15 @@ export const ToolsAdvancedSettingsPopover = ({
               min={1}
               max={20}
               step={1}
+            />
+          </label>
+          <label className="text-muted-foreground grid gap-1 text-xs">
+            <span>{t("injectedPrompt")}</span>
+            <Textarea
+              value={injectedPrompt}
+              onChange={(event) => onInjectedPromptChange(event.target.value)}
+              placeholder={t("injectedPromptPlaceholder")}
+              rows={3}
             />
           </label>
         </div>
