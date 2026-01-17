@@ -1,12 +1,12 @@
 from fastapi_ai_sdk.models import AnyStreamEvent, DataEvent, SourceURLEvent
 
+import app.shared.stream_events as sevents
 from app.features.retrieval.run.models import (
     ConversationContext,
     QueryContext,
     ResponseContext,
     ToolContext,
 )
-import app.shared.stream_events as sevents
 
 
 def build_start_event(message_id: str) -> AnyStreamEvent:

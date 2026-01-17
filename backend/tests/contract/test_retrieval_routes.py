@@ -39,4 +39,4 @@ def test_rag_query_invalid_provider(client):
             "topK": 1,
         },
     )
-    assert response.status_code == 400
+    assert response.status_code == 422

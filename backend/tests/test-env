@@ -256,6 +256,8 @@ CHAT_PROVIDERS=fake
 # Required when CHAT_PROVIDERS includes "fake"
 CHAT_FAKE_MODELS=fake-static,fake-random
 
+# Delay between streamed chunks for fake-random (milliseconds).
+CHAT_FAKE_STREAM_DELAY_MS=0
 
 # ============================================================
 # Azure Chat Models
@@ -393,11 +395,6 @@ GCS_PREFIX=uploads
 # ============================================================
 # Retrieval
 # ============================================================
-
-# Default retrieval provider
-# Optional
-# Choices: memory | ai-search | vertex-search
-RETRIEVAL_DEFAULT_PROVIDER=memory
 
 # AI Search endpoint (external retrieval service)
 # Optional

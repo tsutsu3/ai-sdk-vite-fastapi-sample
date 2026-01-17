@@ -2,6 +2,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.features.retrieval.tools.registry import ProviderEnum, RetrievalToolModeEnum
+
 
 class RetrievalMessage(BaseModel):
     """Chat message payload used for retrieval-style prompting."""
@@ -51,10 +53,10 @@ class RetrievalQueryRequest(BaseModel):
         description="Data source identifier.",
         examples=["tool01"],
     )
-    provider: str = Field(
-        default="memory",
+    provider: ProviderEnum = Field(
+        default=ProviderEnum.MEMORY,
         description="Retrieval provider.",
-        examples=["memory"],
+        examples=[ProviderEnum.MEMORY.value],
     )
     injected_prompt: str | None = Field(
         default=None,
@@ -71,7 +73,7 @@ class RetrievalQueryRequest(BaseModel):
         alias="toolId",
         description="Retrieval tool id override.",
     )
-    mode: Literal["simple", "chat", "answer"] | None = Field(
+    mode: RetrievalToolModeEnum | None = Field(
         default=None,
         description="Retrieval mode for response shaping.",
     )
