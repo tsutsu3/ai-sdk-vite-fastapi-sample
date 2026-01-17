@@ -1,10 +1,11 @@
-from __future__ import annotations
-
+import asyncio
 import random
+import time
+from collections.abc import AsyncIterator, Iterator
 
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import AIMessage
-from langchain_core.outputs import ChatGeneration, ChatResult
+from langchain_core.messages import AIMessage, AIMessageChunk
+from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
 
 _text01 = """
 Below is a **detailed, practical guide to React Hooks**, from fundamentals to advanced patterns. It’s written to be used as a reference, not just a tutorial.
@@ -904,9 +905,10 @@ FastAPI’s dependency injection makes **mocking and testing easier** for APIs.
 
 
 class FakeChatModel(BaseChatModel):
-    def __init__(self, model_id: str) -> None:
+    def __init__(self, model_id: str, stream_delay_seconds: float = 0.0) -> None:
         super().__init__()
         self._model_id = model_id
+        self._stream_delay_seconds = max(stream_delay_seconds, 0.0)
         self._static_response = "This is a fake static response."
         self._random_responses = [_text01, _text02, _text03]
 
@@ -924,10 +926,42 @@ class FakeChatModel(BaseChatModel):
     async def _agenerate(self, messages, stop=None, run_manager=None, **kwargs):
         return self._build_response()
 
-    def _build_response(self) -> ChatResult:
+    def _stream(
+        self, messages, stop=None, run_manager=None, **kwargs
+    ) -> Iterator[ChatGenerationChunk]:
+        content = self._select_content()
+        for chunk in self._iter_chunks(content):
+            if run_manager:
+                run_manager.on_llm_new_token(chunk)
+            if self._stream_delay_seconds > 0:
+                time.sleep(self._stream_delay_seconds)
+            yield ChatGenerationChunk(message=AIMessageChunk(content=chunk))
+
+    async def _astream(
+        self, messages, stop=None, run_manager=None, **kwargs
+    ) -> AsyncIterator[ChatGenerationChunk]:
+        content = self._select_content()
+        for chunk in self._iter_chunks(content):
+            if run_manager:
+                await run_manager.on_llm_new_token(chunk)
+            if self._stream_delay_seconds > 0:
+                await asyncio.sleep(self._stream_delay_seconds)
+            yield ChatGenerationChunk(message=AIMessageChunk(content=chunk))
+
+    def _select_content(self) -> str:
         if self._model_id == "fake-static":
-            content = self._static_response
-        else:
-            content = random.choice(self._random_responses)
+            return self._static_response
+        return random.choice(self._random_responses)
+
+    def _iter_chunks(self, content: str) -> Iterator[str]:
+        if self._model_id != "fake-random" or self._stream_delay_seconds <= 0:
+            yield content
+            return
+        chunk_size = 16
+        for index in range(0, len(content), chunk_size):
+            yield content[index : index + chunk_size]
+
+    def _build_response(self) -> ChatResult:
+        content = self._select_content()
         message = AIMessage(content=content)
         return ChatResult(generations=[ChatGeneration(message=message)])

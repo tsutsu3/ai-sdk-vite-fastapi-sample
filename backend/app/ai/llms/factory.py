@@ -11,7 +11,8 @@ def build_chat_model(
     app_config: AppConfig, spec: ChatModelSpec, *, streaming: bool
 ) -> BaseChatModel:
     if spec.provider == "fake":
-        return _build_fake_chat_model(spec.model_id)
+        delay_ms = app_config.chat_fake_stream_delay_ms
+        return _build_fake_chat_model(spec.model_id, delay_ms / 1000 if delay_ms else 0.0)
     if spec.provider == "azure":
         return _build_azure_chat_model(app_config, spec, streaming=streaming)
     if spec.provider == "gcp":
@@ -42,8 +43,8 @@ def resolve_chat_model(
     raise RuntimeError("Requested model is not available.")
 
 
-def _build_fake_chat_model(model_id: str) -> BaseChatModel:
-    return FakeChatModel(model_id)
+def _build_fake_chat_model(model_id: str, stream_delay_seconds: float = 0.0) -> BaseChatModel:
+    return FakeChatModel(model_id, stream_delay_seconds=stream_delay_seconds)
 
 
 def _build_azure_chat_model(

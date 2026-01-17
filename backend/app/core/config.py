@@ -127,6 +127,7 @@ class AppConfig(BaseModel):
     # Chat title model
     chat_title_model: str = ""
     chat_default_model: str = ""
+    chat_fake_stream_delay_ms: int = 0
 
     # Chat model metadata
     chat_model_chefs: Dict[str, str] = Field(default_factory=dict)
@@ -300,6 +301,7 @@ class Settings(BaseSettings):
     chat_model_providers: Optional[str] = None
     chat_title_model: Optional[str] = None
     chat_default_model: Optional[str] = None
+    chat_fake_stream_delay_ms: int = 0
 
     # Cosmos DB
     cosmos_endpoint: str = ""
@@ -717,6 +719,7 @@ class Settings(BaseSettings):
             azure_openai_title_model=self.azure_openai_title_model,
             chat_title_model=self.chat_title_model or "",
             chat_default_model=(self.chat_default_model or "").strip().lower(),
+            chat_fake_stream_delay_ms=self.chat_fake_stream_delay_ms,
             azure_blob_endpoint=self.azure_blob_endpoint,
             azure_blob_api_key=self.azure_blob_api_key,
             azure_blob_container=self.azure_blob_container,
