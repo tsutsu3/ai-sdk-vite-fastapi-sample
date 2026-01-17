@@ -44,3 +44,21 @@ def test_request_context_requires_authz():
         app.state.authz_service = AuthzService(app.state.authz_repository)
         response = client.get("/api/conversations")
         assert response.status_code == 403
+
+
+def test_authz_endpoint_requires_authz():
+    app = create_app()
+    with TestClient(app) as client:
+        app.state.authz_repository = DenyAuthzRepository()
+        app.state.authz_service = AuthzService(app.state.authz_repository)
+        response = client.get("/api/authz")
+        assert response.status_code == 403
+
+
+def test_messages_endpoint_requires_authz():
+    app = create_app()
+    with TestClient(app) as client:
+        app.state.authz_repository = DenyAuthzRepository()
+        app.state.authz_service = AuthzService(app.state.authz_repository)
+        response = client.get("/api/conversations/conv-quickstart/messages")
+        assert response.status_code == 403

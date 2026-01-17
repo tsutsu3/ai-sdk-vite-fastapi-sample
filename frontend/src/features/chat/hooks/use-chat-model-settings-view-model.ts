@@ -16,7 +16,6 @@ export type ChatModelSettingsViewModel = {
   selectedModelId: string;
   selectedModelName: string;
   selectedModelData?: ChatModel;
-  defaultWebSearchEngine: string;
   modelSelector: ChatModelSelectorViewModel;
   advancedSettings: ChatAdvancedSettingsViewModel;
 };
@@ -64,11 +63,6 @@ export const useChatModelSettingsViewModel = ({
     return models[0]?.id ?? "";
   }, [models, capabilities.defaultModel, rawSelectedModelId]);
 
-  const defaultWebSearchEngine =
-    typeof capabilities.defaultWebSearchEngine === "string"
-      ? capabilities.defaultWebSearchEngine
-      : "";
-
   const selectedModelData = useMemo(
     () => models.find((entry) => entry.id === selectedModelId),
     [models, selectedModelId],
@@ -102,7 +96,6 @@ export const useChatModelSettingsViewModel = ({
     selectedModelId,
     selectedModelName,
     selectedModelData,
-    defaultWebSearchEngine,
     modelSelector: {
       t,
       open: modelSelectorOpen,

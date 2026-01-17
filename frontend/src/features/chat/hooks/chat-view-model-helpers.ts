@@ -14,6 +14,7 @@ export type DataEventMap = {
   "data-conversation": {
     convId: string;
     messageId?: string;
+    toolId?: string;
   };
   "data-model": {
     messageId: string;
@@ -114,15 +115,12 @@ export function resolveRetryContext(
 
 export function buildRetryBody({
   activeConversationId,
-  webSearch,
   parentMessageId,
 }: {
   activeConversationId: string;
-  webSearch?: { enabled: boolean; engine?: string };
   parentMessageId?: string;
 }) {
   return {
-    ...(webSearch ? { webSearch } : {}),
     ...(activeConversationId ? { chatId: activeConversationId } : {}),
     ...(parentMessageId ? { parentMessageId } : {}),
   };

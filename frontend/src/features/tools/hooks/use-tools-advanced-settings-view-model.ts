@@ -12,10 +12,12 @@ export const useToolsAdvancedSettingsViewModel = ({
   const defaultTopP = 1;
   const defaultHydeEnabled = false;
   const defaultMaxDocuments = 5;
+  const defaultInjectedPrompt = "";
   const [temperature, setTemperature] = useState(defaultTemperature);
   const [topP, setTopP] = useState(defaultTopP);
   const [hydeEnabled, setHydeEnabled] = useState(defaultHydeEnabled);
   const [maxDocuments, setMaxDocuments] = useState(defaultMaxDocuments);
+  const [injectedPrompt, setInjectedPrompt] = useState(defaultInjectedPrompt);
 
   const handleTemperatureChange = useCallback((value: number[]) => {
     setTemperature(value[0] ?? defaultTemperature);
@@ -33,12 +35,17 @@ export const useToolsAdvancedSettingsViewModel = ({
     setMaxDocuments(value[0] ?? defaultMaxDocuments);
   }, [defaultMaxDocuments]);
 
+  const handleInjectedPromptChange = useCallback((value: string) => {
+    setInjectedPrompt(value);
+  }, []);
+
   return {
     t,
     temperature: [temperature],
     topP: [topP],
     hydeEnabled,
     maxDocuments: [maxDocuments],
+    injectedPrompt,
     defaultTemperature,
     defaultTopP,
     defaultHydeEnabled,
@@ -47,5 +54,6 @@ export const useToolsAdvancedSettingsViewModel = ({
     onTopPChange: handleTopPChange,
     onHydeToggle: handleHydeToggle,
     onMaxDocumentsChange: handleMaxDocumentsChange,
+    onInjectedPromptChange: handleInjectedPromptChange,
   };
 };

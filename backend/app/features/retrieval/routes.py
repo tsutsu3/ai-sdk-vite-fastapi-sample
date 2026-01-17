@@ -1,26 +1,28 @@
-from fastapi import APIRouter, Depends, HTTPException
+import logging
+
+from fastapi import APIRouter, Body, Depends, Request
 from fastapi.responses import StreamingResponse
-from fastapi_ai_sdk import AIStreamBuilder, create_ai_stream_response
+from fastapi_ai_sdk import AIStream, create_ai_stream_response
 
-from app.core.dependencies import get_retrieval_service
-from app.features.authz.request_context import (
-    get_current_tenant_record,
-    get_current_user_record,
-    require_request_context,
+from app.ai.llms.factory import build_chat_model, resolve_chat_model
+from app.ai.retrievers.factory import build_retriever_for_provider
+from app.core.config import AppConfig, ChatCapabilities
+from app.core.dependencies import (
+    get_app_config,
+    get_chat_capabilities,
+    get_conversation_repository,
+    get_message_repository,
+    get_usage_repository,
 )
-from app.features.authz.tool_merge import merge_tools
-from app.features.retrieval.schemas import RetrievalQueryRequest, RetrievalQueryResponse
-from app.features.retrieval.service import RetrievalService
+from app.features.conversations.ports import ConversationRepository
+from app.features.messages.ports import MessageRepository
+from app.features.retrieval.run.service import build_rag_stream
+from app.features.retrieval.schemas import RetrievalQueryRequest
+from app.features.usage.ports import UsageRepository
+from app.shared.streaming import stream_with_lifecycle
 
-router = APIRouter(dependencies=[Depends(require_request_context)])
-
-
-def _is_authorized_for_source(data_source: str, tools: list[str]) -> bool:
-    data_source = data_source.strip()
-    for tool in tools:
-        if data_source == tool or data_source.startswith(tool):
-            return True
-    return False
+router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.post(
@@ -33,52 +35,71 @@ def _is_authorized_for_source(data_source: str, tools: list[str]) -> bool:
     responses={
         400: {"description": "Invalid request or unknown provider."},
         403: {"description": "Not authorized for the requested data source."},
+        422: {
+            "description": "Validation Error",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": [
+                            {
+                                "loc": ["body", "query"],
+                                "msg": "Field required",
+                                "type": "missing",
+                            }
+                        ]
+                    }
+                }
+            },
+        },
         501: {"description": "Retrieval provider is not configured."},
     },
 )
 async def query_rag(
-    payload: RetrievalQueryRequest,
-    service: RetrievalService = Depends(get_retrieval_service),
+    request: Request,
+    payload: RetrievalQueryRequest = Body(
+        ...,
+        description="Retrieval query payload.",
+        examples=[
+            {
+                "query": "Summarize the steps",
+                "dataSource": "tool01",
+                "provider": "memory",
+                "model": "gpt-4o",
+                "topK": 5,
+            }
+        ],
+    ),
+    conversation_repo: ConversationRepository = Depends(get_conversation_repository),
+    message_repo: MessageRepository = Depends(get_message_repository),
+    usage_repo: UsageRepository = Depends(get_usage_repository),
+    app_config: AppConfig = Depends(get_app_config),
+    chat_caps: ChatCapabilities = Depends(get_chat_capabilities),
 ) -> StreamingResponse:
     """Stream retrieval results using the AI SDK data protocol.
 
     Returns a Server-Sent Events stream containing retrieval results.
     """
-    user_record = get_current_user_record()
-    tenant_record = get_current_tenant_record()
-    if user_record is None or tenant_record is None:
-        raise HTTPException(status_code=403, detail="User is not authorized")
-
-    tools = merge_tools(tenant_record.default_tools, user_record.tool_overrides)
-    if not _is_authorized_for_source(payload.data_source, tools):
-        raise HTTPException(status_code=403, detail="Not authorized for this data source.")
-
-    provider = service.resolve_provider(payload.provider)
-    if not provider:
-        raise HTTPException(status_code=400, detail="Unknown RAG provider.")
-
-    try:
-        results = await provider.search(
-            payload.query,
-            payload.data_source,
-            payload.top_k,
-            query_embedding=payload.query_embedding,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except RuntimeError as exc:
-        raise HTTPException(status_code=501, detail=str(exc)) from exc
-
-    retrieval_response = RetrievalQueryResponse(
-        provider=provider.id,
-        data_source=payload.data_source,
-        results=list(results),
+    stream = build_rag_stream(
+        payload=payload,
+        conversation_repo=conversation_repo,
+        message_repo=message_repo,
+        usage_repo=usage_repo,
+        app_config=app_config,
+        chat_caps=chat_caps,
+        resolver=resolve_chat_model,
+        builder=build_chat_model,
+        retriever_builder=build_retriever_for_provider,
     )
-    builder = AIStreamBuilder()
-    builder.start().data("rag", retrieval_response.model_dump(by_alias=True)).finish()
-
+    guarded_stream = stream_with_lifecycle(
+        stream,
+        is_disconnected=request.is_disconnected,
+        idle_timeout=app_config.stream_idle_timeout_seconds,
+        logger=logger,
+        stream_name="rag",
+    )
+    ai_stream = AIStream(guarded_stream)
     response: StreamingResponse = create_ai_stream_response(
-        builder.build(),
+        ai_stream,
         headers={
             "x-vercel-ai-protocol": "data",
             "Connection": "keep-alive",

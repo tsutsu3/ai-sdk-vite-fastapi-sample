@@ -10,6 +10,7 @@ Priority order (highest → lowest):
 3. .env
 """
 
+import os
 from enum import Enum
 from typing import Dict, Optional, Set
 
@@ -27,6 +28,13 @@ class LogLevelEnum(str, Enum):
     debug = "DEBUG"
 
 
+class LogFormat(str, Enum):
+    """Log format enum for application logging."""
+
+    json = "json"
+    text = "text"
+
+
 class StorageBackend(str, Enum):
     """Supported storage backends."""
 
@@ -39,6 +47,7 @@ class StorageBackend(str, Enum):
 class UsageBufferBackend(str, Enum):
     """Usage buffer storage backends for raw logs."""
 
+    off = "off"
     local = "local"
     azure = "azure"
     gcp = "gcp"
@@ -51,6 +60,14 @@ class AuthProvider(str, Enum):
     easyauth = "easyauth"
     local = "local"
     none = "none"
+
+
+class CacheBackend(str, Enum):
+    """Supported cache backends."""
+
+    memory = "memory"
+    redis = "redis"
+    off = "off"
 
 
 class OpenTelemetryExporter(str, Enum):
@@ -67,17 +84,21 @@ class AppConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     log_level: LogLevelEnum = LogLevelEnum.info
+    log_format: LogFormat = LogFormat.json
+    app_env: str = "local"
 
     # Azure Cosmos DB
     cosmos_endpoint: str = ""
     cosmos_key: str = ""
-    cosmos_database: str = "chatdb"
-    cosmos_conversations_container: str = "conversations"
-    cosmos_messages_container: str = "messages"
-    cosmos_users_container: str = "users"
-    cosmos_tenants_container: str = "tenants"
-    cosmos_useridentities_container: str = "useridentities"
-    cosmos_provisioning_container: str = "provisioning"
+    database: str = "chatdb"
+
+    # Database containers/collections (shared by Cosmos DB and Firestore)
+    conversations_container: str = "conversations"
+    messages_container: str = "messages"
+    users_container: str = "users"
+    tenants_container: str = "tenants"
+    useridentities_container: str = "useridentities"
+    provisioning_container: str = "provisioning"
 
     # Azure OpenAI
     azure_openai_endpoint: str = ""
@@ -94,6 +115,11 @@ class AppConfig(BaseModel):
     # GCP
     gcp_project_id: str = ""
     gcp_location: str = ""
+    gcs_bucket: str = ""
+    gcs_prefix: str = "uploads"
+    google_api_key: str = ""
+    embeddings_provider: str = ""
+    embeddings_model: str = ""
 
     # Ollama
     ollama_base_url: str = "http://localhost:11434"
@@ -111,13 +137,29 @@ class AppConfig(BaseModel):
     local_storage_path: str = ".local-data"
     blob_object_url_ttl_seconds: int = 1 * 60
 
-    # Authz cache
+    # Cache configuration
+    cache_backend: CacheBackend = CacheBackend.memory
+
+    # Authz cache settings
     authz_cache_ttl_seconds: int = 3600
     authz_cache_max_size: int = 1000
+    authz_redis_db: int = 0
 
-    # Message cache
+    # Message cache settings
     messages_cache_ttl_seconds: int = 15 * 60
+    messages_cache_max_size: int = 100
     messages_cache_max_bytes: int = 5 * 1024 * 1024
+    messages_redis_db: int = 1
+
+    # Redis connection (shared by authz and messages)
+    redis_host: str = "localhost"
+    redis_port: int = 6379
+    redis_password: str = ""
+    redis_ssl: bool = False
+
+    # Deprecated settings (for backwards compatibility)
+    cache_ttl_seconds: int = 3600
+    cache_max_size: int = 1000
 
     # Usage buffer
     usage_buffer_backend: UsageBufferBackend = UsageBufferBackend.local
@@ -135,31 +177,32 @@ class AppConfig(BaseModel):
     conversations_page_default_limit: int = 50
     conversations_page_max_limit: int = 200
 
-    # Web search
-    web_search_default_engine: str = ""
-    web_search_internal_url: str = ""
-    web_search_internal_api_key: str = ""
-    web_search_internal_auth_header: str = "X-API-Key"
-    web_search_fetch_content: bool = False
+    # CORS
+    cors_allowed_origins: list[str] = Field(default_factory=list)
+
+    # File upload limits
+    file_upload_max_bytes: int = 10 * 1024 * 1024  # 10 MB
+    file_upload_allowed_types: list[str] = Field(default_factory=list)
 
     # RAG
-    retrieval_default_provider: str = "memory"
     retrieval_ai_search_url: str = ""
     retrieval_ai_search_api_key: str = ""
     retrieval_ai_search_auth_header: str = "X-API-Key"
-    retrieval_pg_dsn: str = ""
-    retrieval_pg_table: str = "rag_documents"
-    retrieval_pg_text_column: str = "content"
-    retrieval_pg_url_column: str = "source_url"
-    retrieval_pg_embedding_column: str = "embedding"
-    retrieval_pg_source_column: str = "data_source"
+    retrieval_local_path: str = "backend/app/infra/fixtures/retrieval"
+    retrieval_tools_config_path: str = "retrieval_tools.yaml"
+    vertex_search_project_id: str = ""
+    vertex_search_location: str = "global"
+    vertex_search_collection: str = "default_collection"
+    vertex_search_data_store: str = ""
+    vertex_search_serving_config: str = "default_search"
+    vertex_search_filter_template: str = ""
 
     # Auth provider
     auth_provider: AuthProvider = AuthProvider.local
 
     # Local auth user info
     local_auth_user_id: str = "local-user-001"
-    local_auth_user_email: EmailStr = "local.user.001@example.com"
+    local_auth_user_email: EmailStr = "local.user001@example.com"
 
     # OpenTelemetry
     otel_enabled: bool = False
@@ -168,6 +211,9 @@ class AppConfig(BaseModel):
     otel_exporter_otlp_protocol: str = "grpc"
     otel_exporter_otlp_endpoint: str = ""
     azure_monitor_connection_string: str = ""
+
+    # Streaming
+    stream_idle_timeout_seconds: int = 300
 
 
 class StorageCapabilities(BaseModel):
@@ -221,20 +267,30 @@ class ChatCapabilities(BaseModel):
 class Settings(BaseSettings):
     """Settings loader and validators for environment configuration."""
 
+    _env_name = (os.getenv("APP_ENV") or "").strip()
+    if _env_name:
+        _env_file = (f".env.{_env_name}",)
+    else:
+        _env_file = (".env",)
+
     model_config = SettingsConfigDict(
-        env_file=(".env", "backend/.env"),
+        env_file=_env_file,
         env_file_encoding="utf-8",
         case_sensitive=False,
+        # extra="ignore",
     )
 
     log_level: LogLevelEnum = LogLevelEnum.info
+    log_format: LogFormat = LogFormat.json
+    app_env: str = "local"
 
     # Storage capabilities
     db_backend: StorageBackend = StorageBackend.memory
     blob_backend: StorageBackend = StorageBackend.memory
 
-    # Chat capabilities (memory | azure | ollama | gcp)
-    chat_providers: Optional[str] = None
+    # Chat capabilities (fake | azure | ollama | gcp)
+    chat_providers: Optional[str] = "fake"
+    chat_fake_models: Optional[str] = "fake-static,fake-random"
     azure_chat_models: Optional[str] = None
     ollama_chat_models: Optional[str] = None
     gcp_chat_models: Optional[str] = None
@@ -248,13 +304,15 @@ class Settings(BaseSettings):
     # Cosmos DB
     cosmos_endpoint: str = ""
     cosmos_key: str = ""
-    cosmos_database: str = "chatdb"
-    cosmos_conversations_container: str = "conversations"
-    cosmos_messages_container: str = "messages"
-    cosmos_users_container: str = "users"
-    cosmos_tenants_container: str = "tenants"
-    cosmos_useridentities_container: str = "useridentities"
-    cosmos_provisioning_container: str = "provisioning"
+    database: str = "chatdb"
+
+    # Database containers/collections (shared by Cosmos DB and Firestore)
+    conversations_container: str = "conversations"
+    messages_container: str = "messages"
+    users_container: str = "users"
+    tenants_container: str = "tenants"
+    useridentities_container: str = "useridentities"
+    provisioning_container: str = "provisioning"
 
     # Azure OpenAI
     azure_openai_endpoint: str = ""
@@ -271,6 +329,11 @@ class Settings(BaseSettings):
     # GCP
     gcp_project_id: str = ""
     gcp_location: str = ""
+    gcs_bucket: str = ""
+    gcs_prefix: str = "uploads"
+    google_api_key: str = ""
+    embeddings_provider: str = ""
+    embeddings_model: str = ""
 
     # Ollama
     ollama_base_url: str = "http://localhost:11434"
@@ -279,13 +342,25 @@ class Settings(BaseSettings):
     local_storage_path: str = ".local-data"
     blob_object_url_ttl_seconds: int = 15 * 60
 
+    # Cache configuration
+    cache_backend: CacheBackend = CacheBackend.memory
+
     # Authz cache
     authz_cache_ttl_seconds: int = 3600
     authz_cache_max_size: int = 1000
+    authz_redis_db: int = 0
 
     # Message cache
     messages_cache_ttl_seconds: int = 15 * 60
+    messages_cache_max_size: int = 100
     messages_cache_max_bytes: int = 5 * 1024 * 1024
+    messages_redis_db: int = 1
+
+    # Redis connection (shared by authz and messages)
+    redis_host: str = "localhost"
+    redis_port: int = 6379
+    redis_password: str = ""
+    redis_ssl: bool = False
 
     # Usage buffer
     usage_buffer_backend: UsageBufferBackend = UsageBufferBackend.local
@@ -303,32 +378,31 @@ class Settings(BaseSettings):
     conversations_page_default_limit: int = 50
     conversations_page_max_limit: int = 200
 
-    # Web search
-    web_search_engines: Optional[str] = None
-    web_search_default_engine: str = ""
-    web_search_internal_url: str = ""
-    web_search_internal_api_key: str = ""
-    web_search_internal_auth_header: str = "X-API-Key"
-    web_search_fetch_content: bool = False
+    # CORS
+    cors_allowed_origins: str = ""
+
+    # File upload limits
+    file_upload_max_bytes: int = 10 * 1024 * 1024
+    file_upload_allowed_types: str = ""
 
     # RAG
-    retrieval_default_provider: str = "memory"
     retrieval_ai_search_url: str = ""
     retrieval_ai_search_api_key: str = ""
     retrieval_ai_search_auth_header: str = "X-API-Key"
-    retrieval_pg_dsn: str = ""
-    retrieval_pg_table: str = "rag_documents"
-    retrieval_pg_text_column: str = "content"
-    retrieval_pg_url_column: str = "source_url"
-    retrieval_pg_embedding_column: str = "embedding"
-    retrieval_pg_source_column: str = "data_source"
+    retrieval_local_path: str = "backend/app/infra/fixtures/retrieval"
+    retrieval_tools_config_path: str = "retrieval_tools.yaml"
+    vertex_search_project_id: str = ""
+    vertex_search_location: str = "global"
+    vertex_search_collection: str = "default_collection"
+    vertex_search_data_store: str = ""
+    vertex_search_serving_config: str = "default_search"
 
     # Auth provider
     auth_provider: AuthProvider = AuthProvider.local
 
     # Local auth user info
     local_auth_user_id: str = "local-user-001"
-    local_auth_user_email: EmailStr = "local.user.001@example.com"
+    local_auth_user_email: EmailStr = "local.user001@example.com"
 
     # OpenTelemetry
     otel_enabled: bool = False
@@ -337,6 +411,11 @@ class Settings(BaseSettings):
     otel_exporter_otlp_protocol: str = "grpc"
     otel_exporter_otlp_endpoint: str = ""
     azure_monitor_connection_string: str = ""
+
+    # Streaming
+    stream_idle_timeout_seconds: int = 300
+
+    vertex_search_filter_template: str = ""
 
     @property
     def chat_providers_set(self) -> Set[str]:
@@ -359,6 +438,17 @@ class Settings(BaseSettings):
         if not self.azure_chat_models:
             return set()
         return {v.strip().lower() for v in self.azure_chat_models.split(",") if v.strip()}
+
+    @property
+    def fake_chat_models_set(self) -> Set[str]:
+        """Parse fake chat models into a set.
+
+        Returns:
+            Set[str]: Model ids.
+        """
+        if not self.chat_fake_models:
+            return set()
+        return {v.strip().lower() for v in self.chat_fake_models.split(",") if v.strip()}
 
     @property
     def gcp_chat_models_set(self) -> Set[str]:
@@ -470,17 +560,16 @@ class Settings(BaseSettings):
         return providers
 
     @property
-    def web_search_engines_set(self) -> Set[str]:
-        """Parse web search engines into a set.
+    def cors_allowed_origins_list(self) -> list[str]:
+        if not self.cors_allowed_origins:
+            return []
+        return [v.strip() for v in self.cors_allowed_origins.split(",") if v.strip()]
 
-        Returns:
-            Set[str]: Search engine ids.
-        """
-        if not self.web_search_engines:
-            return set()
-        return {
-            value.strip().lower() for value in self.web_search_engines.split(",") if value.strip()
-        }
+    @property
+    def file_upload_allowed_types_list(self) -> list[str]:
+        if not self.file_upload_allowed_types:
+            return []
+        return [v.strip() for v in self.file_upload_allowed_types.split(",") if v.strip()]
 
     @model_validator(mode="after")
     def validate_db(self) -> "Settings":
@@ -490,10 +579,11 @@ class Settings(BaseSettings):
             Settings: Validated settings.
         """
         if self.db_backend == StorageBackend.azure:
-            if not (self.cosmos_endpoint and self.cosmos_key and self.cosmos_database):
+            if not (self.cosmos_endpoint and self.cosmos_key and self.database):
                 raise ValueError("Cosmos settings are required for DB_BACKEND=azure")
         elif self.db_backend == StorageBackend.gcp:
-            raise ValueError("GCP backend is not yet supported for DB_BACKEND")
+            if not self.gcp_project_id:
+                raise ValueError("GCP_PROJECT_ID is required for DB_BACKEND=gcp")
         return self
 
     @model_validator(mode="after")
@@ -509,7 +599,10 @@ class Settings(BaseSettings):
                     "AZURE_BLOB_ENDPOINT and AZURE_BLOB_API_KEY are required for BLOB_BACKEND=azure"
                 )
         elif self.blob_backend == StorageBackend.gcp:
-            raise ValueError("GCP backend is not yet supported for BLOB_BACKEND")
+            if not self.gcp_project_id:
+                raise ValueError("GCP_PROJECT_ID is required for BLOB_BACKEND=gcp")
+            if not self.gcs_bucket:
+                raise ValueError("GCS_BUCKET is required for BLOB_BACKEND=gcp")
         return self
 
     @model_validator(mode="after")
@@ -519,6 +612,9 @@ class Settings(BaseSettings):
         Returns:
             Settings: Validated settings.
         """
+        if "fake" in self.chat_providers_set and not self.fake_chat_models_set:
+            raise ValueError("CHAT_FAKE_MODELS must be configured")
+
         if "azure" in self.chat_providers_set:
             if not (self.azure_openai_endpoint and self.azure_openai_api_key):
                 raise ValueError("Azure OpenAI settings are required")
@@ -528,7 +624,10 @@ class Settings(BaseSettings):
                 raise ValueError("AZURE_OPENAI_DEPLOYMENTS must be configured")
 
         if "gcp" in self.chat_providers_set:
-            raise ValueError("GCP chat provider is not yet supported")
+            if not self.google_api_key:
+                raise ValueError("GOOGLE_API_KEY is required for GCP chat")
+            if not self.gcp_chat_models_set:
+                raise ValueError("GCP_CHAT_MODELS must be configured")
 
         if "ollama" in self.chat_providers_set and not self.ollama_chat_models_set:
             raise ValueError("OLLAMA_CHAT_MODELS must be configured")
@@ -536,7 +635,8 @@ class Settings(BaseSettings):
         if self.chat_title_model:
             model_id = self.chat_title_model.strip().lower()
             allowed_models = (
-                self.azure_chat_models_set
+                self.fake_chat_models_set
+                | self.azure_chat_models_set
                 | self.ollama_chat_models_set
                 | self.gcp_chat_models_set
             )
@@ -546,13 +646,48 @@ class Settings(BaseSettings):
         if self.chat_default_model:
             model_id = self.chat_default_model.strip().lower()
             allowed_models = (
-                self.azure_chat_models_set
+                self.fake_chat_models_set
+                | self.azure_chat_models_set
                 | self.ollama_chat_models_set
                 | self.gcp_chat_models_set
-                | {"dummy"}
             )
             if model_id and model_id not in allowed_models:
                 raise ValueError("CHAT_DEFAULT_MODEL must be one of the configured chat models")
+
+        return self
+
+    # @model_validator(mode="after")
+    # def validate_auth_provider(self) -> "Settings":
+    #     env = (self.app_env or "").strip().lower()
+    #     if env in {"prod", "production"} and self.auth_provider in {
+    #         AuthProvider.local,
+    #         AuthProvider.none,
+    #     }:
+    #         raise ValueError("AUTH_PROVIDER cannot be local/none in production")
+    #     return self
+
+    @model_validator(mode="after")
+    def validate_pagination(self) -> "Settings":
+        """Validate pagination defaults and limits.
+
+        Returns:
+            Settings: Validated settings.
+        """
+        if self.messages_page_default_limit <= 0:
+            raise ValueError("MESSAGES_PAGE_DEFAULT_LIMIT must be > 0")
+        if self.messages_page_max_limit <= 0:
+            raise ValueError("MESSAGES_PAGE_MAX_LIMIT must be > 0")
+        if self.messages_page_default_limit > self.messages_page_max_limit:
+            raise ValueError("MESSAGES_PAGE_DEFAULT_LIMIT must be <= MESSAGES_PAGE_MAX_LIMIT")
+
+        if self.conversations_page_default_limit <= 0:
+            raise ValueError("CONVERSATIONS_PAGE_DEFAULT_LIMIT must be > 0")
+        if self.conversations_page_max_limit <= 0:
+            raise ValueError("CONVERSATIONS_PAGE_MAX_LIMIT must be > 0")
+        if self.conversations_page_default_limit > self.conversations_page_max_limit:
+            raise ValueError(
+                "CONVERSATIONS_PAGE_DEFAULT_LIMIT must be <= CONVERSATIONS_PAGE_MAX_LIMIT"
+            )
 
         return self
 
@@ -564,15 +699,17 @@ class Settings(BaseSettings):
         """
         return AppConfig(
             log_level=self.log_level,
+            log_format=self.log_format,
+            app_env=self.app_env,
             cosmos_endpoint=self.cosmos_endpoint,
             cosmos_key=self.cosmos_key,
-            cosmos_database=self.cosmos_database,
-            cosmos_conversations_container=self.cosmos_conversations_container,
-            cosmos_messages_container=self.cosmos_messages_container,
-            cosmos_users_container=self.cosmos_users_container,
-            cosmos_tenants_container=self.cosmos_tenants_container,
-            cosmos_useridentities_container=self.cosmos_useridentities_container,
-            cosmos_provisioning_container=self.cosmos_provisioning_container,
+            database=self.database,
+            conversations_container=self.conversations_container,
+            messages_container=self.messages_container,
+            users_container=self.users_container,
+            tenants_container=self.tenants_container,
+            useridentities_container=self.useridentities_container,
+            provisioning_container=self.provisioning_container,
             azure_openai_endpoint=self.azure_openai_endpoint,
             azure_openai_api_key=self.azure_openai_api_key,
             azure_openai_api_version=self.azure_openai_api_version,
@@ -585,16 +722,29 @@ class Settings(BaseSettings):
             azure_blob_container=self.azure_blob_container,
             gcp_project_id=self.gcp_project_id,
             gcp_location=self.gcp_location,
+            gcs_bucket=self.gcs_bucket,
+            gcs_prefix=self.gcs_prefix,
+            google_api_key=self.google_api_key,
+            embeddings_provider=self.embeddings_provider,
+            embeddings_model=self.embeddings_model,
             ollama_base_url=self.ollama_base_url,
             chat_model_chefs=self.chat_model_chefs_dict,
             chat_model_chef_slugs=self.chat_model_chef_slugs_dict,
             chat_model_providers=self.chat_model_providers_dict,
             local_storage_path=self.local_storage_path,
             blob_object_url_ttl_seconds=self.blob_object_url_ttl_seconds,
+            cache_backend=self.cache_backend,
             authz_cache_ttl_seconds=self.authz_cache_ttl_seconds,
             authz_cache_max_size=self.authz_cache_max_size,
+            authz_redis_db=self.authz_redis_db,
             messages_cache_ttl_seconds=self.messages_cache_ttl_seconds,
+            messages_cache_max_size=self.messages_cache_max_size,
             messages_cache_max_bytes=self.messages_cache_max_bytes,
+            messages_redis_db=self.messages_redis_db,
+            redis_host=self.redis_host,
+            redis_port=self.redis_port,
+            redis_password=self.redis_password,
+            redis_ssl=self.redis_ssl,
             usage_buffer_backend=self.usage_buffer_backend,
             usage_buffer_local_path=self.usage_buffer_local_path,
             usage_buffer_flush_max_records=self.usage_buffer_flush_max_records,
@@ -607,21 +757,20 @@ class Settings(BaseSettings):
             messages_page_max_limit=self.messages_page_max_limit,
             conversations_page_default_limit=self.conversations_page_default_limit,
             conversations_page_max_limit=self.conversations_page_max_limit,
-            web_search_default_engine=self.web_search_default_engine or "",
-            web_search_internal_url=self.web_search_internal_url,
-            web_search_internal_api_key=self.web_search_internal_api_key,
-            web_search_internal_auth_header=self.web_search_internal_auth_header,
-            web_search_fetch_content=self.web_search_fetch_content,
-            retrieval_default_provider=self.retrieval_default_provider or "memory",
+            cors_allowed_origins=self.cors_allowed_origins_list,
+            file_upload_max_bytes=self.file_upload_max_bytes,
+            file_upload_allowed_types=self.file_upload_allowed_types_list,
             retrieval_ai_search_url=self.retrieval_ai_search_url,
             retrieval_ai_search_api_key=self.retrieval_ai_search_api_key,
             retrieval_ai_search_auth_header=self.retrieval_ai_search_auth_header,
-            retrieval_pg_dsn=self.retrieval_pg_dsn,
-            retrieval_pg_table=self.retrieval_pg_table,
-            retrieval_pg_text_column=self.retrieval_pg_text_column,
-            retrieval_pg_url_column=self.retrieval_pg_url_column,
-            retrieval_pg_embedding_column=self.retrieval_pg_embedding_column,
-            retrieval_pg_source_column=self.retrieval_pg_source_column,
+            retrieval_local_path=self.retrieval_local_path,
+            retrieval_tools_config_path=self.retrieval_tools_config_path,
+            vertex_search_project_id=self.vertex_search_project_id or self.gcp_project_id,
+            vertex_search_location=self.vertex_search_location or "global",
+            vertex_search_collection=self.vertex_search_collection or "default_collection",
+            vertex_search_data_store=self.vertex_search_data_store,
+            vertex_search_serving_config=(self.vertex_search_serving_config or "default_search"),
+            vertex_search_filter_template=self.vertex_search_filter_template,
             auth_provider=self.auth_provider,
             local_auth_user_id=self.local_auth_user_id,
             local_auth_user_email=self.local_auth_user_email,
@@ -631,6 +780,7 @@ class Settings(BaseSettings):
             otel_exporter_otlp_protocol=self.otel_exporter_otlp_protocol,
             otel_exporter_otlp_endpoint=self.otel_exporter_otlp_endpoint,
             azure_monitor_connection_string=self.azure_monitor_connection_string,
+            stream_idle_timeout_seconds=self.stream_idle_timeout_seconds,
         )
 
     def to_storage_capabilities(self) -> StorageCapabilities:
@@ -652,8 +802,8 @@ class Settings(BaseSettings):
         """
         providers: Dict[str, Set[str]] = {}
 
-        if "memory" in self.chat_providers_set:
-            providers["memory"] = {"dummy"}
+        if "fake" in self.chat_providers_set:
+            providers["fake"] = self.fake_chat_models_set
 
         if "azure" in self.chat_providers_set:
             providers["azure"] = self.azure_chat_models_set

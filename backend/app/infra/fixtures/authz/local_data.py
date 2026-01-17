@@ -10,17 +10,17 @@ TENANTS: dict[str, TenantRecord] = {
     "id-tenant001": TenantRecord(
         id="id-tenant001",
         name="Tenant 001",
-        default_tools=["tool01", "tool02"],
+        default_tools=["tool01", "tool02", "tool03"],
     ),
     "id-tenant002": TenantRecord(
         id="id-tenant002",
         name="Tenant 002",
-        default_tools=["tool01"],
+        default_tools=["tool01", "tool03"],
     ),
     "id-tenant003": TenantRecord(
         id="id-tenant003",
         name="Tenant 003",
-        default_tools=["tool02"],
+        default_tools=["tool02", "tool03"],
     ),
     "id-tenant004": TenantRecord(
         id="id-tenant004",
@@ -67,7 +67,7 @@ PROVISIONING: dict[str, ProvisioningRecord] = {
         first_name="Jiro",
         last_name="Yamada",
         tool_overrides=ToolOverridesRecord(
-            allow=["tool02"],
+            allow=["tool02", "tool03"],
         ),
     ),
     "prov-local-002-003": ProvisioningRecord(
@@ -123,7 +123,7 @@ PROVISIONING: dict[str, ProvisioningRecord] = {
         first_name="Jiro",
         last_name="Kobayashi",
         tool_overrides=ToolOverridesRecord(
-            allow=["tool02"],
+            allow=["tool02", "tool03"],
         ),
     ),
     "prov-local-004-003": ProvisioningRecord(
@@ -133,7 +133,15 @@ PROVISIONING: dict[str, ProvisioningRecord] = {
         first_name="Saburo",
         last_name="Kobayashi",
         tool_overrides=ToolOverridesRecord(
-            allow=["tool01", "tool02"],
+            allow=["tool01", "tool02", "tool03"],
         ),
+    ),
+    "prov-local-1234567890": ProvisioningRecord(
+        id="1234567890",
+        email="tsutsumi.toshio@minebea-ss.com",
+        tenant_id="id-tenant001",
+        first_name="Tsutsumi",
+        last_name="Toshio",
+        tool_overrides=ToolOverridesRecord(),
     ),
 }

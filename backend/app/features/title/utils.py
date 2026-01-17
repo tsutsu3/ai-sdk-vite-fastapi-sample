@@ -17,5 +17,5 @@ def generate_fallback_title(messages: list[MessageRecord]) -> str:
             if text:
                 words = text.split()
                 title = " ".join(words[:6])
-                return title[:60].rstrip() or DEFAULT_CHAT_TITLE
+                return title[:20].rstrip() or DEFAULT_CHAT_TITLE
     return DEFAULT_CHAT_TITLE

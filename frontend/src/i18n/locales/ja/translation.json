@@ -18,11 +18,14 @@
   "goToHome": "ホームに戻る",
   "tool01": "RAG例 1",
   "tool02": "RAG例 2",
+  "tool03": "RAG例 3",
   "tool0101": "基本的なRAG例",
   "tool0102": "異なるベクトルストアを使用したRAG",
   "tool0201": "カスタムリトリーバーを使用したRAG",
   "tool0202": "コンテキストフィルタリングを使用したRAG",
   "tool0203": "代替LLMを使用したRAG",
+  "tool0301": "プレスリリース向けRAG",
+  "tool0302": "プレスリリース作成サポート",
   "promptSamples": "プロンプトサンプル",
   "generativeAIDocs": "生成AIドキュメント",
   "caseStudies": "ケーススタディ",
@@ -41,9 +44,6 @@
   "cool": "クール",
   "mint": "ミント",
   "search": "検索",
-  "webSearchEngine": "検索エンジン",
-  "webSearchInProgress": "Web検索中...",
-  "webSearchCompleted": "Web検索完了。",
   "addPhotosOrFiles": "写真またはファイルを追加",
   "searchModels": "モデルを検索...",
   "chatPromptPlaceholder": "知りたいことは何ですか？",
@@ -59,6 +59,8 @@
   "hydeEnabled": "HyDE 有効",
   "hydeDisabled": "HyDE 無効",
   "maxDocuments": "参照ドキュメント上限",
+  "injectedPrompt": "注入プロンプト",
+  "injectedPromptPlaceholder": "任意: 実行時に追加するシステム指示を入力してください。",
   "confirmDelete": "「{{title}}」 を削除してもよろしいですか？\nこの操作は取り消せません。",
   "archivedChats": "アーカイブ済みのチャット",
   "archivedChatsDescription": "アーカイブ済みの会話を管理します。",
@@ -97,6 +99,8 @@
   "homeToolDescription.tool0201": "リトリーバー調整のポイントを引用付きで。",
   "homeToolDescription.tool0202": "条件に合う資料だけを絞り込み。",
   "homeToolDescription.tool0203": "モデル比較を根拠付きで整理。",
+  "homeToolDescription.tool0301": "Vertex AI Search のデータストアを検索して整理。",
+  "homeToolDescription.tool0302": "プレスリリースの下書きを作成。",
   "toolsEmptyFallbackToolLabel": "ツール",
   "toolsEmptyEyebrow": "{{tool}}",
   "toolsEmptyTitle": "ドメイン特化の質問ができます",
@@ -199,6 +203,15 @@
         "モデル選定の比較ポイントを整理してください。",
         "性能に関する注意点を根拠付きでまとめてください。",
         "推奨デフォルト設定と理由を示してください。"
+      ]
+    },
+    "tool0301": {
+      "title": "プレスリリース向けの検索",
+      "subtitle": "Vertex AI Search のデータストアから根拠を集めます。",
+      "samples": [
+        "最新のプレスリリース関連資料を3件探してください。",
+        "関連情報を引用付きで整理してください。",
+        "発表内容の根拠になりそうな資料をまとめてください。"
       ]
     }
   }

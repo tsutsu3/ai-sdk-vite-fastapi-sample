@@ -18,7 +18,7 @@ class ToolItem(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    id: str
+    id: str = Field(description="Tool id.", examples=["tool01"])
 
 
 class ToolGroup(BaseModel):
@@ -26,8 +26,11 @@ class ToolGroup(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    id: str
-    items: list[ToolItem] = Field(default_factory=list)
+    id: str = Field(description="Tool group id.", examples=["tool01"])
+    items: list[ToolItem] = Field(
+        default_factory=list,
+        description="Tools included in the group.",
+    )
 
 
 class UserInfo(BaseModel):
@@ -35,11 +38,14 @@ class UserInfo(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    id: str
-    email: str | None
-    provider: str | None
-    first_name: str | None
-    last_name: str | None
+    id: str = Field(description="User id.", examples=["user-001"])
+    email: str | None = Field(
+        description="User email.",
+        examples=["local.user001@example.com"],
+    )
+    provider: str | None = Field(description="Auth provider.", examples=["local"])
+    first_name: str | None = Field(description="First name.", examples=["Taro"])
+    last_name: str | None = Field(description="Last name.", examples=["Yamada"])
 
 
 class ToolOverridesRecord(BaseModel):

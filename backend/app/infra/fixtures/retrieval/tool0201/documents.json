@@ -1,0 +1,42 @@
+[
+  {
+    "id": "doc201",
+    "title": "Cloud Architecture Patterns",
+    "content": "Common cloud architecture patterns include microservices for scalability, event-driven architecture for loose coupling, and serverless computing for cost optimization. Consider using managed services to reduce operational overhead.",
+    "url": "https://example.com/docs/cloud-patterns.pdf",
+    "tags": ["cloud", "architecture", "microservices", "serverless"],
+    "category": "infrastructure"
+  },
+  {
+    "id": "doc202",
+    "title": "Container Orchestration with Kubernetes",
+    "content": "Kubernetes orchestrates containerized applications with features like automatic scaling, self-healing, and rolling updates. Key concepts include Pods, Services, Deployments, and ConfigMaps for configuration management.",
+    "url": "https://example.com/docs/kubernetes-intro.md",
+    "tags": ["kubernetes", "containers", "orchestration", "devops"],
+    "category": "infrastructure"
+  },
+  {
+    "id": "doc203",
+    "title": "CI/CD Pipeline Design",
+    "content": "Design robust CI/CD pipelines with automated testing, security scanning, and deployment stages. Use tools like GitHub Actions, GitLab CI, or Jenkins. Implement blue-green deployments for zero-downtime releases.",
+    "url": "https://example.com/docs/cicd-design.html",
+    "tags": ["ci-cd", "devops", "automation", "testing"],
+    "category": "devops"
+  },
+  {
+    "id": "doc204",
+    "title": "Infrastructure as Code",
+    "content": "Infrastructure as Code (IaC) manages infrastructure using declarative configuration files. Popular tools include Terraform for multi-cloud provisioning, CloudFormation for AWS, and Pulumi for type-safe infrastructure code.",
+    "url": "https://example.com/docs/iac-overview.md",
+    "tags": ["iac", "terraform", "automation", "cloud"],
+    "category": "infrastructure"
+  },
+  {
+    "id": "doc205",
+    "title": "Monitoring and Observability",
+    "content": "Implement comprehensive monitoring with metrics, logs, and traces. Use Prometheus for metrics collection, ELK stack for log aggregation, and distributed tracing tools like Jaeger or OpenTelemetry for request tracking.",
+    "url": "https://example.com/docs/monitoring-guide.pdf",
+    "tags": ["monitoring", "observability", "metrics", "logging"],
+    "category": "operations"
+  }
+]

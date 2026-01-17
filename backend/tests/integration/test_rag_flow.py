@@ -3,8 +3,9 @@ def test_rag_streams(client):
         "/api/rag/query",
         json={
             "query": "hello",
-            "dataSource": "rag01",
+            "dataSource": "tool01",
             "provider": "memory",
+            "model": "fake-static",
             "topK": 1,
         },
     )

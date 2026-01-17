@@ -3,15 +3,14 @@ import type { useChat } from "@ai-sdk/react";
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 import type { ChatStatus } from "ai";
 import type { ToolsPromptInputViewModel } from "@/features/tools/hooks/tools-view-model-types";
-import { buildToolsRequestBody } from "@/features/tools/hooks/tools-view-model-helpers";
 
 type UseToolsInputViewModelArgs = {
   t: (key: string) => string;
   status: ChatStatus;
   sendMessage: ReturnType<typeof useChat>["sendMessage"];
   stop: ReturnType<typeof useChat>["stop"];
-  activeConversationId: string;
   toolId: string;
+  activeConversationId: string;
   advancedSettings: ToolsPromptInputViewModel["advancedSettings"];
 };
 
@@ -20,8 +19,8 @@ export const useToolsInputViewModel = ({
   status,
   sendMessage,
   stop,
-  activeConversationId,
   toolId,
+  activeConversationId,
   advancedSettings,
 }: UseToolsInputViewModelArgs): ToolsPromptInputViewModel => {
   const [text, setText] = useState<string>("");
@@ -33,12 +32,13 @@ export const useToolsInputViewModel = ({
       if (!trimmedText) {
         return;
       }
-      const body = buildToolsRequestBody({
+      const body = {
         toolId,
-        activeConversationId,
-        hydeEnabled: advancedSettings.hydeEnabled,
         maxDocuments: advancedSettings.maxDocuments[0],
-      });
+        injectedPrompt: advancedSettings.injectedPrompt,
+        hydeEnabled: advancedSettings.hydeEnabled,
+        ...(activeConversationId ? { chatId: activeConversationId } : {}),
+      };
 
       sendMessage(
         {
@@ -50,9 +50,10 @@ export const useToolsInputViewModel = ({
       setText("");
     },
     [
-      activeConversationId,
-      advancedSettings.hydeEnabled,
       advancedSettings.maxDocuments,
+      advancedSettings.injectedPrompt,
+      advancedSettings.hydeEnabled,
+      activeConversationId,
       sendMessage,
       toolId,
     ],

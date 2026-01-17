@@ -1,0 +1,42 @@
+[
+  {
+    "id": "doc101",
+    "title": "Python FastAPI Best Practices",
+    "content": "FastAPI best practices include using Pydantic models for request/response validation, implementing dependency injection for database connections, and structuring your application with routers for better modularity. Always use async/await for I/O operations.",
+    "url": "https://example.com/docs/fastapi-best-practices.md",
+    "tags": ["fastapi", "python", "best-practices", "async"],
+    "category": "backend"
+  },
+  {
+    "id": "doc102",
+    "title": "TypeScript Type Safety",
+    "content": "TypeScript provides strong type safety for JavaScript applications. Use strict mode, avoid 'any' type, leverage union types and type guards. Consider using Zod or io-ts for runtime validation of external data.",
+    "url": "https://example.com/docs/typescript-safety.md",
+    "tags": ["typescript", "type-safety", "validation"],
+    "category": "frontend"
+  },
+  {
+    "id": "doc103",
+    "title": "React Performance Optimization",
+    "content": "Optimize React performance by using React.memo for component memoization, useMemo and useCallback hooks to prevent unnecessary re-renders, and code-splitting with React.lazy for faster initial load times.",
+    "url": "https://example.com/docs/react-performance.html",
+    "tags": ["react", "performance", "optimization", "hooks"],
+    "category": "frontend"
+  },
+  {
+    "id": "doc104",
+    "title": "Database Indexing Strategies",
+    "content": "Effective database indexing strategies include creating indexes on frequently queried columns, using composite indexes for multi-column queries, and monitoring index usage with query execution plans. Avoid over-indexing as it impacts write performance.",
+    "url": "https://example.com/docs/database-indexing.pdf",
+    "tags": ["database", "indexing", "performance", "sql"],
+    "category": "backend"
+  },
+  {
+    "id": "doc105",
+    "title": "API Design Guidelines",
+    "content": "RESTful API design guidelines recommend using proper HTTP methods (GET, POST, PUT, DELETE), implementing versioning (v1, v2), using consistent naming conventions, and providing comprehensive error responses with appropriate status codes.",
+    "url": "https://example.com/docs/api-design.md",
+    "tags": ["api", "rest", "design", "http"],
+    "category": "architecture"
+  }
+]

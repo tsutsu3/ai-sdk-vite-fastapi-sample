@@ -1,0 +1,42 @@
+[
+  {
+    "id": "doc001",
+    "title": "IT Incident Response Best Practices",
+    "content": "IT incident response requires a structured approach to handle system outages, security breaches, and performance degradation. Key steps include: detection, containment, investigation, remediation, and documentation. Always maintain a timeline of events and communication log during incidents.",
+    "url": "https://example.com/docs/incident-response.pdf",
+    "tags": ["incident-response", "best-practices", "process"],
+    "category": "operations"
+  },
+  {
+    "id": "doc002",
+    "title": "Postmortem Meeting Guidelines",
+    "content": "Postmortem meetings should be blameless and focus on systemic improvements rather than individual mistakes. Schedule within 48 hours of incident resolution while details are fresh. Include all stakeholders involved in the incident response. Document action items with clear owners and deadlines.",
+    "url": "https://example.com/docs/postmortem-guide.md",
+    "tags": ["postmortem", "meetings", "blameless", "culture"],
+    "category": "process"
+  },
+  {
+    "id": "doc003",
+    "title": "Root Cause Analysis Techniques",
+    "content": "Root cause analysis techniques for IT incidents include the Five Whys method, fishbone diagrams, and timeline analysis. Focus on identifying contributing factors rather than a single root cause. Document environmental conditions, system state, and recent changes.",
+    "url": "https://example.com/docs/root-cause-analysis.html",
+    "tags": ["root-cause", "analysis", "investigation"],
+    "category": "methodology"
+  },
+  {
+    "id": "doc004",
+    "title": "Q&A Documentation Standards",
+    "content": "Q&A notes for incident response and postmortem practices require clear sourcing. Answer questions only using provided sources. If sources are missing, ask a clarifying question before responding. Avoid combining unrelated sources in a single claim to maintain accuracy and traceability.",
+    "url": "https://example.com/docs/qa-standards.md",
+    "tags": ["documentation", "qa", "standards", "sources"],
+    "category": "guidelines"
+  },
+  {
+    "id": "doc005",
+    "title": "Incident Communication Protocols",
+    "content": "Effective incident communication involves regular status updates, clear escalation paths, and stakeholder management. Use designated communication channels and maintain a central incident dashboard. Post-incident, share a summary report with affected teams and customers.",
+    "url": "https://example.com/docs/incident-comms.pdf",
+    "tags": ["communication", "stakeholders", "updates"],
+    "category": "operations"
+  }
+]

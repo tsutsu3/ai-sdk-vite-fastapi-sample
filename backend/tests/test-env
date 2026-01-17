@@ -1,0 +1,435 @@
+# ============================================================
+# Common
+# ============================================================
+
+# Log level
+# Optional
+# Choices: CRITICAL | ERROR | WARNING | INFO | DEBUG
+LOG_LEVEL=INFO
+
+# Log format
+# Optional
+# Choices: json | text
+# json: Structured JSON logs (recommended for production)
+# text: Human-readable text logs (recommended for development)
+LOG_FORMAT=text
+
+# Application environment
+# Optional
+# Choices: local | dev | staging | prod | production
+# Used for runtime safety checks (e.g., auth provider restrictions)
+APP_ENV=test
+
+# Auth provider
+# Optional
+# Choices: iap | easyauth | local | none
+AUTH_PROVIDER=local
+
+# Local auth user info (used when AUTH_PROVIDER=local)
+# Optional
+# See: app/shared/fixtures/authz/local_data.py
+LOCAL_AUTH_USER_ID=local-user-001-01
+LOCAL_AUTH_USER_EMAIL=local.user001@example.com
+
+# OpenTelemetry
+# Optional
+# Choices: true | false
+OTEL_ENABLED=false
+OTEL_SERVICE_NAME=ai-sdk-vite-fastapi-sample-backend
+# Choices: console | otlp | azure
+OTEL_EXPORTER=console
+# Choices: grpc | http
+OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+OTEL_EXPORTER_OTLP_ENDPOINT=
+
+AZURE_MONITOR_CONNECTION_STRING=
+
+# ============================================================
+# Storage backend selection
+# ============================================================
+
+# Database backend
+# Optional
+# Choices: memory | azure | local | gcp
+# Note: gcp uses Firestore
+DB_BACKEND=memory
+
+# Blob storage backend
+# Optional
+# Choices: memory | azure | local | gcp
+# Note: gcp uses GCS
+BLOB_BACKEND=memory
+
+# Local storage path (used when DB_BACKEND or BLOB_BACKEND is local)
+# Optional
+# Default: .local-data
+LOCAL_STORAGE_PATH=.local-data
+
+# Blob object URL TTL (seconds)
+# Optional
+# Default: 60
+BLOB_OBJECT_URL_TTL_SECONDS=60
+
+# ============================================================
+# Cache configuration
+# ============================================================
+
+# Cache backend
+# Optional
+# Choices: memory | redis | off
+# Default: memory
+CACHE_BACKEND=memory
+
+# ------------------------------------------------------------
+# Authz cache settings
+# ------------------------------------------------------------
+
+# Authz cache TTL (seconds)
+# Optional
+# Default: 3600 (1 hour)
+AUTHZ_CACHE_TTL_SECONDS=3600
+
+# Authz cache max size (entries)
+# Optional
+# Default: 1000
+AUTHZ_CACHE_MAX_SIZE=1000
+
+# Authz Redis database number (used when CACHE_BACKEND=redis)
+# Optional
+# Default: 0
+AUTHZ_REDIS_DB=0
+
+# ------------------------------------------------------------
+# Messages cache settings
+# ------------------------------------------------------------
+
+# Messages cache TTL (seconds)
+# Optional
+# Default: 900 (15 minutes)
+MESSAGES_CACHE_TTL_SECONDS=900
+
+# Messages cache max size (entries)
+# Optional
+# Default: 100
+MESSAGES_CACHE_MAX_SIZE=100
+
+# Messages cache max bytes
+# Optional
+# Default: 5242880 (5 MB)
+MESSAGES_CACHE_MAX_BYTES=5242880
+
+# Messages Redis database number (used when CACHE_BACKEND=redis)
+# Optional
+# Default: 1
+MESSAGES_REDIS_DB=1
+
+# ------------------------------------------------------------
+# Redis connection settings (shared by authz and messages)
+# Required when CACHE_BACKEND=redis
+# ------------------------------------------------------------
+
+# Redis host
+# Required when CACHE_BACKEND=redis
+# Default: localhost
+REDIS_HOST=localhost
+
+# Redis port
+# Required when CACHE_BACKEND=redis
+# Default: 6379
+REDIS_PORT=6379
+
+# Redis password
+# Optional (leave empty if no password)
+REDIS_PASSWORD=
+
+# Redis SSL
+# Optional
+# Default: false
+REDIS_SSL=false
+
+# Usage buffer backend
+# Optional
+# Choices: off | local | azure | gcp
+USAGE_BUFFER_BACKEND=local
+
+# Local usage buffer path
+# Optional
+USAGE_BUFFER_LOCAL_PATH=.local-data/usage-buffer
+
+# Flush threshold (records)
+# Optional
+# Default: 100
+USAGE_BUFFER_FLUSH_MAX_RECORDS=100
+
+# Flush interval (seconds)
+# Optional
+# Default: 60
+USAGE_BUFFER_FLUSH_INTERVAL_SECONDS=60
+
+# Azure Blob container for raw usage logs
+# Optional
+USAGE_BUFFER_BLOB_CONTAINER=usage-raw
+
+# Azure Blob prefix for raw usage logs
+# Optional
+USAGE_BUFFER_BLOB_PREFIX=usage/raw
+
+# GCS bucket for raw usage logs
+# Optional
+USAGE_BUFFER_GCS_BUCKET=
+
+# GCS prefix for raw usage logs
+# Optional
+USAGE_BUFFER_GCS_PREFIX=usage/raw
+
+
+# ============================================================
+# Pagination limits
+# ============================================================
+
+# Messages page size default
+# Optional
+# Default: 30
+MESSAGES_PAGE_DEFAULT_LIMIT=30
+
+# Messages page size max
+# Optional
+# Default: 200
+MESSAGES_PAGE_MAX_LIMIT=200
+
+# Conversations page size default
+# Optional
+# Default: 50
+CONVERSATIONS_PAGE_DEFAULT_LIMIT=50
+
+# Conversations page size max
+# Optional
+# Default: 200
+CONVERSATIONS_PAGE_MAX_LIMIT=200
+
+
+# ============================================================
+# CORS
+# ============================================================
+
+# Allowed origins (comma separated)
+# Optional
+# Example: https://example.com,https://admin.example.com
+CORS_ALLOWED_ORIGINS=
+
+
+# ============================================================
+# File uploads
+# ============================================================
+
+# Max upload size in bytes
+# Optional
+# Default: 10485760 (10 MB)
+FILE_UPLOAD_MAX_BYTES=10485760
+
+# Allowed content types (comma separated)
+# Optional
+# Example: image/png,image/jpeg,application/pdf
+FILE_UPLOAD_ALLOWED_TYPES=
+
+
+# ============================================================
+# Streaming
+# ============================================================
+
+# Idle timeout for streaming responses (seconds)
+# Optional
+# Default: 300
+STREAM_IDLE_TIMEOUT_SECONDS=300
+
+
+# ============================================================
+# Chat providers
+# ============================================================
+
+# Enabled chat providers (comma separated)
+# Optional
+# Choices: fake | azure | ollama | gcp
+CHAT_PROVIDERS=fake
+
+# Fake chat models (comma separated)
+# Required when CHAT_PROVIDERS includes "fake"
+CHAT_FAKE_MODELS=fake-static,fake-random
+
+
+# ============================================================
+# Azure Chat Models
+# ============================================================
+
+# Enabled Azure chat models (comma separated)
+# Required when CHAT_PROVIDERS includes "azure"
+# Example: gpt-4o,gpt-5
+AZURE_CHAT_MODELS=gpt-4o
+
+# Azure OpenAI model -> deployment mapping
+# Required when CHAT_PROVIDERS includes "azure"
+# Format: model_id=deployment_name[,model_id=deployment_name]
+# Example: gpt-4o=gpt4o-prod,gpt-5=gpt5-prod
+AZURE_OPENAI_DEPLOYMENTS=gpt-4o=gpt4o-prod
+
+# Azure OpenAI endpoint
+# Required when CHAT_PROVIDERS includes "azure"
+AZURE_OPENAI_ENDPOINT=https://your-resource-name.openai.azure.com/
+
+# Azure OpenAI API key
+# Required when CHAT_PROVIDERS includes "azure"
+AZURE_OPENAI_API_KEY=your-azure-openai-api-key
+
+# Azure OpenAI API version
+# Optional
+AZURE_OPENAI_API_VERSION=2024-06-01
+
+
+# ============================================================
+# Ollama Chat Models
+# ============================================================
+
+# Enabled Ollama chat models (comma separated)
+# Required when CHAT_PROVIDERS includes "ollama"
+# Example: tinyllama:1.1b,qwen3:0.6b
+OLLAMA_CHAT_MODELS=tinyllama:1.1b,qwen3:0.6b
+
+# Ollama base URL
+# Optional
+# Default: http://localhost:11434
+OLLAMA_BASE_URL=http://localhost:11434
+
+
+# ============================================================
+# Model display names / generate title models
+# ============================================================
+CHAT_MODEL_NAMES=tinyllama:1.1b=TinyLlama 1.1B,qwen3:0.6b=Qwen 3 0.6B,gpt-4o=GPT-4o
+
+# Model chefs (display group)
+# Format: model=chef_name[,model=chef_name]
+CHAT_MODEL_CHEFS=gpt-4o=OpenAI,tinyllama:1.1b=Ollama,qwen3:0.6b=Ollama
+
+# Model chef slugs (logo provider)
+# Format: model=chef_slug[,model=chef_slug]
+CHAT_MODEL_CHEF_SLUGS=gpt-4o=openai,tinyllama:1.1b=ollama,qwen3:0.6b=ollama
+
+# Model provider logos (comma separated, per-model list separated by |)
+# Format: model=provider|provider[,model=provider|provider]
+CHAT_MODEL_PROVIDERS=gpt-4o=openai|azure,tinyllama:1.1b=ollama,qwen3:0.6b=ollama
+
+# Model used for title generation
+# Optional
+CHAT_TITLE_MODEL=fake-static
+
+# Default chat model id
+# Optional
+CHAT_DEFAULT_MODEL=fake-static
+
+# ============================================================
+# Azure Cosmos DB
+# ============================================================
+
+# Cosmos DB endpoint
+# Required when DB_BACKEND=azure
+COSMOS_ENDPOINT=https://your-cosmos-account.documents.azure.com:443/
+
+# Cosmos DB primary key
+# Required when DB_BACKEND=azure
+COSMOS_KEY=your-cosmos-primary-key
+
+# Cosmos DB database name / Firestore namespace
+# Optional
+# Default: chatdb
+DATABASE=chatdb
+
+# Cosmos DB containers / Firestore collections
+# Optional
+CONVERSATIONS_CONTAINER=conversations
+MESSAGES_CONTAINER=messages
+USERS_CONTAINER=users
+TENANTS_CONTAINER=tenants
+USERIDENTITIES_CONTAINER=useridentities
+PROVISIONING_CONTAINER=provisioning
+
+
+# ============================================================
+# Azure Blob Storage
+# ============================================================
+
+# Azure Blob endpoint
+# Required when BLOB_BACKEND=azure
+AZURE_BLOB_ENDPOINT=https://your-storage-account.blob.core.windows.net/
+
+# Azure Blob API key
+# Required when BLOB_BACKEND=azure
+AZURE_BLOB_API_KEY=your-azure-blob-api-key
+
+# Azure Blob container name
+# Optional
+# Default: attachments
+AZURE_BLOB_CONTAINER=attachments
+
+
+# ============================================================
+# GCP
+# ============================================================
+
+# GCP project ID
+GCP_PROJECT_ID=
+
+# GCP location
+GCP_LOCATION=
+
+# Google Generative AI API key (required for langchain-google-genai)
+GOOGLE_API_KEY=
+
+# GCS bucket for blob storage (required when BLOB_BACKEND=gcp)
+GCS_BUCKET=
+
+# GCS prefix for blob storage (optional)
+GCS_PREFIX=uploads
+
+
+# ============================================================
+# Retrieval
+# ============================================================
+
+# Default retrieval provider
+# Optional
+# Choices: memory | ai-search | vertex-search
+RETRIEVAL_DEFAULT_PROVIDER=memory
+
+# AI Search endpoint (external retrieval service)
+# Optional
+RETRIEVAL_AI_SEARCH_URL=
+
+# AI Search API key
+# Optional
+RETRIEVAL_AI_SEARCH_API_KEY=
+
+# AI Search auth header
+# Optional
+# Default: X-API-Key
+RETRIEVAL_AI_SEARCH_AUTH_HEADER=X-API-Key
+
+# Vertex AI Search (Discovery Engine)
+VERTEX_SEARCH_PROJECT_ID=
+VERTEX_SEARCH_LOCATION=global
+VERTEX_SEARCH_COLLECTION=default_collection
+VERTEX_SEARCH_DATA_STORE=
+VERTEX_SEARCH_SERVING_CONFIG=default_search
+VERTEX_SEARCH_FILTER_TEMPLATE=
+
+# Embeddings config (used by Azure AI Search vector store)
+# Choices: azureai-search | vertex-ai-search
+EMBEDDINGS_PROVIDER=
+EMBEDDINGS_MODEL=
+
+# ============================================================
+# GCP Chat Models
+# ============================================================
+
+# Enabled GCP chat models (comma separated)
+# Required when CHAT_PROVIDERS includes "gcp"
+# Example: gemini-1.5-pro,gemini-1.5-flash
+GCP_CHAT_MODELS=gemini-1.5-pro,gemini-1.5-flash

@@ -1,0 +1,32 @@
+steps:
+  - name: gcr.io/kaniko-project/executor:latest
+    args:
+      - --dockerfile=Dockerfile
+      - --context=dir://.
+      - --destination=${_IMAGE}
+      - --cache=true
+      - --cache-repo=${_CACHE_IMAGE}
+      - --cache-ttl=168h
+
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE_NAME}
+      - --image=${_IMAGE}
+      - --platform=managed
+      - --region=${_REGION}
+      - --no-allow-unauthenticated
+      - --labels=user=tsutsumi,env=dev
+      - --env-vars-file=${_BACKEND_ENV_FILE}
+
+substitutions:
+  _REGION: ""
+  _SERVICE_NAME: ""
+  _IMAGE: ""
+  _CACHE_IMAGE: ""
+  _BACKEND_ENV_FILE: "backend/.env"
+
+options:
+  logging: CLOUD_LOGGING_ONLY

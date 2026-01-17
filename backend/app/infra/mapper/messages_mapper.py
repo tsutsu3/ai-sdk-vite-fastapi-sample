@@ -6,6 +6,8 @@ from app.infra.model.messages_model import (
     ImagePartDoc,
     MessageDoc,
     MessagePartDoc,
+    RagProgressPartDoc,
+    RagSourcesPartDoc,
     TextPartDoc,
 )
 
@@ -30,6 +32,10 @@ def record_part_to_doc(part: MessagePartRecord) -> MessagePartDoc:
             return FilePartDoc(type="file", file_id=part.file_id or "")
         case "image":
             return ImagePartDoc(type="image", file_id=part.image_id or "")
+        case "rag-progress":
+            return RagProgressPartDoc(type="rag-progress", text=part.text or "")
+        case "rag-sources":
+            return RagSourcesPartDoc(type="rag-sources", text=part.text or "")
 
 
 def doc_part_to_record(part: MessagePartDoc) -> MessagePartRecord:
@@ -40,6 +46,10 @@ def doc_part_to_record(part: MessagePartDoc) -> MessagePartRecord:
             return MessagePartRecord(type="file", file_id=part.file_id)
         case "image":
             return MessagePartRecord(type="image", image_id=part.image_id)
+        case "rag-progress":
+            return MessagePartRecord(type="rag-progress", text=part.text)
+        case "rag-sources":
+            return MessagePartRecord(type="rag-sources", text=part.text)
 
 
 def message_record_to_doc(
@@ -54,7 +64,6 @@ def message_record_to_doc(
     payload = {
         "id": record.id,
         "tenant_id": tenant_id,
-        "conv_id": conversation_id,
         "tool_id": tool_id,
         "user_id": user_id,
         "conversation_id": conversation_id,

@@ -1,3 +1,5 @@
+import logging
+
 from app.features.conversations.models import ConversationRecord
 from app.features.conversations.schemas import ConversationResponse
 from app.features.conversations.tenant_scoped import TenantScopedConversationRepository
@@ -26,6 +28,7 @@ class ConversationService:
         """
         self._conversation_repo = conversation_repo
         self._message_repo = message_repo
+        self._logger = logging.getLogger(__name__)
 
     async def list_conversations(
         self,
@@ -89,7 +92,19 @@ class ConversationService:
         """
         metadata = await self._conversation_repo.get_conversation(user_id, conversation_id)
         if metadata is None:
+            self._logger.info(
+                "conversations.detail.miss tenant_id=%s user_id=%s conversation_id=%s",
+                self._conversation_repo.tenant_id,
+                user_id,
+                conversation_id,
+            )
             return None
+        self._logger.info(
+            "conversations.detail.loaded tenant_id=%s user_id=%s conversation_id=%s",
+            self._conversation_repo.tenant_id,
+            user_id,
+            conversation_id,
+        )
         messages, _ = await self._message_repo.list_messages(
             self._conversation_repo.tenant_id,
             user_id,
@@ -98,6 +113,8 @@ class ConversationService:
         return ConversationResponse(
             id=metadata.id,
             title=metadata.title,
+            toolId=metadata.toolId,
+            archived=metadata.archived,
             updatedAt=metadata.updatedAt,
             messages=messages,
         )
@@ -118,6 +135,13 @@ class ConversationService:
             list[ConversationRecord]: Updated conversation metadata.
         """
         ids = await self._conversation_repo.list_all_conversation_ids(user_id)
+        self._logger.info(
+            "conversations.archive_all.start tenant_id=%s user_id=%s count=%d archived=%s",
+            self._conversation_repo.tenant_id,
+            user_id,
+            len(ids),
+            archived,
+        )
         updated_items: list[ConversationRecord] = []
         for conversation_id in ids:
             updated = await self._conversation_repo.archive_conversation(
@@ -127,6 +151,13 @@ class ConversationService:
             )
             if updated:
                 updated_items.append(updated)
+        self._logger.info(
+            "conversations.archive_all.complete tenant_id=%s user_id=%s updated=%d archived=%s",
+            self._conversation_repo.tenant_id,
+            user_id,
+            len(updated_items),
+            archived,
+        )
         return updated_items
 
     async def delete_all_conversations(self, user_id: str) -> int:
@@ -141,6 +172,12 @@ class ConversationService:
             int: Count of deleted conversations.
         """
         ids = await self._conversation_repo.list_all_conversation_ids(user_id)
+        self._logger.info(
+            "conversations.delete_all.start tenant_id=%s user_id=%s count=%d",
+            self._conversation_repo.tenant_id,
+            user_id,
+            len(ids),
+        )
         count = 0
         for conversation_id in ids:
             deleted = await self._conversation_repo.delete_conversation(user_id, conversation_id)
@@ -151,4 +188,10 @@ class ConversationService:
             )
             if deleted:
                 count += 1
+        self._logger.info(
+            "conversations.delete_all.complete tenant_id=%s user_id=%s deleted=%d",
+            self._conversation_repo.tenant_id,
+            user_id,
+            count,
+        )
         return count
