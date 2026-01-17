@@ -34,14 +34,13 @@ services:
     volumes:
       - jaeger-data:/data
 
-  services:
-    redis:
-      image: redis:7-alpine
-      ports:
-        - "6379:6379"
-      command: redis-server --requirepass your_password
-      volumes:
-        - redis-data:/data
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --requirepass your_password
+    volumes:
+      - redis-data:/data
 
 volumes:
   ollama-data:
