@@ -258,6 +258,7 @@ sequenceDiagram
 ```
 
 Notes:
+
 - Chat uses LangChain message history + prompt template.
 - RAG adds a system prompt built from retrieved documents, and emits RAG-specific
   data events (`data.rag`, `data.sources`, `data.cot`).
@@ -285,6 +286,7 @@ flowchart TD
 ```
 
 Notes:
+
 - Message history is fetched from the repository and provided to LangChain as
   conversation memory.
 - The assistant response is persisted as message parts after the stream completes.
@@ -320,6 +322,7 @@ flowchart TD
 ```
 
 Notes:
+
 - `query_prompt` only affects search_query generation; it does not replace the answer question.
 - `answer` mode bypasses LLM generation and returns answer docs directly.
 
@@ -338,6 +341,7 @@ flowchart TD
 ```
 
 Behavior:
+
 - HyDE is optional (toggle) and does not change event order or payload shape.
 - When disabled, the flow remains identical to `simple` / `chat` mode behavior.
 
