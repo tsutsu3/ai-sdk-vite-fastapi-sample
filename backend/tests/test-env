@@ -20,6 +20,13 @@ LOG_FORMAT=text
 # Used for runtime safety checks (e.g., auth provider restrictions)
 APP_ENV=test
 
+# Service role
+# Optional
+# Choices: api | worker | all
+SERVICE_ROLE=all
+WORKER_AUTH_HEADER=X-Worker-Token
+WORKER_AUTH_TOKEN=
+
 # Auth provider
 # Optional
 # Choices: iap | easyauth | local | none
