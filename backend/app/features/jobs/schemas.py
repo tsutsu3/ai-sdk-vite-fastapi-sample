@@ -3,6 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.features.jobs.models import JobStatus
+from app.features.worker.schemas import WorkerJobRunRequest
 
 
 class JobStatusResponse(BaseModel):
@@ -24,3 +25,13 @@ class JobStatusListResponse(BaseModel):
 
     items: list[JobStatusResponse]
     continuation_token: str | None = Field(default=None, alias="continuationToken")
+
+
+class JobCreateResponse(BaseModel):
+    """Response schema for job creation."""
+
+    model_config = ConfigDict(populate_by_name=True, frozen=True)
+
+    job_id: str = Field(alias="jobId")
+    conversation_id: str = Field(alias="conversationId")
+    worker_request: WorkerJobRunRequest = Field(alias="workerRequest")
