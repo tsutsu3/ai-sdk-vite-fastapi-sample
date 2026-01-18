@@ -203,6 +203,7 @@ class AppConfig(BaseModel):
     retrieval_ai_search_auth_header: str = "X-API-Key"
     retrieval_local_path: str = "backend/app/infra/fixtures/retrieval"
     retrieval_tools_config_path: str = "retrieval_tools.yaml"
+    retrieval_longform_chapter_concurrency: int = 1
     vertex_search_project_id: str = ""
     vertex_search_location: str = "global"
     vertex_search_collection: str = "default_collection"
@@ -409,6 +410,7 @@ class Settings(BaseSettings):
     retrieval_ai_search_auth_header: str = "X-API-Key"
     retrieval_local_path: str = "backend/app/infra/fixtures/retrieval"
     retrieval_tools_config_path: str = "retrieval_tools.yaml"
+    retrieval_longform_chapter_concurrency: int = 1
     vertex_search_project_id: str = ""
     vertex_search_location: str = "global"
     vertex_search_collection: str = "default_collection"
@@ -788,6 +790,7 @@ class Settings(BaseSettings):
             retrieval_ai_search_auth_header=self.retrieval_ai_search_auth_header,
             retrieval_local_path=self.retrieval_local_path,
             retrieval_tools_config_path=self.retrieval_tools_config_path,
+            retrieval_longform_chapter_concurrency=self.retrieval_longform_chapter_concurrency,
             vertex_search_project_id=self.vertex_search_project_id or self.gcp_project_id,
             vertex_search_location=self.vertex_search_location or "global",
             vertex_search_collection=self.vertex_search_collection or "default_collection",

@@ -416,6 +416,11 @@ RETRIEVAL_AI_SEARCH_API_KEY=
 # Default: X-API-Key
 RETRIEVAL_AI_SEARCH_AUTH_HEADER=X-API-Key
 
+# Longform chapter generation concurrency
+# Optional
+# Default: 1
+RETRIEVAL_LONGFORM_CHAPTER_CONCURRENCY=1
+
 # Vertex AI Search (Discovery Engine)
 VERTEX_SEARCH_PROJECT_ID=
 VERTEX_SEARCH_LOCATION=global

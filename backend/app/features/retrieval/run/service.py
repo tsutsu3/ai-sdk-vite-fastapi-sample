@@ -52,6 +52,7 @@ def build_rag_stream(
     coordinator = RetrievalStreamCoordinator(
         execution=execution,
         persistence=persistence,
+        chapter_concurrency=app_config.retrieval_longform_chapter_concurrency,
     )
 
     async def stream_generator() -> AsyncIterator[AnyStreamEvent]:

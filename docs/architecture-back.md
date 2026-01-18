@@ -491,6 +491,52 @@ Notes:
 - `query_prompt` only affects search_query generation; it does not replace the answer question.
 - `answer` mode bypasses LLM generation and returns answer docs directly.
 
+## Longform RAG pipeline
+
+Longform runs as an asynchronous job so the UI can close while the backend continues.
+The API creates a job record, returns a worker payload, and the worker executes the
+pipeline with `pipeline="longform"`.
+
+### Entry points
+
+- API job creation: `POST /api/rag/jobs`
+- Worker execution: `POST /internal/jobs/run` (internal-only)
+
+### Pipeline steps
+
+1. Retrieval: fetch documents for the query.
+2. Template generation: produce an outline/skeleton using `templatePrompt`.
+3. Chapter generation: generate each section using `chapterPrompt`.
+4. Merge: combine chapter drafts using `mergePrompt`.
+5. Proofread: refine the merged draft using `proofreadPrompt` (streamed output).
+
+Prompt sources:
+
+- Defaults come from `retrieval_tools.yaml`.
+- Request fields (`templatePrompt`, `chapterPrompt`, `mergePrompt`, `proofreadPrompt`)
+  override tool defaults for a single run.
+
+```mermaid
+flowchart TD
+  Client[Client] --> Api["POST /api/rag/jobs"]
+  Api --> JobRepo["JobRepository (queued)"]
+  Api --> Payload["Worker payload (jobId + request + user)"]
+  Payload --> Worker["POST /internal/jobs/run"]
+  Worker --> JobRepoRun["JobRepository (running)"]
+  Worker --> Retrieve["Retrieve documents"]
+  Retrieve --> Template["Generate template"]
+  Template --> Chapters["Generate chapters"]
+  Chapters --> Merge["Merge sections"]
+  Merge --> Proofread["Proofread + stream"]
+  Proofread --> Persist["Persist messages + usage"]
+  Persist --> JobRepoDone["JobRepository (completed)"]
+```
+
+Notes:
+
+- The worker updates `job_id -> conversation_id` once the conversation is created.
+- `proofread` is the streamed step; earlier steps are internal LLM calls.
+
 ### HyDE flow
 
 HyDE (Hypothetical Document Embeddings) inserts a "hypothetical answer" generation

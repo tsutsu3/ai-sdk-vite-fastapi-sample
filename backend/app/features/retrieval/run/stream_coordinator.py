@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from collections.abc import AsyncIterator
 
@@ -28,9 +29,11 @@ class RetrievalStreamCoordinator:
         *,
         execution: RetrievalExecutionService,
         persistence: RetrievalPersistenceService,
+        chapter_concurrency: int,
     ) -> None:
         self._execution = execution
         self._persistence = persistence
+        self._chapter_concurrency = chapter_concurrency
 
     async def stream(
         self,
@@ -275,10 +278,13 @@ class RetrievalStreamCoordinator:
             template_text,
             chapter_count,
         )
-        chapters: list[str] = []
-        for index, title in enumerate(chapter_titles, start=1):
-            chapter_text, chapter_payload = (
-                await self._execution.generate_chapter(
+        chapter_count = len(chapter_titles)
+        chapter_concurrency = max(1, self._chapter_concurrency)
+        semaphore = asyncio.Semaphore(chapter_concurrency)
+
+        async def _run_chapter(index: int, title: str):
+            async with semaphore:
+                chapter_text, chapter_payload = await self._execution.generate_chapter(
                     prompt=chapter_prompt,
                     messages=payload.messages,
                     query=user_query,
@@ -286,11 +292,20 @@ class RetrievalStreamCoordinator:
                     template_text=template_text,
                     chapter_title=title,
                     chapter_index=index,
-                    chapter_count=len(chapter_titles),
+                    chapter_count=chapter_count,
                     model_id=model_id,
                     injected_prompt=payload.injected_prompt,
                 )
-            )
+                return index, title, chapter_text, chapter_payload
+
+        tasks = [
+            asyncio.create_task(_run_chapter(index, title))
+            for index, title in enumerate(chapter_titles, start=1)
+        ]
+        results = await asyncio.gather(*tasks)
+        results.sort(key=lambda item: item[0])
+        chapters: list[str] = []
+        for _, title, chapter_text, chapter_payload in results:
             chapters.append(f"{title}\n{chapter_text}".strip())
             await self._persistence.record_usage_entry(
                 auth_ctx=auth_ctx,
