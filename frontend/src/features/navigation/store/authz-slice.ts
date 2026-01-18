@@ -17,9 +17,9 @@ export const createAuthzSlice: StateCreator<AppState, [], [], AuthzSlice> = (
     toolGroups: [],
   },
   // Drives tool gating and user identity shown in the sidebar.
-  fetchAuthz: async () => {
+  fetchAuthz: async (force = false) => {
     const { authz } = get();
-    if (authz.status === "loading" || authz.status === "success") {
+    if (!force && (authz.status === "loading" || authz.status === "success")) {
       return;
     }
     set({ authz: { ...authz, status: "loading", error: undefined } });

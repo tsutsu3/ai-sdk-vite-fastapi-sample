@@ -36,6 +36,7 @@ from app.features.chat.run.errors import RunServiceError
 from app.features.chat.run.service import RunService
 from app.features.chat.run.streamers import ChatStreamer, LangChainChatStreamer
 from app.features.conversations import routes as conversations_api
+from app.features.config import routes as config_api
 from app.features.file import routes as file_api
 from app.features.health import routes as health_api
 from app.features.messages import routes as messages_api
@@ -443,6 +444,7 @@ def create_app() -> FastAPI:
         app.include_router(
             conversations_api.router, prefix="/api", responses=common_error_responses
         )
+        app.include_router(config_api.router, prefix="/api", responses=common_error_responses)
         app.include_router(messages_api.router, prefix="/api", responses=common_error_responses)
         app.include_router(chat_api.router, prefix="/api", responses=common_error_responses)
         app.include_router(file_api.router, prefix="/api", responses=common_error_responses)

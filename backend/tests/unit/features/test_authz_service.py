@@ -78,12 +78,13 @@ async def test_resolve_access_existing_identity_returns_records() -> None:
         default_tools=["tool-01"],
     )
     user = UserRecord(
-        tenant_id=tenant.id,
+        tenant_ids=[tenant.id],
+        active_tenant_id=tenant.id,
         id="user-001",
         email="user001@example.com",
         first_name="Taro",
         last_name="Yamada",
-        tool_overrides=ToolOverridesRecord(),
+        tool_overrides_by_tenant={tenant.id: ToolOverridesRecord()},
     )
     identity = UserIdentityRecord(
         id="identity-001",
@@ -133,7 +134,8 @@ async def test_resolve_access_provisioning_creates_user_and_identity() -> None:
     result = await service.resolve_access(_build_user_info())
 
     assert repo.saved_user is not None
-    assert repo.saved_user.tenant_id == tenant.id
+    assert repo.saved_user.active_tenant_id == tenant.id
+    assert repo.saved_user.tenant_ids == [tenant.id]
     assert repo.saved_user.email == provisioning.email
     assert repo.saved_identity is not None
     assert repo.saved_identity.user_id == repo.saved_user.id

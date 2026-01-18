@@ -29,9 +29,30 @@ TENANTS: dict[str, TenantRecord] = {
     ),
 }
 
-USERS: dict[str, UserRecord] = {}
+USERS: dict[str, UserRecord] = {
+    "user-local-001": UserRecord(
+        id="user-local-001",
+        tenant_ids=["id-tenant001", "id-tenant002", "id-tenant003"],
+        active_tenant_id="id-tenant001",
+        email="local.user001@example.com",
+        first_name="Taro",
+        last_name="Ichiro",
+        tool_overrides_by_tenant={
+            "id-tenant001": ToolOverridesRecord(),
+            "id-tenant002": ToolOverridesRecord(),
+            "id-tenant003": ToolOverridesRecord(),
+        },
+    )
+}
 
-USER_IDENTITIES: dict[str, UserIdentityRecord] = {}
+USER_IDENTITIES: dict[str, UserIdentityRecord] = {
+    "local-user-001-01": UserIdentityRecord(
+        id="local-user-001-01",
+        provider="local",
+        user_id="user-local-001",
+        tenant_id="id-tenant001",
+    )
+}
 
 PROVISIONING: dict[str, ProvisioningRecord] = {
     "prov-local-001-001": ProvisioningRecord(

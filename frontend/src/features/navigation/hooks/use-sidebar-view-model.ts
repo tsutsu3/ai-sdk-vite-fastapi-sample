@@ -18,6 +18,9 @@ import { useSidebar } from "@/components/ui/sidebar";
 export const useSidebarViewModel = (): AppSidebarViewModel => {
   const authz = useAppStore((state) => state.authz);
   const fetchAuthz = useAppStore((state) => state.fetchAuthz);
+  const config = useAppStore((state) => state.config);
+  const fetchConfig = useAppStore((state) => state.fetchConfig);
+  const setActiveTenant = useAppStore((state) => state.setActiveTenant);
   const history = useAppStore((state) => state.history);
   const fetchHistory = useAppStore((state) => state.fetchHistory);
   const fetchMoreHistory = useAppStore((state) => state.fetchMoreHistory);
@@ -39,6 +42,12 @@ export const useSidebarViewModel = (): AppSidebarViewModel => {
       fetchAuthz();
     }
   }, [authz.status, fetchAuthz]);
+
+  useEffect(() => {
+    if (config.status === "idle") {
+      fetchConfig();
+    }
+  }, [config.status, fetchConfig]);
 
   useEffect(() => {
     if (history.status === "idle") {
@@ -86,12 +95,31 @@ export const useSidebarViewModel = (): AppSidebarViewModel => {
     }));
   }, [authz.tools, authz.toolGroups, activeToolIds]);
 
+  const activeTenant = config.tenants.find(
+    (tenant) => tenant.id === config.activeTenantId,
+  );
+  const activeTenantLabel =
+    activeTenant?.name || activeTenant?.key || config.activeTenantId;
+  const userName = authz.user?.first_name
+    ? `${authz.user.first_name} ${authz.user?.last_name ?? ""}`.trim()
+    : (authz.user?.email ?? "");
+  const userEmail = authz.user?.email ?? "";
+  const userDetails = [userEmail, activeTenantLabel]
+    .filter((value) => value && value.trim())
+    .join(" · ");
   const user = {
-    name: authz.user?.first_name
-      ? `${authz.user.first_name} ${authz.user?.last_name ?? ""}`.trim()
-      : (authz.user?.email ?? ""),
-    email: authz.user?.email ?? "",
+    name: userName,
+    email: userEmail,
+    detail: userDetails || userEmail,
   };
+
+  const tenantItems =
+    config.tenants.length > 0
+      ? config.tenants.map((tenant) => ({
+          id: tenant.id,
+          label: tenant.name || tenant.key || tenant.id,
+        }))
+      : config.tenantIds.map((tenantId) => ({ id: tenantId, label: tenantId }));
 
   const historyItems = useMemo(
     () =>
@@ -160,9 +188,20 @@ export const useSidebarViewModel = (): AppSidebarViewModel => {
       t,
     },
     userMenu: {
-      user,
+      user: {
+        name: user.name,
+        email: user.email,
+        detail: user.detail,
+      },
       avatarName: user.name || user.email || undefined,
       authzStatus: authz.status,
+      tenant: {
+        status: config.status,
+        activeTenantId: config.activeTenantId,
+        activeTenantLabel,
+        items: tenantItems,
+        onChange: setActiveTenant,
+      },
       settingsOpen,
       onSettingsOpenChange: setSettingsOpen,
       billingOpen,

@@ -1,4 +1,4 @@
-import { Settings, ChevronsUpDown, CreditCard, LogOut } from "lucide-react";
+import { Building2, Settings, ChevronsUpDown, CreditCard, LogOut } from "lucide-react";
 
 import {
   DropdownMenu,
@@ -9,6 +9,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   SidebarMenu,
   SidebarMenuButton,
@@ -31,10 +38,18 @@ export type NavUserViewModel = {
   user: {
     name: string;
     email: string;
+    detail?: string;
     avatar?: string;
   };
   avatarName?: string;
   authzStatus: AuthzSlice["authz"]["status"];
+  tenant?: {
+    status: "idle" | "loading" | "success" | "error" | "updating";
+    activeTenantId: string;
+    activeTenantLabel: string;
+    items: { id: string; label: string }[];
+    onChange: (tenantId: string) => void;
+  };
   settingsOpen: boolean;
   onSettingsOpenChange: (open: boolean) => void;
   billingOpen: boolean;
@@ -54,6 +69,7 @@ export const NavUser = ({ viewModel }: NavUserProps) => {
     user,
     avatarName,
     authzStatus,
+    tenant,
     settingsOpen,
     onSettingsOpenChange,
     billingOpen,
@@ -64,6 +80,10 @@ export const NavUser = ({ viewModel }: NavUserProps) => {
     t,
   } = viewModel;
   const resolvedAvatarName = avatarName ?? user.name ?? user.email ?? undefined;
+  const isTenantSwitching =
+    tenant?.status === "loading" || tenant?.status === "updating";
+  const showTenantMenu =
+    tenant && tenant.items.length > 0 && authzStatus === "success";
 
   return (
     <>
@@ -125,6 +145,33 @@ export const NavUser = ({ viewModel }: NavUserProps) => {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                {showTenantMenu && (
+                  <>
+                    <DropdownMenuLabel className="flex items-center gap-2">
+                      <Building2 className="size-4" />
+                      <span>{t("tenant")}</span>
+                    </DropdownMenuLabel>
+                    <div className="px-2 pb-2">
+                      <Select
+                        value={tenant?.activeTenantId}
+                        onValueChange={tenant?.onChange}
+                        disabled={isTenantSwitching}
+                      >
+                        <SelectTrigger size="sm" className="w-full">
+                          <SelectValue placeholder={t("tenant")} />
+                        </SelectTrigger>
+                        <SelectContent align="start">
+                          {tenant?.items.map((item) => (
+                            <SelectItem key={item.id} value={item.id}>
+                              {item.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
                 <DropdownMenuGroup>
                   <DropdownMenuItem
                     onSelect={() => {
@@ -151,8 +198,7 @@ export const NavUser = ({ viewModel }: NavUserProps) => {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <SidebarMenuButton size="lg">
-            </SidebarMenuButton>
+            <SidebarMenuButton size="lg"></SidebarMenuButton>
           )}
         </SidebarMenuItem>
       </SidebarMenu>

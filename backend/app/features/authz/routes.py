@@ -60,14 +60,17 @@ async def get_authorization(
         if user_identity is None:
             raise RuntimeError("User identity is not set in request context")
         user_record = await repo.get_user(user_identity.user_id)
-    if user_record is None or not user_record.tenant_id:
+    if user_record is None or not user_record.active_tenant_id:
         raise RuntimeError("User record is not set in request context")
     if tenant_record is None:
-        tenant_record = await repo.get_tenant(user_record.tenant_id)
+        tenant_record = await repo.get_tenant(user_record.active_tenant_id)
     if tenant_record is None:
         raise RuntimeError("Tenant record is not set in request context")
 
-    tools = merge_tools(tenant_record.default_tools, user_record.tool_overrides)
+    overrides = user_record.tool_overrides_by_tenant.get(
+        user_record.active_tenant_id
+    )
+    tools = merge_tools(tenant_record.default_tools, overrides)
     tool_groups = [group for group in TOOL_GROUPS if group.id in tools]
     return AuthorizationResponse(
         user=UserInfo(

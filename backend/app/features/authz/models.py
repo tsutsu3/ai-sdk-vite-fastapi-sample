@@ -78,7 +78,7 @@ class UserIdentityRecord(BaseModel):
     id: str  # pk: IAP, EasyAuth, etc. identity ID
     provider: str | None = None
     user_id: str
-    tenant_id: str
+    tenant_id: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -88,12 +88,15 @@ class UserRecord(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    tenant_id: str  # hierarchy partition key [tenant_id / id]
+    tenant_ids: list[str] = Field(default_factory=list)
+    active_tenant_id: str
     id: str | None = None
     email: str | None = None
     first_name: str | None = None
     last_name: str | None = None
-    tool_overrides: ToolOverridesRecord = Field(default_factory=ToolOverridesRecord)
+    tool_overrides_by_tenant: dict[str, ToolOverridesRecord] = Field(
+        default_factory=dict
+    )
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -119,7 +122,8 @@ class AuthzRecord(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    tenant_id: str
+    tenant_ids: list[str]
+    active_tenant_id: str
     tools: list[str]
     first_name: str | None
     last_name: str | None

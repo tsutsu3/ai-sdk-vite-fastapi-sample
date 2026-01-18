@@ -39,7 +39,7 @@ class UserIdentityDoc(BaseModel):
     id: str  # IAP, EasyAuth, etc. identity ID
     provider: str | None = None  # Identity provider name
     user_id: str  # Internal user ID
-    tenant_id: str
+    tenant_id: str | None = None
     created_at: str = Field(default_factory=now)
     updated_at: str = Field(default_factory=now)
 
@@ -63,11 +63,14 @@ class UserDoc(BaseModel):
     model_config = ConfigDict(frozen=True, populate_by_name=True)
 
     id: str  # UserIdentityDoc.user_id
-    tenant_id: str
+    tenant_id: str | None = None
+    tenant_ids: list[str] = Field(default_factory=list)
+    active_tenant_id: str | None = None
     idp_id: str | None = Field(default=None)  # UserIdentityDoc.id
     email: str | None = None
     first_name: str | None = None
     last_name: str | None = None
-    tool_overrides: ToolOverridesDoc = Field(default_factory=ToolOverridesDoc)
+    tool_overrides: ToolOverridesDoc | None = None
+    tool_overrides_by_tenant: dict[str, ToolOverridesDoc] = Field(default_factory=dict)
     created_at: str = Field(default_factory=now)
     updated_at: str = Field(default_factory=now)

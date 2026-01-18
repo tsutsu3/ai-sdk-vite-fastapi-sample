@@ -79,7 +79,8 @@ async def build_retrieval_context(
     if not user_record or not tenant_record:
         raise RunServiceError("User is not authorized for retrieval tools.")
 
-    tools = merge_tools(tenant_record.default_tools, user_record.tool_overrides)
+    overrides = user_record.tool_overrides_by_tenant.get(tenant_id)
+    tools = merge_tools(tenant_record.default_tools, overrides)
     if not _is_authorized(tool.id, tools):
         raise RunServiceError("Not authorized for the requested tool.")
 

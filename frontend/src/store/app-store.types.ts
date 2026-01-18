@@ -3,6 +3,7 @@ import type { ChatModel } from "@/features/chat/types/chat";
 import type { ToolGroupDefinition } from "@/shared/types/ui";
 import type { UserInfo } from "@/shared/types/user";
 import type { ThemeMode, PaletteMode } from "@/shared/types/theme";
+import type { TenantSummary } from "@/shared/types/tenant";
 
 /** Authz payload mirrored from the backend for tool gating and user data. */
 export type AuthzState = {
@@ -52,7 +53,7 @@ export type UiPreferencesSlice = {
 export type AuthzSlice = {
   authz: AuthzState;
   /** Fetches authz/tooling metadata that gates tools in the sidebar. */
-  fetchAuthz: () => Promise<void>;
+  fetchAuthz: (force?: boolean) => Promise<void>;
 };
 
 /** Conversation history state used by the sidebar list. */
@@ -72,6 +73,20 @@ export type CapabilitiesSlice = {
   fetchCapabilities: () => Promise<void>;
 };
 
+export type ConfigState = {
+  status: "idle" | "loading" | "success" | "error" | "updating";
+  tenantIds: string[];
+  activeTenantId: string;
+  tenants: TenantSummary[];
+  error?: string;
+};
+
+export type ConfigSlice = {
+  config: ConfigState;
+  fetchConfig: (force?: boolean) => Promise<void>;
+  setActiveTenant: (tenantId: string) => Promise<void>;
+};
+
 /**
  * Global UI state for the app shell and data fetch lifecycles.
  *
@@ -82,4 +97,5 @@ export type CapabilitiesSlice = {
 export type AppState = UiPreferencesSlice &
   AuthzSlice &
   HistorySlice &
-  CapabilitiesSlice;
+  CapabilitiesSlice &
+  ConfigSlice;

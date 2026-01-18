@@ -151,14 +151,14 @@ def set_request_context(
     Returns:
         RequestContextTokens: Tokens for resetting context variables.
     """
-    token_tenant = _tenant_id_ctx.set(context.user_record.tenant_id)
+    token_tenant = _tenant_id_ctx.set(context.user_record.active_tenant_id)
     token_user = _user_id_ctx.set(context.user_record.id)
     token_user_info = _user_info_ctx.set(context.user)
     token_user_record = _user_record_ctx.set(context.user_record)
     token_tenant_record = _tenant_record_ctx.set(context.tenant_record)
     token_user_identity = _user_identity_ctx.set(context.user_identity)
 
-    request.state.tenant_id = context.user_record.tenant_id
+    request.state.tenant_id = context.user_record.active_tenant_id
     request.state.user_id = context.user_record.id
     request.state.user_record = context.user_record
     request.state.tenant_record = context.tenant_record
@@ -166,7 +166,7 @@ def set_request_context(
 
     logger.info(
         "authz.resolve.success tenant_id=%s user_id=%s",
-        context.user_record.tenant_id,
+        context.user_record.active_tenant_id,
         context.user_record.id,
     )
 

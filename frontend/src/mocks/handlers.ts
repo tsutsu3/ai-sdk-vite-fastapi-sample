@@ -3,12 +3,29 @@ import { http, HttpResponse } from "msw";
 const now = () => new Date().toISOString();
 
 const mockUser = {
+  id: "msw-user-001",
   user_id: "msw-user-001",
   email: "msw.user@example.com",
   provider: "msw",
   first_name: "Mika",
   last_name: "Suzuki",
 };
+
+const mockTenants = [
+  {
+    id: "id-tenant001",
+    key: "tenant-001",
+    name: "Tenant 001",
+  },
+  {
+    id: "id-tenant002",
+    key: "tenant-002",
+    name: "Tenant 002",
+  },
+];
+
+let activeTenantId = "id-tenant001";
+const tenantIds = mockTenants.map((tenant) => tenant.id);
 
 // Match the IDs with the backend tool groups.
 const mockTools = ["rag01", "rag02"];
@@ -194,6 +211,33 @@ export const handlers = [
       user: mockUser,
       tools: mockTools,
       toolGroups: mockToolGroups,
+    });
+  }),
+
+  http.get("/api/config", () => {
+    return HttpResponse.json({
+      user: mockUser,
+      tenantIds,
+      activeTenantId,
+      tenants: mockTenants,
+    });
+  }),
+
+  http.patch("/api/config", async ({ request }) => {
+    const body = await request.json().catch(() => null);
+    const requested =
+      body && typeof body === "object" && "activeTenantId" in body
+        ? String((body as Record<string, unknown>).activeTenantId ?? "")
+        : "";
+    if (!requested || !tenantIds.includes(requested)) {
+      return new HttpResponse(null, { status: 403 });
+    }
+    activeTenantId = requested;
+    return HttpResponse.json({
+      user: mockUser,
+      tenantIds,
+      activeTenantId,
+      tenants: mockTenants,
     });
   }),
 

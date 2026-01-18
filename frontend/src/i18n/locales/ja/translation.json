@@ -11,6 +11,7 @@
   "aiDocs": "AIドキュメント",
   "settings": "設定",
   "billing": "請求",
+  "tenant": "テナント",
   "logout": "ログアウト",
   "dataControl": "データ管理",
   "pageNotFound": "ページが見つかりません",

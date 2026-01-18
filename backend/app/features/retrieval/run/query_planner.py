@@ -42,9 +42,12 @@ class QueryPlanner:
     ) -> ToolContext:
         tool = self._tool_registry.resolve(payload.tool_id, auth_ctx.tenant_id)
         data_source = tool.data_source if tool else payload.data_source
+        overrides = auth_ctx.user_record.tool_overrides_by_tenant.get(
+            auth_ctx.tenant_id
+        )
         tools = merge_tools(
             auth_ctx.tenant_record.default_tools,
-            auth_ctx.user_record.tool_overrides,
+            overrides,
         )
         authorize_target = tool.id if tool else data_source
         if not is_authorized_for_source(authorize_target, tools):

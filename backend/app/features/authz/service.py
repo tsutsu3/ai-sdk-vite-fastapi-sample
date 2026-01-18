@@ -39,14 +39,21 @@ class AuthzService:
         user_identity = await self._repo.get_user_identity(user.id)
         if user_identity:
             user_record = await self._repo.get_user(user_identity.user_id)
-            tenant_record = await self._repo.get_tenant(user_identity.tenant_id)
-            if not user_record or not tenant_record:
+            if not user_record:
                 logger.warning("Authz records missing user_id=%s", user.id)
+                raise AuthzError("User is not authorized for any tenant")
+            active_tenant_id = user_record.active_tenant_id
+            if not active_tenant_id or active_tenant_id not in user_record.tenant_ids:
+                logger.warning("Authz tenant mismatch user_id=%s", user.id)
+                raise AuthzError("User is not authorized for any tenant")
+            tenant_record = await self._repo.get_tenant(active_tenant_id)
+            if not tenant_record:
+                logger.warning("Authz tenant missing user_id=%s", user.id)
                 raise AuthzError("User is not authorized for any tenant")
             logger.debug(
                 "Authz resolved from cache user_id=%s tenant_id=%s",
                 user_record.id,
-                user_record.tenant_id,
+                active_tenant_id,
             )
             return AuthzResolution(
                 user_record=user_record,
@@ -77,11 +84,14 @@ class AuthzService:
         )
         user_record = UserRecord(
             id=str(uuid.uuid4()),
-            tenant_id=provisioning.tenant_id,
+            tenant_ids=[provisioning.tenant_id],
+            active_tenant_id=provisioning.tenant_id,
             email=user.email,
             first_name=provisioning.first_name,
             last_name=provisioning.last_name,
-            tool_overrides=provisioning.tool_overrides,
+            tool_overrides_by_tenant={
+                provisioning.tenant_id: provisioning.tool_overrides
+            },
             created_at=now_datetime(),
             updated_at=now_datetime(),
         )
@@ -91,7 +101,7 @@ class AuthzService:
             id=user.id,
             provider=user.provider,
             user_id=user_record.id,
-            tenant_id=user_record.tenant_id,
+            tenant_id=user_record.active_tenant_id,
             created_at=now_datetime(),
             updated_at=now_datetime(),
         )
@@ -105,19 +115,19 @@ class AuthzService:
         )
         await self._repo.save_provisioning(provisioning)
 
-        tenant_record = await self._repo.get_tenant(user_record.tenant_id)
+        tenant_record = await self._repo.get_tenant(user_record.active_tenant_id)
         if not tenant_record:
             logger.warning(
                 "Authz tenant missing user_id=%s tenant_id=%s",
                 user_record.id,
-                user_record.tenant_id,
+                user_record.active_tenant_id,
             )
             raise AuthzError("Tenant is not authorized")
 
         logger.info(
             "Authz provisioning complete user_id=%s tenant_id=%s",
             user_record.id,
-            user_record.tenant_id,
+            user_record.active_tenant_id,
         )
         return AuthzResolution(
             user_record=user_record,

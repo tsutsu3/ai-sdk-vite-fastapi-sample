@@ -11,6 +11,7 @@
   "aiDocs": "AI Docs",
   "settings": "Settings",
   "billing": "Billing",
+  "tenant": "Tenant",
   "logout": "Logout",
   "dataControl": "Data Control",
   "pageNotFound": "Page Not Found",
