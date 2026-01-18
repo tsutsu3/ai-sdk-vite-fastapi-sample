@@ -5,6 +5,7 @@ from app.core.config import AppConfig
 
 CONVERSATIONS_PARTITION_KEY = "/tenantId"
 MESSAGES_PARTITION_KEY = "/tenantId/convId"
+JOBS_PARTITION_KEY = "/tenantId"
 USERS_PARTITION_KEY = "/id"
 TENANTS_PARTITION_KEY = "/id"
 USERIDENTITIES_PARTITION_KEY = "/id"
@@ -68,6 +69,7 @@ async def ensure_cosmos_resources(
     *,
     conversations_container: str,
     messages_container: str,
+    jobs_container: str,
     users_container: str,
     tenants_container: str,
     useridentities_container: str,
@@ -82,6 +84,7 @@ async def ensure_cosmos_resources(
         provider: Cosmos client provider.
         conversations_container: Container name for conversations.
         messages_container: Container name for messages.
+        jobs_container: Container name for jobs.
         users_container: Container name for users data.
         tenants_container: Container name for tenants data.
         useridentities_container: Container name for user identity data.
@@ -96,6 +99,10 @@ async def ensure_cosmos_resources(
     await database.create_container_if_not_exists(
         id=messages_container,
         partition_key=PartitionKey(path=MESSAGES_PARTITION_KEY),
+    )
+    await database.create_container_if_not_exists(
+        id=jobs_container,
+        partition_key=PartitionKey(path=JOBS_PARTITION_KEY),
     )
     await database.create_container_if_not_exists(
         id=users_container,

@@ -24,11 +24,13 @@ from app.infra.repository.cosmos.cosmos_conversations_repository import (
 from app.infra.repository.cosmos.cosmos_messages_repository import (
     CosmosMessageRepository,
 )
+from app.infra.repository.cosmos.cosmos_jobs_repository import CosmosJobRepository
 from app.infra.repository.local.local_authz_repository import LocalAuthzRepository
 from app.infra.repository.local.local_conversations_repository import (
     LocalConversationRepository,
 )
 from app.infra.repository.local.local_messages_repository import LocalMessageRepository
+from app.infra.repository.local.local_jobs_repository import LocalJobRepository
 from app.infra.repository.memory.memory_authz_repository import MemoryAuthzRepository
 from app.infra.repository.memory.memory_conversations_repository import (
     MemoryConversationRepository,
@@ -36,6 +38,7 @@ from app.infra.repository.memory.memory_conversations_repository import (
 from app.infra.repository.memory.memory_messages_repository import (
     MemoryMessageRepository,
 )
+from app.infra.repository.memory.memory_jobs_repository import MemoryJobRepository
 from app.infra.storage.usage_buffer import create_usage_repository
 
 logger = getLogger(__name__)
@@ -73,6 +76,9 @@ class _CosmosRepositoryFactory:
         return CosmosMessageRepository(
             self._provider.get_container(self._config.messages_container)
         )
+
+    async def jobs(self):
+        return CosmosJobRepository(self._provider.get_container(self._config.jobs_container))
 
     async def usage(self):
         return create_usage_repository(self._config)
@@ -119,6 +125,9 @@ class _MemoryRepositoryFactory:
 
     async def messages(self):
         return MemoryMessageRepository()
+
+    async def jobs(self):
+        return MemoryJobRepository()
 
     async def usage(self):
         return create_usage_repository(self._config)
@@ -169,6 +178,9 @@ class _LocalRepositoryFactory:
     async def messages(self):
         return LocalMessageRepository(self._path)
 
+    async def jobs(self):
+        return LocalJobRepository(self._path)
+
     async def usage(self):
         return create_usage_repository(self._config)
 
@@ -198,10 +210,14 @@ class _FirestoreRepositoryFactory:
         from app.infra.repository.firestore.firestore_messages_repository import (
             FirestoreMessageRepository,
         )
+        from app.infra.repository.firestore.firestore_jobs_repository import (
+            FirestoreJobRepository,
+        )
 
         self._authz_repo = FirestoreAuthzRepository
         self._conversation_repo = FirestoreConversationRepository
         self._message_repo = FirestoreMessageRepository
+        self._job_repo = FirestoreJobRepository
 
     async def _get_client(self):
         """Get Firestore client asynchronously."""
@@ -225,6 +241,10 @@ class _FirestoreRepositoryFactory:
     async def messages(self):
         client = await self._get_client()
         return self._message_repo(client.collection(self._config.messages_container))
+
+    async def jobs(self):
+        client = await self._get_client()
+        return self._job_repo(client.collection(self._config.jobs_container))
 
     async def usage(self):
         return create_usage_repository(self._config)

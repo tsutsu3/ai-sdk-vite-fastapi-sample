@@ -2,6 +2,7 @@ from typing import Protocol
 
 from app.features.authz.ports import AuthzRepository
 from app.features.conversations.ports import ConversationRepository
+from app.features.jobs.ports import JobRepository
 from app.features.messages.ports import MessageRepository
 from app.features.usage.ports import UsageRepository
 
@@ -23,6 +24,10 @@ class RepositoryFactory(Protocol):
 
     async def messages(self) -> MessageRepository:
         """Return a message repository."""
+        raise NotImplementedError
+
+    async def jobs(self) -> JobRepository:
+        """Return a job repository."""
         raise NotImplementedError
 
     async def usage(self) -> UsageRepository:

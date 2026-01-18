@@ -173,11 +173,12 @@ async def run_service_error_handler(request: Request, exc: RunServiceError) -> J
 async def _resolve_repositories(
     repository,
     storage_caps: StorageCapabilities,
-) -> tuple[object, object, object]:
+) -> tuple[object, object, object, object]:
     authz_repo = await repository.authz()
     conversation_repo = await repository.conversations()
     message_repo = await repository.messages()
-    return authz_repo, conversation_repo, message_repo
+    job_repo = await repository.jobs()
+    return authz_repo, conversation_repo, message_repo, job_repo
 
 
 @asynccontextmanager
@@ -220,6 +221,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             cosmos_client_provider,
             conversations_container=app.state.app_config.conversations_container,
             messages_container=app.state.app_config.messages_container,
+            jobs_container=app.state.app_config.jobs_container,
             users_container=app.state.app_config.users_container,
             tenants_container=app.state.app_config.tenants_container,
             useridentities_container=app.state.app_config.useridentities_container,
@@ -241,7 +243,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         init_provisioning=PROVISIONING,
     )
 
-    authz_repo, conversation_repo, message_repo = await _resolve_repositories(
+    authz_repo, conversation_repo, message_repo, job_repo = await _resolve_repositories(
         repository,
         app.state.storage_capabilities,
     )
@@ -271,6 +273,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         cache_provider=messages_cache_provider,
         ttl_seconds=messages_cache_config.ttl_seconds,
     )
+    app.state.job_repository = job_repo
     app.state.usage_repository = await repository.usage()
 
     app.state.blob_storage = _build_blob_storage(

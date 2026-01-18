@@ -106,6 +106,7 @@ class AppConfig(BaseModel):
     # Database containers/collections (shared by Cosmos DB and Firestore)
     conversations_container: str = "conversations"
     messages_container: str = "messages"
+    jobs_container: str = "jobs"
     users_container: str = "users"
     tenants_container: str = "tenants"
     useridentities_container: str = "useridentities"
@@ -325,6 +326,7 @@ class Settings(BaseSettings):
     # Database containers/collections (shared by Cosmos DB and Firestore)
     conversations_container: str = "conversations"
     messages_container: str = "messages"
+    jobs_container: str = "jobs"
     users_container: str = "users"
     tenants_container: str = "tenants"
     useridentities_container: str = "useridentities"
@@ -725,6 +727,7 @@ class Settings(BaseSettings):
             database=self.database,
             conversations_container=self.conversations_container,
             messages_container=self.messages_container,
+            jobs_container=self.jobs_container,
             users_container=self.users_container,
             tenants_container=self.tenants_container,
             useridentities_container=self.useridentities_container,

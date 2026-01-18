@@ -7,6 +7,7 @@ from app.features.authz.ports import AuthzRepository
 from app.features.authz.service import AuthzService
 from app.features.chat.run.service import RunService
 from app.features.conversations.ports import ConversationRepository
+from app.features.jobs.ports import JobRepository
 from app.features.messages.ports import MessageRepository
 from app.features.usage.ports import UsageRepository
 from app.infra.client.cosmos_client import CosmosClientProvider
@@ -56,6 +57,11 @@ def get_message_repository(request: Request) -> MessageRepository:
         MessageRepository: Message repository.
     """
     return cast(MessageRepository, request.app.state.message_repository)
+
+
+def get_job_repository(request: Request) -> JobRepository:
+    """Resolve the job repository from app state."""
+    return cast(JobRepository, request.app.state.job_repository)
 
 
 def get_usage_repository(request: Request) -> UsageRepository:
