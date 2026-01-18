@@ -25,6 +25,50 @@ class CosmosJobRepository(JobRepository):
         )
         return updated
 
+    async def list_jobs(
+        self,
+        tenant_id: str,
+        user_id: str,
+        limit: int | None = None,
+        continuation_token: str | None = None,
+    ) -> tuple[list[JobRecord], str | None]:
+        pk = job_partition(tenant_id)
+        query = (
+            "SELECT * FROM c WHERE c.userId = @userId "
+            "ORDER BY c.updatedAt DESC"
+        )
+        parameters = [{"name": "@userId", "value": user_id}]
+        results: list[JobRecord] = []
+        next_token: str | None = None
+        if limit is None:
+            items = self._container.query_items(
+                query=query,
+                parameters=parameters,
+                partition_key=pk,
+            )
+            async for item in items:
+                try:
+                    results.append(job_doc_to_record(JobDoc.model_validate(item)))
+                except Exception:
+                    continue
+            return (results, None)
+        items = self._container.query_items(
+            query=query,
+            parameters=parameters,
+            partition_key=pk,
+            max_item_count=limit,
+        )
+        page_iter = items.by_page(continuation_token=continuation_token)
+        async for page in page_iter:
+            async for item in page:
+                try:
+                    results.append(job_doc_to_record(JobDoc.model_validate(item)))
+                except Exception:
+                    continue
+            next_token = page_iter.continuation_token
+            break
+        return (results, next_token)
+
     async def get_job(
         self,
         tenant_id: str,

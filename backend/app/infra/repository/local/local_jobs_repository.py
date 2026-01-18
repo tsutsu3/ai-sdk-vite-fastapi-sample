@@ -28,6 +28,44 @@ class LocalJobRepository(JobRepository):
         path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
         return record
 
+    async def list_jobs(
+        self,
+        tenant_id: str,
+        user_id: str,
+        limit: int | None = None,
+        continuation_token: str | None = None,
+    ) -> tuple[list[JobRecord], str | None]:
+        job_dir = self._job_dir(tenant_id, user_id)
+        if not job_dir.exists():
+            return ([], None)
+        records: list[JobRecord] = []
+        for path in job_dir.glob("*.json"):
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if not isinstance(payload, dict):
+                continue
+            try:
+                doc = JobDoc.model_validate(payload)
+            except Exception:
+                continue
+            records.append(job_doc_to_record(doc))
+        records.sort(key=lambda record: record.updated_at, reverse=True)
+        offset = 0
+        if continuation_token:
+            try:
+                offset = max(int(continuation_token), 0)
+            except ValueError:
+                offset = 0
+        if limit is None:
+            return (records, None)
+        safe_limit = max(limit, 0)
+        sliced = records[offset : offset + safe_limit]
+        next_offset = offset + len(sliced)
+        next_token = str(next_offset) if next_offset < len(records) else None
+        return (sliced, next_token)
+
     async def get_job(
         self,
         tenant_id: str,

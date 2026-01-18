@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from fastapi_ai_sdk import AIStream, create_ai_stream_response
 
@@ -18,6 +18,7 @@ from app.core.dependencies import (
 from app.features.conversations.ports import ConversationRepository
 from app.features.jobs.models import JobRecord, JobStatus
 from app.features.jobs.ports import JobRepository
+from app.features.jobs.schemas import JobStatusListResponse, JobStatusResponse
 from app.features.messages.ports import MessageRepository
 from app.features.retrieval.run.service import build_rag_stream
 from app.features.retrieval.run.utils import resolve_conversation_id, uuid4_str
@@ -165,3 +166,63 @@ async def create_rag_job(
         "conversationId": conversation_id,
         "workerRequest": worker_request.model_dump(by_alias=True),
     }
+
+
+@router.get(
+    "/rag/jobs/{job_id}",
+    tags=["RAG"],
+    summary="Get longform RAG job status",
+    description="Returns the stored job status and conversation mapping.",
+    responses={
+        404: {"description": "Job not found."},
+        403: {"description": "Not authorized for this job."},
+    },
+)
+async def get_rag_job_status(
+    job_id: str,
+    job_repo: JobRepository = Depends(get_job_repository),
+) -> JobStatusResponse:
+    record = await job_repo.get_job(
+        tenant_id=get_current_tenant_id(),
+        user_id=get_current_user_id(),
+        job_id=job_id,
+    )
+    if record is None:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    return JobStatusResponse(
+        jobId=record.job_id,
+        conversationId=record.conversation_id,
+        status=record.status,
+        createdAt=record.created_at,
+        updatedAt=record.updated_at,
+    )
+
+
+@router.get(
+    "/rag/jobs",
+    tags=["RAG"],
+    summary="List longform RAG jobs",
+    description="Lists stored longform jobs for the current user.",
+)
+async def list_rag_jobs(
+    limit: int | None = Query(default=None, ge=1, le=100),
+    continuation_token: str | None = Query(default=None, alias="continuationToken"),
+    job_repo: JobRepository = Depends(get_job_repository),
+) -> JobStatusListResponse:
+    records, next_token = await job_repo.list_jobs(
+        tenant_id=get_current_tenant_id(),
+        user_id=get_current_user_id(),
+        limit=limit,
+        continuation_token=continuation_token,
+    )
+    items = [
+        JobStatusResponse(
+            jobId=record.job_id,
+            conversationId=record.conversation_id,
+            status=record.status,
+            createdAt=record.created_at,
+            updatedAt=record.updated_at,
+        )
+        for record in records
+    ]
+    return JobStatusListResponse(items=items, continuationToken=next_token)
