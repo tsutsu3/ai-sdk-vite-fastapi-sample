@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from collections.abc import AsyncIterator
 
@@ -8,6 +7,11 @@ from app.ai.history.factory import build_session_id
 from app.ai.models import HistoryKey
 from app.features.retrieval.run import event_builder
 from app.features.retrieval.run.execution_service import RetrievalExecutionService
+from app.features.retrieval.run.longform_graph import (
+    LongformGraphState,
+    build_longform_graph,
+    build_longform_state,
+)
 from app.features.retrieval.run.models import (
     AuthContext,
     ConversationContext,
@@ -15,7 +19,7 @@ from app.features.retrieval.run.models import (
     ToolContext,
 )
 from app.features.retrieval.run.persistence_service import RetrievalPersistenceService
-from app.features.retrieval.run.utils import format_sources, truncate_text, uuid4_str
+from app.features.retrieval.run.utils import truncate_text, uuid4_str
 from app.features.retrieval.schemas import RetrievalQueryRequest
 
 logger = logging.getLogger(__name__)
@@ -33,7 +37,11 @@ class RetrievalStreamCoordinator:
     ) -> None:
         self._execution = execution
         self._persistence = persistence
-        self._chapter_concurrency = chapter_concurrency
+        self._longform_graph = build_longform_graph(
+            execution=execution,
+            chapter_concurrency=chapter_concurrency,
+            resolve_chapter_titles=self._resolve_chapter_titles,
+        )
 
     async def stream(
         self,
@@ -238,32 +246,23 @@ class RetrievalStreamCoordinator:
         yield event_builder.build_cot_answer_active_event()
         yield event_builder.build_text_start_event(text_id)
 
-        chapter_count = max(1, min(payload.chapter_count, 12))
-        sources_text = format_sources(retrieval_ctx.results, 1000)
-        user_query = query_ctx.last_user_message or query_ctx.user_query
         model_id = response_ctx.selected_model
-        template_prompt = payload.template_prompt or (
-            tool_ctx.tool.template_prompt if tool_ctx.tool else None
-        )
-        chapter_prompt = payload.chapter_prompt or (
-            tool_ctx.tool.chapter_prompt if tool_ctx.tool else None
-        )
-        merge_prompt = payload.merge_prompt or (
-            tool_ctx.tool.merge_prompt if tool_ctx.tool else None
-        )
         proofread_prompt = payload.proofread_prompt or (
             tool_ctx.tool.proofread_prompt if tool_ctx.tool else None
         )
 
-        template_text, template_payload = await self._execution.generate_template(
-            prompt=template_prompt,
-            messages=payload.messages,
-            query=user_query,
-            sources=sources_text,
-            chapter_count=chapter_count,
+        longform_state = build_longform_state(
+            payload=payload,
+            tool_ctx=tool_ctx,
+            query_ctx=query_ctx,
+            results=retrieval_ctx.results,
             model_id=model_id,
-            injected_prompt=payload.injected_prompt,
         )
+        state_dict = await self._longform_graph.ainvoke(longform_state.model_dump())
+        graph_state = LongformGraphState.model_validate(state_dict)
+
+        template_text = graph_state.template_text
+        template_payload = graph_state.template_payload
         await self._persistence.record_usage_entry(
             auth_ctx=auth_ctx,
             conversation_ctx=conversation_ctx,
@@ -272,58 +271,18 @@ class RetrievalStreamCoordinator:
             request_payload=template_payload,
             response_text=template_text,
         )
-
-        chapter_titles = self._resolve_chapter_titles(
-            payload.chapter_titles,
-            template_text,
-            chapter_count,
-        )
-        chapter_count = len(chapter_titles)
-        chapter_concurrency = max(1, self._chapter_concurrency)
-        semaphore = asyncio.Semaphore(chapter_concurrency)
-
-        async def _run_chapter(index: int, title: str):
-            async with semaphore:
-                chapter_text, chapter_payload = await self._execution.generate_chapter(
-                    prompt=chapter_prompt,
-                    messages=payload.messages,
-                    query=user_query,
-                    sources=sources_text,
-                    template_text=template_text,
-                    chapter_title=title,
-                    chapter_index=index,
-                    chapter_count=chapter_count,
-                    model_id=model_id,
-                    injected_prompt=payload.injected_prompt,
-                )
-                return index, title, chapter_text, chapter_payload
-
-        tasks = [
-            asyncio.create_task(_run_chapter(index, title))
-            for index, title in enumerate(chapter_titles, start=1)
-        ]
-        results = await asyncio.gather(*tasks)
-        results.sort(key=lambda item: item[0])
-        chapters: list[str] = []
-        for _, title, chapter_text, chapter_payload in results:
-            chapters.append(f"{title}\n{chapter_text}".strip())
+        for chapter in graph_state.chapter_results:
             await self._persistence.record_usage_entry(
                 auth_ctx=auth_ctx,
                 conversation_ctx=conversation_ctx,
                 message_id=f"msg-{uuid4_str()}",
                 model_id=model_id,
-                request_payload=chapter_payload,
-                response_text=chapter_text,
+                request_payload=chapter.request_payload,
+                response_text=chapter.text,
             )
 
-        merged_text, merge_payload = await self._execution.merge_sections(
-            prompt=merge_prompt,
-            messages=payload.messages,
-            sources=sources_text,
-            section_text="\n\n".join(chapters),
-            model_id=model_id,
-            injected_prompt=payload.injected_prompt,
-        )
+        merged_text = graph_state.merged_text
+        merge_payload = graph_state.merge_payload
         await self._persistence.record_usage_entry(
             auth_ctx=auth_ctx,
             conversation_ctx=conversation_ctx,
