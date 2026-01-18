@@ -19,6 +19,11 @@ from app.features.retrieval.run.models import (
     ToolContext,
 )
 from app.features.retrieval.run.persistence_service import RetrievalPersistenceService
+from app.features.retrieval.run.retrieval_graph import (
+    RetrievalGraphState,
+    build_retrieval_graph,
+    build_retrieval_state,
+)
 from app.features.retrieval.run.utils import truncate_text, uuid4_str
 from app.features.retrieval.schemas import RetrievalQueryRequest
 
@@ -42,6 +47,7 @@ class RetrievalStreamCoordinator:
             chapter_concurrency=chapter_concurrency,
             resolve_chapter_titles=self._resolve_chapter_titles,
         )
+        self._retrieval_graph = build_retrieval_graph(execution=execution)
 
     async def stream(
         self,
@@ -94,19 +100,19 @@ class RetrievalStreamCoordinator:
         yield event_builder.build_cot_query_complete_event(query_ctx)
         yield event_builder.build_cot_search_active_event()
 
-        retrieval_ctx = await self._execution.retrieve_results(
+        retrieval_state = build_retrieval_state(
             payload=payload,
             tool_ctx=tool_ctx,
             query_ctx=query_ctx,
-        )
-        response_ctx = self._execution.build_response_context(
-            payload=payload,
-            tool_ctx=tool_ctx,
-            query_ctx=query_ctx,
-            results=retrieval_ctx.results,
             message_id=message_id,
             text_id=text_id,
         )
+        state_dict = await self._retrieval_graph.ainvoke(retrieval_state.model_dump())
+        graph_state = RetrievalGraphState.model_validate(state_dict)
+        retrieval_ctx = graph_state.retrieval_ctx
+        response_ctx = graph_state.response_ctx
+        if retrieval_ctx is None or response_ctx is None:
+            raise RuntimeError("retrieval graph did not produce expected output")
 
         model_event = event_builder.build_model_event(message_id, response_ctx.selected_model)
         if model_event:

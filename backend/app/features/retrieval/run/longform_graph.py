@@ -37,6 +37,12 @@ class LongformGraphState(BaseModel):
     merge_payload: list[dict[str, str]] = Field(default_factory=list)
 
 
+def _coerce_state(state) -> LongformGraphState:
+    if isinstance(state, LongformGraphState):
+        return state
+    return LongformGraphState.model_validate(state)
+
+
 def _default_resolve_chapter_titles(
     raw_titles: list[str],
     template_text: str,
@@ -68,10 +74,11 @@ def build_longform_graph(
     """Build the longform generation graph (template -> chapters -> merge)."""
     resolve_chapter_titles = resolve_chapter_titles or _default_resolve_chapter_titles
 
-    async def _generate_template(state: LongformGraphState):
-        payload = state.payload
-        tool_ctx = state.tool_ctx
-        query_ctx = state.query_ctx
+    async def _generate_template(state):
+        parsed = _coerce_state(state)
+        payload = parsed.payload
+        tool_ctx = parsed.tool_ctx
+        query_ctx = parsed.query_ctx
         user_query = query_ctx.last_user_message or query_ctx.user_query
         chapter_count = max(1, min(payload.chapter_count, 12))
         template_prompt = payload.template_prompt or (
@@ -81,9 +88,9 @@ def build_longform_graph(
             prompt=template_prompt,
             messages=payload.messages,
             query=user_query,
-            sources=state.sources_text,
+            sources=parsed.sources_text,
             chapter_count=chapter_count,
-            model_id=state.model_id,
+            model_id=parsed.model_id,
             injected_prompt=payload.injected_prompt,
         )
         return {
@@ -91,10 +98,11 @@ def build_longform_graph(
             "template_payload": template_payload,
         }
 
-    async def _generate_chapters(state: LongformGraphState):
-        payload = state.payload
-        tool_ctx = state.tool_ctx
-        query_ctx = state.query_ctx
+    async def _generate_chapters(state):
+        parsed = _coerce_state(state)
+        payload = parsed.payload
+        tool_ctx = parsed.tool_ctx
+        query_ctx = parsed.query_ctx
         user_query = query_ctx.last_user_message or query_ctx.user_query
         chapter_prompt = payload.chapter_prompt or (
             tool_ctx.tool.chapter_prompt if tool_ctx.tool else None
@@ -102,7 +110,7 @@ def build_longform_graph(
         chapter_count = max(1, min(payload.chapter_count, 12))
         chapter_titles = resolve_chapter_titles(
             payload.chapter_titles,
-            state.template_text,
+            parsed.template_text,
             chapter_count,
         )
         chapter_count = len(chapter_titles)
@@ -114,12 +122,12 @@ def build_longform_graph(
                     prompt=chapter_prompt,
                     messages=payload.messages,
                     query=user_query,
-                    sources=state.sources_text,
-                    template_text=state.template_text,
+                    sources=parsed.sources_text,
+                    template_text=parsed.template_text,
                     chapter_title=title,
                     chapter_index=index,
                     chapter_count=chapter_count,
-                    model_id=state.model_id,
+                    model_id=parsed.model_id,
                     injected_prompt=payload.injected_prompt,
                 )
                 return index, LongformChapterResult(
@@ -137,21 +145,22 @@ def build_longform_graph(
         chapter_results = [result for _, result in results]
         return {"chapter_results": chapter_results}
 
-    async def _merge_sections(state: LongformGraphState):
-        payload = state.payload
-        tool_ctx = state.tool_ctx
+    async def _merge_sections(state):
+        parsed = _coerce_state(state)
+        payload = parsed.payload
+        tool_ctx = parsed.tool_ctx
         merge_prompt = payload.merge_prompt or (
             tool_ctx.tool.merge_prompt if tool_ctx.tool else None
         )
         section_text = "\n\n".join(
-            f"{result.title}\n{result.text}".strip() for result in state.chapter_results
+            f"{result.title}\n{result.text}".strip() for result in parsed.chapter_results
         )
         merged_text, merge_payload = await execution.merge_sections(
             prompt=merge_prompt,
             messages=payload.messages,
-            sources=state.sources_text,
+            sources=parsed.sources_text,
             section_text=section_text,
-            model_id=state.model_id,
+            model_id=parsed.model_id,
             injected_prompt=payload.injected_prompt,
         )
         return {"merged_text": merged_text, "merge_payload": merge_payload}
