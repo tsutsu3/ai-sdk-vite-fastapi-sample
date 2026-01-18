@@ -16,6 +16,7 @@ from app.features.retrieval.run.query_planner import QueryPlanner
 from app.features.retrieval.run.stream_coordinator import RetrievalStreamCoordinator
 from app.features.retrieval.run.utils import extract_last_user_message, truncate_text
 from app.features.retrieval.schemas import RetrievalQueryRequest
+from app.features.retrieval.tools import ToolRegistry
 from app.features.usage.ports import UsageRepository
 
 logger = logging.getLogger(__name__)
@@ -32,6 +33,7 @@ def build_rag_stream(
     resolver: ChatModelResolver,
     builder: ChatModelBuilder,
     retriever_builder: RetrieverBuilder,
+    tool_registry: ToolRegistry,
 ) -> AsyncIterator[AnyStreamEvent]:
     safe_retriever_builder = _wrap_retriever_builder(retriever_builder)
     memory_policy = MemoryPolicy()
@@ -43,7 +45,7 @@ def build_rag_stream(
         retriever_builder=safe_retriever_builder,
         memory_policy=memory_policy,
     )
-    planner = QueryPlanner(execution)
+    planner = QueryPlanner(execution, tool_registry)
     persistence = RetrievalPersistenceService(
         conversation_repo=conversation_repo,
         message_repo=message_repo,

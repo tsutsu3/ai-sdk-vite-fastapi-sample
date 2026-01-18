@@ -13,6 +13,7 @@ from app.core.dependencies import (
     get_conversation_repository,
     get_job_repository,
     get_message_repository,
+    get_tool_registry,
     get_usage_repository,
 )
 from app.features.authz.request_context import (
@@ -33,6 +34,7 @@ from app.features.retrieval.run.service import build_rag_stream
 from app.features.retrieval.run.utils import resolve_conversation_id, uuid4_str
 from app.features.retrieval.schemas import RetrievalQueryRequest
 from app.features.usage.ports import UsageRepository
+from app.features.retrieval.tools import ToolRegistry
 from app.features.worker.schemas import WorkerJobRunRequest
 from app.shared.streaming import stream_with_lifecycle
 from app.shared.time import now_datetime
@@ -90,6 +92,7 @@ async def query_rag(
     usage_repo: UsageRepository = Depends(get_usage_repository),
     app_config: AppConfig = Depends(get_app_config),
     chat_caps: ChatCapabilities = Depends(get_chat_capabilities),
+    tool_registry: ToolRegistry = Depends(get_tool_registry),
 ) -> StreamingResponse:
     """Stream retrieval results using the AI SDK data protocol.
 
@@ -105,6 +108,7 @@ async def query_rag(
         resolver=resolve_chat_model,
         builder=build_chat_model,
         retriever_builder=build_retriever_for_provider,
+        tool_registry=tool_registry,
     )
     guarded_stream = stream_with_lifecycle(
         stream,

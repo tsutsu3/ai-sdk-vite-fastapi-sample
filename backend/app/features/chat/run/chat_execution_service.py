@@ -15,6 +15,7 @@ from app.core.config import AppConfig, ChatCapabilities
 from app.features.chat.run.errors import RunServiceError
 from app.features.chat.run.models import StreamContext
 from app.features.chat.run.retrieval_context import build_retrieval_context
+from app.features.retrieval.tools import ToolRegistry
 from app.features.messages.models import MessageRecord
 from app.features.messages.ports import MessageRepository
 from app.shared.llm_resolver import resolve_chat_model_spec
@@ -46,6 +47,7 @@ class ChatExecutionService:
         app_config: AppConfig | None,
         chat_caps: ChatCapabilities | None,
         retriever_builder: RetrieverBuilder | None,
+        tool_registry: ToolRegistry | None,
         runtime_cache: dict[str, ChatRuntime],
     ) -> None:
         self._message_repo = message_repo
@@ -53,6 +55,7 @@ class ChatExecutionService:
         self._app_config = app_config
         self._chat_caps = chat_caps
         self._retriever_builder = retriever_builder
+        self._tool_registry = tool_registry
         self._runtime_cache = runtime_cache
 
     def has_base_runtime(self) -> bool:
@@ -76,7 +79,7 @@ class ChatExecutionService:
 
     async def build_retrieval_context(self, context: StreamContext):
         """Resolve retrieval context or return None when tools are unused."""
-        if context.tool_id and not self._app_config:
+        if context.tool_id and (not self._app_config or not self._tool_registry):
             raise RunServiceError("Retrieval service is not configured.")
         if not context.tool_id:
             return None
@@ -84,6 +87,8 @@ class ChatExecutionService:
             tool_id=context.tool_id,
             messages=context.messages,
             app_config=self._app_config,
+            tenant_id=context.tenant_id,
+            tool_registry=self._tool_registry,
             retriever_builder=self._retriever_builder,
         )
 

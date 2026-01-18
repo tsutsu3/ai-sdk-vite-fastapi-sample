@@ -25,6 +25,7 @@ class LocalJSONRetriever(BaseRetriever):
     json_path: Path = Field(description="Path to JSON file with documents array")
     k: int = Field(default=4, description="Number of results to return")
     min_score: float = Field(default=0.0, description="Minimum relevance score threshold")
+    tenant_id: str = Field(description="Tenant id scope")
 
     def _load_documents(self) -> list[dict[str, Any]]:
         """Load documents from JSON file.
@@ -47,11 +48,14 @@ class LocalJSONRetriever(BaseRetriever):
                 data = json.load(f)
 
             if isinstance(data, list):
-                return data
+                documents = data
             elif isinstance(data, dict) and "documents" in data:
-                return data["documents"]
+                documents = data["documents"]
             else:
                 return []
+            return [
+                doc for doc in documents if self._matches_tenant(doc, self.tenant_id)
+            ]
         except (json.JSONDecodeError, OSError) as e:
             logger.warning("Failed to load or parse JSON file: %s - %s", resolved_path, e)
             return []
@@ -71,6 +75,11 @@ class LocalJSONRetriever(BaseRetriever):
         text = re.sub(r"\s+", " ", text)
         # Strip leading/trailing whitespace
         return text.strip()
+
+    @staticmethod
+    def _matches_tenant(document: dict[str, Any], tenant_id: str) -> bool:
+        raw = document.get("tenant_id") or document.get("tenantId")
+        return isinstance(raw, str) and raw == tenant_id
 
     def _calculate_relevance_score(self, query: str, document: dict[str, Any]) -> float:
         """Calculate relevance score using fuzzy text matching.

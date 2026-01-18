@@ -201,6 +201,7 @@ class AppConfig(BaseModel):
     retrieval_ai_search_url: str = ""
     retrieval_ai_search_api_key: str = ""
     retrieval_ai_search_auth_header: str = "X-API-Key"
+    retrieval_ai_search_filter_template: str = ""
     retrieval_local_path: str = "backend/app/infra/fixtures/retrieval"
     retrieval_tools_config_path: str = "retrieval_tools.yaml"
     retrieval_longform_chapter_concurrency: int = 1
@@ -408,6 +409,7 @@ class Settings(BaseSettings):
     retrieval_ai_search_url: str = ""
     retrieval_ai_search_api_key: str = ""
     retrieval_ai_search_auth_header: str = "X-API-Key"
+    retrieval_ai_search_filter_template: str = ""
     retrieval_local_path: str = "backend/app/infra/fixtures/retrieval"
     retrieval_tools_config_path: str = "retrieval_tools.yaml"
     retrieval_longform_chapter_concurrency: int = 1
@@ -788,6 +790,7 @@ class Settings(BaseSettings):
             retrieval_ai_search_url=self.retrieval_ai_search_url,
             retrieval_ai_search_api_key=self.retrieval_ai_search_api_key,
             retrieval_ai_search_auth_header=self.retrieval_ai_search_auth_header,
+            retrieval_ai_search_filter_template=self.retrieval_ai_search_filter_template,
             retrieval_local_path=self.retrieval_local_path,
             retrieval_tools_config_path=self.retrieval_tools_config_path,
             retrieval_longform_chapter_concurrency=self.retrieval_longform_chapter_concurrency,

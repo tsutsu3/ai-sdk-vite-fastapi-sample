@@ -40,7 +40,7 @@ from app.features.file import routes as file_api
 from app.features.health import routes as health_api
 from app.features.messages import routes as messages_api
 from app.features.retrieval import routes as rag_api
-from app.features.retrieval.tools import initialize_tool_specs
+from app.features.retrieval.tools import ToolRegistry, initialize_tool_specs
 from app.features.spa import routes as spa_api
 from app.features.title.title_generator import TitleGenerator
 from app.features.worker import routes as worker_api
@@ -95,6 +95,7 @@ def _build_run_service(
     chat_caps: ChatCapabilities,
     chat_runtime: ChatRuntime | None = None,
     retriever_builder: RetrieverBuilder | None = None,
+    tool_registry: ToolRegistry | None = None,
 ) -> RunService:
     """Construct the run service for chat execution.
 
@@ -113,6 +114,7 @@ def _build_run_service(
         app_config=app_config,
         chat_caps=chat_caps,
         retriever_builder=retriever_builder,
+        tool_registry=tool_registry,
     )
 
 
@@ -214,7 +216,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.app_config.auth_provider,
         app.state.app_config.cache_backend,
     )
-    initialize_tool_specs(app.state.app_config.retrieval_tools_config_path)
+    app.state.tool_registry = ToolRegistry()
+    initialize_tool_specs(
+        app.state.tool_registry,
+        app.state.app_config.retrieval_tools_config_path,
+    )
 
     app.state.cosmos_client_provider = None
     app.state.firestore_client_provider = None
@@ -318,6 +324,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.chat_capabilities,
         chat_runtime=app.state.chat_runtime,
         retriever_builder=build_retriever_for_provider,
+        tool_registry=app.state.tool_registry,
     )
 
     log_app_configuration(

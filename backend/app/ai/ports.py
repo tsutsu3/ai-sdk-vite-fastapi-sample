@@ -37,6 +37,7 @@ class RetrieverBuilder(Protocol):
         provider_id: str,
         data_source: str,
         policy: RetrievalPolicy,
+        tenant_id: str,
         query_embedding: list[float] | None = None,
     ) -> BaseRetriever:
         raise NotImplementedError

@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from langchain_core.documents import Document
@@ -15,14 +16,15 @@ def build_retriever(
     spec: RetrieverSpec,
     policy: RetrievalPolicy,
     *,
+    tenant_id: str,
     query_embedding: list[float] | None = None,
 ) -> BaseRetriever:
     if spec.provider == "azure-ai-search":
-        return _build_azure_ai_search_retriever(app_config, spec, policy)
+        return _build_azure_ai_search_retriever(app_config, spec, policy, tenant_id)
     if spec.provider == "vertex-ai-search":
-        return _build_vertex_ai_search_retriever(app_config, spec, policy)
+        return _build_vertex_ai_search_retriever(app_config, spec, policy, tenant_id)
     if spec.provider == "vertex-answer":
-        return _build_vertex_answer_retriever(app_config, policy)
+        return _build_vertex_answer_retriever(app_config, policy, tenant_id)
     raise RuntimeError(f"Unsupported retriever provider: {spec.provider}")
 
 
@@ -32,6 +34,7 @@ def build_retriever_for_provider(
     provider_id: str,
     data_source: str,
     policy: RetrievalPolicy,
+    tenant_id: str,
     query_embedding: list[float] | None = None,
 ) -> BaseRetriever:
     normalized = provider_id.strip().lower()
@@ -40,6 +43,7 @@ def build_retriever_for_provider(
             app_config,
             RetrieverSpec(provider="vertex-ai-search", data_source=data_source),
             policy,
+            tenant_id=tenant_id,
         )
     if normalized == "vertex-answer":
         # Direct Discovery Engine API for answer mode
@@ -47,6 +51,7 @@ def build_retriever_for_provider(
             app_config,
             RetrieverSpec(provider="vertex-answer", data_source=data_source),
             policy,
+            tenant_id=tenant_id,
         )
     if normalized == "ai-search":
         if not app_config.embeddings_provider or not app_config.embeddings_model:
@@ -62,21 +67,30 @@ def build_retriever_for_provider(
                 ),
             ),
             policy,
+            tenant_id=tenant_id,
         )
 
     if normalized in {"memory", "local-files"}:
         if normalized == "local-files":
-            return _build_local_files_retriever(app_config, policy, data_source)
-        return _build_memory_retriever(app_config, policy, data_source)
+            return _build_local_files_retriever(
+                app_config, policy, data_source, tenant_id=tenant_id
+            )
+        return _build_memory_retriever(app_config, policy, data_source, tenant_id=tenant_id)
     raise RuntimeError(f"Unsupported provider id: {provider_id}")
 
 
-def _build_search_kwargs(policy: RetrievalPolicy) -> dict[str, object]:
+def _build_search_kwargs(
+    policy: RetrievalPolicy,
+    *,
+    filter_expression: str | None = None,
+) -> dict[str, object]:
     search_kwargs: dict[str, object] = {"k": policy.k}
     if policy.score_threshold is not None:
         search_kwargs["score_threshold"] = policy.score_threshold
     if policy.mmr:
         search_kwargs["search_type"] = "mmr"
+    if filter_expression:
+        search_kwargs["filter"] = filter_expression
     return search_kwargs
 
 
@@ -84,6 +98,7 @@ def _build_azure_ai_search_retriever(
     app_config: AppConfig,
     spec: RetrieverSpec,
     policy: RetrievalPolicy,
+    tenant_id: str,
 ) -> BaseRetriever:
     try:
         from langchain_community.vectorstores.azuresearch import AzureSearch
@@ -91,6 +106,9 @@ def _build_azure_ai_search_retriever(
         raise RuntimeError("langchain-community is required for Azure AI Search.") from exc
     if not app_config.retrieval_ai_search_url or not app_config.retrieval_ai_search_api_key:
         raise RuntimeError("Azure AI Search settings are not configured.")
+    filter_expression = _build_ai_search_filter_expression(
+        app_config, spec, tenant_id=tenant_id
+    )
     if spec.embeddings is None:
         raise RuntimeError("Embeddings are required for Azure AI Search.")
     embeddings = build_embeddings(app_config, spec.embeddings)
@@ -100,13 +118,16 @@ def _build_azure_ai_search_retriever(
         index_name=spec.data_source,
         embedding_function=embeddings,
     )
-    return vector_store.as_retriever(search_kwargs=_build_search_kwargs(policy))
+    return vector_store.as_retriever(
+        search_kwargs=_build_search_kwargs(policy, filter_expression=filter_expression)
+    )
 
 
 def _build_vertex_ai_search_retriever(
     app_config: AppConfig,
     spec: RetrieverSpec,
     policy: RetrievalPolicy,
+    tenant_id: str,
 ) -> BaseRetriever:
     try:
         from langchain_google_community.vertex_ai_search import (
@@ -122,7 +143,11 @@ def _build_vertex_ai_search_retriever(
         data_store_id=app_config.vertex_search_data_store,
         serving_config_id=app_config.vertex_search_serving_config,
         engine_data_type=0,
-        filter=_build_vertex_search_filter_expression(app_config, spec),
+        filter=_build_vertex_search_filter_expression(
+            app_config,
+            spec,
+            tenant_id=tenant_id,
+        ),
         max_documents=policy.k,
         get_extractive_answers=policy.get_extractive_answers,
     )
@@ -131,19 +156,42 @@ def _build_vertex_ai_search_retriever(
 def _build_vertex_search_filter_expression(
     app_config: AppConfig,
     spec: RetrieverSpec,
+    tenant_id: str,
 ) -> str | None:
-    if spec.data_source and app_config.vertex_search_filter_template:
-        try:
-            return app_config.vertex_search_filter_template.format(data_source=spec.data_source)
-        except Exception as exc:  # pragma: no cover - defensive format guard
-            raise RuntimeError("Invalid Vertex Search filter template.") from exc
-    return None
+    template = (app_config.vertex_search_filter_template or "").strip()
+    if not template:
+        raise RuntimeError("VERTEX_SEARCH_FILTER_TEMPLATE is required for tenancy.")
+    if "{tenant_id}" not in template:
+        raise RuntimeError("VERTEX_SEARCH_FILTER_TEMPLATE must include '{tenant_id}'.")
+    try:
+        return template.format(data_source=spec.data_source, tenant_id=tenant_id)
+    except Exception as exc:  # pragma: no cover - defensive format guard
+        raise RuntimeError("Invalid Vertex Search filter template.") from exc
+
+
+def _build_ai_search_filter_expression(
+    app_config: AppConfig,
+    spec: RetrieverSpec,
+    tenant_id: str,
+) -> str | None:
+    template = (app_config.retrieval_ai_search_filter_template or "").strip()
+    if not template:
+        raise RuntimeError("RETRIEVAL_AI_SEARCH_FILTER_TEMPLATE is required for tenancy.")
+    if "{tenant_id}" not in template:
+        raise RuntimeError("RETRIEVAL_AI_SEARCH_FILTER_TEMPLATE must include '{tenant_id}'.")
+    try:
+        return template.format(data_source=spec.data_source, tenant_id=tenant_id)
+    except Exception as exc:  # pragma: no cover - defensive format guard
+        raise RuntimeError("Invalid Azure AI Search filter template.") from exc
 
 
 def _build_vertex_answer_retriever(
     app_config: AppConfig,
     policy: RetrievalPolicy,
+    tenant_id: str,
 ) -> BaseRetriever:
+    if tenant_id:
+        raise RuntimeError("Vertex Answer retrieval requires tenant-scoped filtering.")
     return VertexAnswerRetriever(
         project_id=app_config.vertex_search_project_id or app_config.gcp_project_id,
         location=app_config.vertex_search_location,
@@ -157,12 +205,15 @@ def _build_local_files_retriever(
     app_config: AppConfig,
     policy: RetrievalPolicy,
     data_source: str,
+    *,
+    tenant_id: str,
 ) -> BaseRetriever:
     json_path = _get_local_json_path(app_config.retrieval_local_path, data_source)
     return LocalJSONRetriever(
         json_path=json_path,
         k=policy.k,
         min_score=policy.score_threshold or 0.0,
+        tenant_id=tenant_id,
     )
 
 
@@ -170,13 +221,15 @@ def _build_memory_retriever(
     app_config: AppConfig,
     policy: RetrievalPolicy,
     data_source: str,
+    *,
+    tenant_id: str,
 ) -> BaseRetriever:
     try:
         from langchain_community.vectorstores.inmemory import InMemoryVectorStore
     except ImportError as exc:
         raise RuntimeError("langchain-community is required for InMemoryVectorStore.") from exc
     embeddings = _build_memory_embeddings(app_config)
-    documents = _build_memory_documents(app_config, data_source)
+    documents = _build_memory_documents(app_config, data_source, tenant_id=tenant_id)
     vector_store = InMemoryVectorStore.from_documents(documents, embedding=embeddings)
     return vector_store.as_retriever(search_kwargs=_build_search_kwargs(policy))
 
@@ -197,25 +250,18 @@ def _build_memory_embeddings(app_config: AppConfig):
     return FakeEmbeddings(size=1536)
 
 
-def _build_memory_documents(app_config: AppConfig, data_source: str) -> list[Document]:
+def _build_memory_documents(
+    app_config: AppConfig,
+    data_source: str,
+    *,
+    tenant_id: str,
+) -> list[Document]:
     if data_source:
-        return _load_local_documents(app_config.retrieval_local_path, data_source)
-    return [
-        Document(
-            page_content="RAG quickstart covers chunking and metadata.",
-            metadata={
-                "url": "https://example.com/rag01/quickstart.pdf",
-                "title": "RAG Quickstart",
-            },
-        ),
-        Document(
-            page_content="Evaluation tips for retrieval quality.",
-            metadata={
-                "url": "https://example.com/rag01/eval.md",
-                "title": "Retrieval Evaluation",
-            },
-        ),
-    ]
+        json_path = _get_local_json_path(app_config.retrieval_local_path, data_source)
+        json_docs = _load_json_documents(json_path, tenant_id=tenant_id)
+        if json_docs:
+            return json_docs
+    return []
 
 
 def _get_local_json_path(base_path: str, data_source: str) -> str:
@@ -244,7 +290,47 @@ def _get_local_json_path(base_path: str, data_source: str) -> str:
     return str(json_file.resolve())
 
 
-def _load_local_documents(base_path: str, data_source: str) -> list[Document]:
+def _load_json_documents(json_path: str, *, tenant_id: str) -> list[Document]:
+    path = Path(json_path)
+    if not path.exists():
+        return []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    if isinstance(data, dict) and "documents" in data:
+        data = data["documents"]
+    if not isinstance(data, list):
+        return []
+    documents: list[Document] = []
+    for item in data:
+        if not isinstance(item, dict):
+            continue
+        raw_tenant = item.get("tenant_id") or item.get("tenantId")
+        if raw_tenant != tenant_id:
+            continue
+        documents.append(
+            Document(
+                page_content=item.get("content", ""),
+                metadata={
+                    "id": item.get("id", ""),
+                    "title": item.get("title", ""),
+                    "url": item.get("url", ""),
+                    "tags": item.get("tags", []),
+                    "category": item.get("category", ""),
+                    "tenant_id": raw_tenant,
+                },
+            )
+        )
+    return documents
+
+
+def _load_local_documents(
+    base_path: str,
+    data_source: str,
+    *,
+    tenant_id: str,
+) -> list[Document]:
     base = Path(base_path)
     target = (base / data_source).resolve() if data_source else base.resolve()
     if not target.exists() or not target.is_dir():
@@ -263,7 +349,11 @@ def _load_local_documents(base_path: str, data_source: str) -> list[Document]:
         docs.append(
             Document(
                 page_content=text[:2000],
-                metadata={"url": str(path.relative_to(base)), "title": path.name},
+                metadata={
+                    "url": str(path.relative_to(base)),
+                    "title": path.name,
+                    "tenant_id": tenant_id,
+                },
             )
         )
         if len(docs) >= 200:

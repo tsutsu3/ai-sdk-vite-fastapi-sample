@@ -15,7 +15,7 @@ from app.features.chat.run.errors import RunServiceError
 from app.features.messages.models import MessageRecord
 from app.features.retrieval.langchain_adapters import documents_to_results
 from app.features.retrieval.schemas import RetrievalResult
-from app.features.retrieval.tools import RetrievalToolSpec, resolve_tool
+from app.features.retrieval.tools import RetrievalToolSpec, ToolRegistry
 
 
 @dataclass(frozen=True)
@@ -63,10 +63,12 @@ async def build_retrieval_context(
     tool_id: str | None,
     messages: list[MessageRecord],
     app_config: AppConfig,
+    tenant_id: str,
+    tool_registry: ToolRegistry,
     retriever_builder: RetrieverBuilder | None = None,
 ) -> RetrievalContextResult | None:
     """Build a retrieval context block for the requested tool."""
-    tool = resolve_tool(tool_id)
+    tool = tool_registry.resolve(tool_id, tenant_id)
     if not tool:
         if tool_id:
             raise RunServiceError(f"Unknown tool id: {tool_id}")
@@ -96,6 +98,7 @@ async def build_retrieval_context(
             provider_id=provider_id,
             data_source=tool.data_source,
             policy=RetrievalPolicy(k=top_k),
+            tenant_id=tenant_id,
         )
     except RuntimeError as exc:
         raise RunServiceError(str(exc)) from exc

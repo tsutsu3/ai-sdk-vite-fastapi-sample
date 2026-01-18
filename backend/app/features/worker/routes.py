@@ -13,6 +13,7 @@ from app.core.dependencies import (
     get_conversation_repository,
     get_job_repository,
     get_message_repository,
+    get_tool_registry,
     get_usage_repository,
 )
 from app.features.authz.request_context import (
@@ -29,6 +30,7 @@ from app.features.jobs.models import JobRecord, JobStatus
 from app.features.jobs.ports import JobRepository
 from app.features.messages.ports import MessageRepository
 from app.features.retrieval.run.service import build_rag_stream
+from app.features.retrieval.tools import ToolRegistry
 from app.features.usage.ports import UsageRepository
 from app.features.worker.schemas import WorkerJobRunRequest
 from app.shared.time import now_datetime
@@ -62,6 +64,7 @@ async def run_job(
     app_config: AppConfig = Depends(get_app_config),
     chat_caps: ChatCapabilities = Depends(get_chat_capabilities),
     authz_service: AuthzService = Depends(get_authz_service),
+    tool_registry: ToolRegistry = Depends(get_tool_registry),
 ) -> dict[str, str]:
     """Run a worker job for longform retrieval."""
     logger.info("worker.job.requested job_id=%s", payload.job_id)
@@ -103,6 +106,7 @@ async def run_job(
             resolver=resolve_chat_model,
             builder=build_chat_model,
             retriever_builder=build_retriever_for_provider,
+            tool_registry=tool_registry,
         )
         error_text = None
         async for event in stream:

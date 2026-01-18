@@ -42,31 +42,61 @@ class RetrievalToolSpec(BaseModel):
     get_extractive_answers: bool = False
 
 
-DEFAULT_TOOL_SPECS: dict[str, RetrievalToolSpec] = {}
-TOOL_SPECS: dict[str, RetrievalToolSpec] = {}
-
 logger = logging.getLogger(__name__)
 
+class ToolRegistry:
+    """Scoped tool registry to avoid cross-tenant shared state."""
 
-def initialize_tool_specs(config_path: str | None) -> None:
-    """Load tool specs from YAML and store them in the registry."""
-    if not config_path:
-        TOOL_SPECS.clear()
-        return
+    def __init__(self) -> None:
+        self._default_specs: dict[str, RetrievalToolSpec] = {}
+        self._tenant_specs: dict[str, dict[str, RetrievalToolSpec]] = {}
+
+    def load_default_specs(self, config_path: str | None) -> None:
+        """Load default tool specs from YAML."""
+        if not config_path:
+            self._default_specs.clear()
+            return
+        path = _resolve_tool_config_path(config_path)
+        tool_specs = _load_tool_specs_from_yaml(path)
+        self._default_specs = tool_specs
+
+    def load_tenant_specs(self, tenant_id: str, config_path: str | None) -> None:
+        """Load tenant-specific tool specs from YAML."""
+        if not config_path:
+            self._tenant_specs.pop(tenant_id, None)
+            return
+        path = _resolve_tool_config_path(config_path)
+        tool_specs = _load_tool_specs_from_yaml(path)
+        self._tenant_specs[tenant_id] = tool_specs
+
+    def resolve(self, tool_id: str | None, tenant_id: str) -> RetrievalToolSpec | None:
+        """Resolve a retrieval tool spec by id for a tenant."""
+        if not tool_id:
+            return None
+        normalized = tool_id.strip()
+        if not normalized:
+            return None
+        specs = self._tenant_specs.get(tenant_id) or self._default_specs
+        return specs.get(normalized)
+
+
+def initialize_tool_specs(registry: ToolRegistry, config_path: str | None) -> None:
+    """Load tool specs from YAML into the provided registry."""
+    registry.load_default_specs(config_path)
+
+
+def _resolve_tool_config_path(config_path: str) -> Path:
     path = Path(config_path)
     if not path.is_absolute() and not path.exists():
         candidate = Path(__file__).resolve().parents[4] / path
         if candidate.exists():
-            path = candidate
-        else:
-            logger.debug(
-                "retrieval.tools.config.missing path=%s fallback=%s",
-                path,
-                candidate,
-            )
-    tool_specs = _load_tool_specs_from_yaml(path)
-    TOOL_SPECS.clear()
-    TOOL_SPECS.update(tool_specs)
+            return candidate
+        logger.debug(
+            "retrieval.tools.config.missing path=%s fallback=%s",
+            path,
+            candidate,
+        )
+    return path
 
 
 def _load_tool_specs_from_yaml(path: Path) -> dict[str, RetrievalToolSpec]:
@@ -97,12 +127,3 @@ def _load_tool_specs_from_yaml(path: Path) -> dict[str, RetrievalToolSpec]:
         specs[spec.id] = spec
 
     return specs
-
-
-def resolve_tool(tool_id: str | None) -> RetrievalToolSpec | None:
-    """Resolve a retrieval tool spec by id."""
-    if not tool_id:
-        return None
-
-    specs = TOOL_SPECS or DEFAULT_TOOL_SPECS
-    return specs.get(tool_id.strip())

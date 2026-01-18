@@ -7,7 +7,7 @@ from app.shared.time import now_datetime
 class MemoryConversationRepository(ConversationRepository):
     def __init__(self) -> None:
         now = now_datetime()
-        self._conversation_store: dict[str, ConversationRecord] = {
+        default_conversations = {
             "conv-quickstart": ConversationRecord(
                 id="conv-quickstart",
                 title="Project kickoff chat",
@@ -25,6 +25,25 @@ class MemoryConversationRepository(ConversationRepository):
                 createdAt=now,
             ),
         }
+        self._conversation_store: dict[
+            tuple[str, str], dict[str, ConversationRecord]
+        ] = {
+            ("id-tenant001", "local-user-001"): dict(default_conversations),
+            ("id-tenant001", "local-user-001-01"): dict(default_conversations),
+        }
+
+    def _get_store(
+        self, tenant_id: str, user_id: str
+    ) -> dict[str, ConversationRecord]:
+        return self._conversation_store.get((tenant_id, user_id), {})
+
+    def _set_store(
+        self,
+        tenant_id: str,
+        user_id: str,
+        store: dict[str, ConversationRecord],
+    ) -> None:
+        self._conversation_store[(tenant_id, user_id)] = store
 
     async def list_conversations(
         self,
@@ -33,6 +52,7 @@ class MemoryConversationRepository(ConversationRepository):
         limit: int | None = None,
         continuation_token: str | None = None,
     ) -> tuple[list[ConversationRecord], str | None]:
+        store = self._get_store(tenant_id, user_id)
         conversations = [
             ConversationRecord(
                 id=conv.id,
@@ -42,7 +62,7 @@ class MemoryConversationRepository(ConversationRepository):
                 updatedAt=conv.updatedAt or now_datetime(),
                 createdAt=conv.createdAt,
             )
-            for conv in self._conversation_store.values()
+            for conv in store.values()
             if not conv.archived
         ]
         conversations.sort(key=lambda item: item.updatedAt, reverse=True)
@@ -67,6 +87,7 @@ class MemoryConversationRepository(ConversationRepository):
         limit: int | None = None,
         continuation_token: str | None = None,
     ) -> tuple[list[ConversationRecord], str | None]:
+        store = self._get_store(tenant_id, user_id)
         conversations = [
             ConversationRecord(
                 id=conv.id,
@@ -76,7 +97,7 @@ class MemoryConversationRepository(ConversationRepository):
                 updatedAt=conv.updatedAt or now_datetime(),
                 createdAt=conv.createdAt,
             )
-            for conv in self._conversation_store.values()
+            for conv in store.values()
             if conv.archived
         ]
         conversations.sort(key=lambda item: item.updatedAt, reverse=True)
@@ -100,7 +121,7 @@ class MemoryConversationRepository(ConversationRepository):
         user_id: str,
         conversation_id: str,
     ) -> ConversationRecord | None:
-        conversation = self._conversation_store.get(conversation_id)
+        conversation = self._get_store(tenant_id, user_id).get(conversation_id)
         if not conversation:
             return None
         return ConversationRecord(
@@ -120,7 +141,8 @@ class MemoryConversationRepository(ConversationRepository):
         tool_id: str | None = None,
     ) -> ConversationRecord:
         updated_at = now_datetime()
-        conversation = self._conversation_store.get(conversation_id)
+        store = dict(self._get_store(tenant_id, user_id))
+        conversation = store.get(conversation_id)
         if conversation is None:
             conversation = ConversationRecord(
                 id=conversation_id,
@@ -138,7 +160,8 @@ class MemoryConversationRepository(ConversationRepository):
                     "updatedAt": updated_at,
                 }
             )
-        self._conversation_store[conversation_id] = conversation
+        store[conversation_id] = conversation
+        self._set_store(tenant_id, user_id, store)
 
         return conversation
 
@@ -149,7 +172,8 @@ class MemoryConversationRepository(ConversationRepository):
         conversation_id: str,
         archived: bool,
     ) -> ConversationRecord | None:
-        conversation = self._conversation_store.get(conversation_id)
+        store = dict(self._get_store(tenant_id, user_id))
+        conversation = store.get(conversation_id)
         if not conversation:
             return None
         updated_at = now_datetime()
@@ -159,7 +183,8 @@ class MemoryConversationRepository(ConversationRepository):
                 "updatedAt": updated_at,
             }
         )
-        self._conversation_store[conversation_id] = updated
+        store[conversation_id] = updated
+        self._set_store(tenant_id, user_id, store)
         return updated
 
     async def delete_conversation(
@@ -168,7 +193,11 @@ class MemoryConversationRepository(ConversationRepository):
         user_id: str,
         conversation_id: str,
     ) -> bool:
-        return self._conversation_store.pop(conversation_id, None) is not None
+        store = dict(self._get_store(tenant_id, user_id))
+        deleted = store.pop(conversation_id, None) is not None
+        if deleted:
+            self._set_store(tenant_id, user_id, store)
+        return deleted
 
     async def update_title(
         self,
@@ -177,7 +206,8 @@ class MemoryConversationRepository(ConversationRepository):
         conversation_id: str,
         title: str,
     ) -> ConversationRecord | None:
-        conversation = self._conversation_store.get(conversation_id)
+        store = dict(self._get_store(tenant_id, user_id))
+        conversation = store.get(conversation_id)
         if not conversation:
             return None
         updated_at = now_datetime()
@@ -187,7 +217,8 @@ class MemoryConversationRepository(ConversationRepository):
                 "updatedAt": updated_at,
             }
         )
-        self._conversation_store[conversation_id] = updated
+        store[conversation_id] = updated
+        self._set_store(tenant_id, user_id, store)
         return updated
 
     async def list_all_conversation_ids(
@@ -195,4 +226,4 @@ class MemoryConversationRepository(ConversationRepository):
         tenant_id: str,
         user_id: str,
     ) -> list[str]:
-        return list(self._conversation_store.keys())
+        return list(self._get_store(tenant_id, user_id).keys())

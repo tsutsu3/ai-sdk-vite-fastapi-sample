@@ -13,14 +13,15 @@ from app.features.retrieval.run.utils import (
     is_authorized_for_source,
 )
 from app.features.retrieval.schemas import RetrievalQueryRequest
-from app.features.retrieval.tools import RetrievalToolSpec, resolve_tool
+from app.features.retrieval.tools import RetrievalToolSpec, ToolRegistry
 
 
 class QueryPlanner:
     """Resolve auth, tool, and query planning contexts for RAG."""
 
-    def __init__(self, execution_service) -> None:
+    def __init__(self, execution_service, tool_registry: ToolRegistry) -> None:
         self._execution = execution_service
+        self._tool_registry = tool_registry
 
     def require_auth_context(self) -> AuthContext:
         user_record = get_current_user_record()
@@ -39,7 +40,7 @@ class QueryPlanner:
         payload: RetrievalQueryRequest,
         auth_ctx: AuthContext,
     ) -> ToolContext:
-        tool = resolve_tool(payload.tool_id)
+        tool = self._tool_registry.resolve(payload.tool_id, auth_ctx.tenant_id)
         data_source = tool.data_source if tool else payload.data_source
         tools = merge_tools(
             auth_ctx.tenant_record.default_tools,
@@ -62,6 +63,7 @@ class QueryPlanner:
             data_source=data_source,
             provider_id=provider_id,
             tool_id_for_conversation=tool_id_for_conversation,
+            tenant_id=auth_ctx.tenant_id,
         )
 
     async def resolve_query_context(

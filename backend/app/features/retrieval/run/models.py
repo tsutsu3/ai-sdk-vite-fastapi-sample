@@ -24,6 +24,7 @@ class ToolContext(BaseModel):
     data_source: str
     provider_id: str
     tool_id_for_conversation: str
+    tenant_id: str
 
 
 class QueryContext(BaseModel):

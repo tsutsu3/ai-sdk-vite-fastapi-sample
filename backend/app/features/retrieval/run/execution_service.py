@@ -319,6 +319,7 @@ class RetrievalExecutionService:
                     tool_ctx.tool.get_extractive_answers if tool_ctx.tool else False
                 ),
             ),
+            tenant_id=tool_ctx.tenant_id,
             query_embedding=payload.query_embedding,
         )
         if retriever is None:

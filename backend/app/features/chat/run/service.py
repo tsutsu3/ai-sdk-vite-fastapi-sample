@@ -12,6 +12,7 @@ from app.features.chat.run.stream_coordinator import StreamCoordinator
 from app.features.chat.run.streamers import ChatStreamer
 from app.features.conversations.ports import ConversationRepository
 from app.features.messages.ports import MessageRepository
+from app.features.retrieval.tools import ToolRegistry
 from app.features.title.title_generator import TitleGenerator
 from app.features.usage.ports import UsageRepository
 
@@ -27,6 +28,7 @@ class RunService:
         app_config: AppConfig | None = None,
         chat_caps: ChatCapabilities | None = None,
         retriever_builder: RetrieverBuilder | None = None,
+        tool_registry: ToolRegistry | None = None,
     ) -> None:
         self._streamer = streamer
         self._title_generator = title_generator
@@ -34,6 +36,7 @@ class RunService:
         self._app_config = app_config
         self._chat_caps = chat_caps
         self._retriever_builder = retriever_builder
+        self._tool_registry = tool_registry
         # Cache runtimes across requests per model id.
         self._runtime_cache: dict[str, ChatRuntime] = {}
 
@@ -56,6 +59,7 @@ class RunService:
             app_config=self._app_config,
             chat_caps=self._chat_caps,
             retriever_builder=self._retriever_builder,
+            tool_registry=self._tool_registry,
             runtime_cache=self._runtime_cache,
         )
         coordinator = StreamCoordinator(

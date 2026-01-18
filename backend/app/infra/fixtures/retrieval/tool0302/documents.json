@@ -4,39 +4,68 @@
     "title": "Customer Success Update Writing Guide",
     "content": "Writing customer success updates for internal newsletters requires a structured approach. Use press release format with clear sections: title, executive summary, detailed findings, and contact information. Focus on quantifiable outcomes and customer testimonials when available.",
     "url": "https://example.com/docs/cs-update-guide.pdf",
-    "tags": ["customer-success", "writing", "newsletters", "format"],
-    "category": "communications"
+    "tags": [
+      "customer-success",
+      "writing",
+      "newsletters",
+      "format"
+    ],
+    "category": "communications",
+    "tenant_id": "id-tenant001"
   },
   {
     "id": "doc002",
     "title": "Press Release Format Standards",
     "content": "Press release format for internal communications includes four key sections: (1) Compelling title summarizing the news, (2) Summary paragraph with key facts, (3) Detailed body with supporting information, (4) Contact details for follow-up questions. Keep titles under 100 characters and summaries under 150 words.",
     "url": "https://example.com/docs/press-release-format.md",
-    "tags": ["press-release", "format", "structure", "standards"],
-    "category": "templates"
+    "tags": [
+      "press-release",
+      "format",
+      "structure",
+      "standards"
+    ],
+    "category": "templates",
+    "tenant_id": "id-tenant001"
   },
   {
     "id": "doc003",
     "title": "Content Writing Rules and Guidelines",
     "content": "Writing rules for customer success updates emphasize clarity and accuracy. Avoid company-specific names unless explicitly provided in source materials. Return content in plain text format or use HTML tables when presenting structured data. Always verify facts before publication.",
     "url": "https://example.com/docs/writing-rules.html",
-    "tags": ["guidelines", "rules", "accuracy", "formatting"],
-    "category": "standards"
+    "tags": [
+      "guidelines",
+      "rules",
+      "accuracy",
+      "formatting"
+    ],
+    "category": "standards",
+    "tenant_id": "id-tenant001"
   },
   {
     "id": "doc004",
     "title": "Internal Newsletter Best Practices",
     "content": "Internal newsletter best practices include: consistent publishing schedule, clear audience targeting, mobile-friendly formatting, and measurable CTAs (calls-to-action). Customer success sections should highlight wins, lessons learned, and team recognition. Use visuals and data visualizations to enhance engagement.",
     "url": "https://example.com/docs/newsletter-practices.pdf",
-    "tags": ["newsletters", "best-practices", "engagement"],
-    "category": "communications"
+    "tags": [
+      "newsletters",
+      "best-practices",
+      "engagement"
+    ],
+    "category": "communications",
+    "tenant_id": "id-tenant001"
   },
   {
     "id": "doc005",
     "title": "Customer Success Metrics and Reporting",
     "content": "Customer success metrics for internal reporting include: NPS (Net Promoter Score), customer retention rate, expansion revenue, support ticket resolution time, and customer health scores. Present metrics with context and trends over time. Use HTML tables for comparative data and time-series analysis.",
     "url": "https://example.com/docs/cs-metrics.md",
-    "tags": ["metrics", "customer-success", "reporting", "kpis"],
-    "category": "analytics"
+    "tags": [
+      "metrics",
+      "customer-success",
+      "reporting",
+      "kpis"
+    ],
+    "category": "analytics",
+    "tenant_id": "id-tenant001"
   }
 ]
