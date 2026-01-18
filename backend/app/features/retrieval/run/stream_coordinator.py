@@ -1,26 +1,22 @@
 import logging
 from collections.abc import AsyncIterator
 
-from fastapi_ai_sdk.models import AnyStreamEvent
+from fastapi_ai_sdk.models import AnyStreamEvent, TextDeltaEvent
 
-from app.ai.history.factory import build_session_id
-from app.ai.models import HistoryKey
-from app.features.retrieval.run import event_builder
 from app.features.retrieval.run.execution_service import RetrievalExecutionService
-from app.features.retrieval.run.longform_graph import (
-    LongformGraphState,
-    build_longform_graph,
-    build_longform_state,
+from app.features.retrieval.run.longform_pipeline_graph import (
+    LongformPipelineState,
+    build_longform_pipeline_graph,
+    build_longform_pipeline_state,
 )
 from app.features.retrieval.run.models import (
     AuthContext,
     ConversationContext,
-    QueryContext,
     ToolContext,
 )
 from app.features.retrieval.run.persistence_service import RetrievalPersistenceService
 from app.features.retrieval.run.retrieval_graph import (
-    RetrievalGraphState,
+    RetrievalPipelineState,
     build_retrieval_graph,
     build_retrieval_state,
 )
@@ -40,14 +36,16 @@ class RetrievalStreamCoordinator:
         persistence: RetrievalPersistenceService,
         chapter_concurrency: int,
     ) -> None:
-        self._execution = execution
         self._persistence = persistence
-        self._longform_graph = build_longform_graph(
+        self._longform_graph = build_longform_pipeline_graph(
             execution=execution,
+            persistence=persistence,
             chapter_concurrency=chapter_concurrency,
-            resolve_chapter_titles=self._resolve_chapter_titles,
         )
-        self._retrieval_graph = build_retrieval_graph(execution=execution)
+        self._retrieval_graph = build_retrieval_graph(
+            execution=execution,
+            persistence=persistence,
+        )
 
     async def stream(
         self,
@@ -55,7 +53,6 @@ class RetrievalStreamCoordinator:
         payload: RetrievalQueryRequest,
         auth_ctx: AuthContext,
         tool_ctx: ToolContext,
-        query_ctx: QueryContext,
         conversation_ctx: ConversationContext,
         message_repo,
     ) -> AsyncIterator[AnyStreamEvent]:
@@ -64,7 +61,6 @@ class RetrievalStreamCoordinator:
                 payload=payload,
                 auth_ctx=auth_ctx,
                 tool_ctx=tool_ctx,
-                query_ctx=query_ctx,
                 conversation_ctx=conversation_ctx,
                 message_repo=message_repo,
             ):
@@ -74,7 +70,6 @@ class RetrievalStreamCoordinator:
                 payload=payload,
                 auth_ctx=auth_ctx,
                 tool_ctx=tool_ctx,
-                query_ctx=query_ctx,
                 conversation_ctx=conversation_ctx,
                 message_repo=message_repo,
             ):
@@ -86,92 +81,36 @@ class RetrievalStreamCoordinator:
         payload: RetrievalQueryRequest,
         auth_ctx: AuthContext,
         tool_ctx: ToolContext,
-        query_ctx: QueryContext,
         conversation_ctx: ConversationContext,
         message_repo,
     ) -> AsyncIterator[AnyStreamEvent]:
         response_text = ""
         message_id = f"msg-{uuid4_str()}"
         text_id = "text-1"
-
-        yield event_builder.build_start_event(message_id)
-        yield event_builder.build_conversation_event(conversation_ctx, tool_ctx)
-        yield event_builder.build_cot_reset_event()
-        yield event_builder.build_cot_query_complete_event(query_ctx)
-        yield event_builder.build_cot_search_active_event()
-
         retrieval_state = build_retrieval_state(
             payload=payload,
-            tool_ctx=tool_ctx,
-            query_ctx=query_ctx,
-            message_id=message_id,
-            text_id=text_id,
-        )
-        state_dict = await self._retrieval_graph.ainvoke(retrieval_state.model_dump())
-        graph_state = RetrievalGraphState.model_validate(state_dict)
-        retrieval_ctx = graph_state.retrieval_ctx
-        response_ctx = graph_state.response_ctx
-        if retrieval_ctx is None or response_ctx is None:
-            raise RuntimeError("retrieval graph did not produce expected output")
-
-        model_event = event_builder.build_model_event(message_id, response_ctx.selected_model)
-        if model_event:
-            yield model_event
-        yield event_builder.build_rag_event(response_ctx)
-        yield event_builder.build_sources_event(response_ctx)
-        for source_event in event_builder.build_source_url_events(response_ctx):
-            yield source_event
-        yield event_builder.build_cot_search_complete_event(
-            result_count=len(retrieval_ctx.results),
-            result_titles=response_ctx.result_titles,
-        )
-
-        generated_title = await self._persistence.maybe_generate_title(
             auth_ctx=auth_ctx,
             tool_ctx=tool_ctx,
             conversation_ctx=conversation_ctx,
-            response_ctx=response_ctx,
+            message_repo=message_repo,
+            message_id=message_id,
+            text_id=text_id,
         )
-        if generated_title:
-            yield event_builder.build_title_event(generated_title)
+        state_dict = await self._retrieval_graph.ainvoke(
+            retrieval_state.model_dump(mode="python")
+        )
+        graph_state = RetrievalPipelineState.model_validate(state_dict)
+        response_ctx = graph_state.response_ctx
+        if response_ctx is None or graph_state.answer_stream is None:
+            raise RuntimeError("retrieval graph did not produce expected output")
 
-        yield event_builder.build_cot_answer_active_event()
-        yield event_builder.build_text_start_event(text_id)
+        for event in graph_state.events:
+            yield event
 
-        if query_ctx.mode == "answer" and retrieval_ctx.documents:
-            answer_doc = next(
-                (doc for doc in retrieval_ctx.documents if doc.metadata.get("type") == "answer"),
-                None,
-            )
-            if answer_doc:
-                response_text = answer_doc.page_content
-                yield event_builder.build_text_delta_event(text_id, response_text)
-            else:
-                response_text = "No answer generated."
-                yield event_builder.build_text_delta_event(text_id, response_text)
-        else:
-            session_id = build_session_id(
-                HistoryKey(
-                    tenant_id=auth_ctx.tenant_id,
-                    user_id=auth_ctx.user_id,
-                    conversation_id=conversation_ctx.conversation_id,
-                )
-            )
-            async for delta in self._execution.stream_answer(
-                documents=retrieval_ctx.documents,
-                system_prompt=response_ctx.system_prompt,
-                question=response_ctx.question,
-                session_id=session_id,
-                message_repo=message_repo,
-                follow_up_questions_prompt=(
-                    tool_ctx.tool.follow_up_questions_prompt if tool_ctx.tool else ""
-                ),
-                injected_prompt=payload.injected_prompt,
-            ):
-                yield event_builder.build_text_delta_event(text_id, delta)
-                response_text += delta
-
-        yield event_builder.build_text_end_event(text_id)
+        async for event in graph_state.answer_stream:
+            if isinstance(event, TextDeltaEvent):
+                response_text += event.delta
+            yield event
         logger.debug(
             "rag.query.response_raw provider=%s data_source=%s message_id=%s text=%s",
             tool_ctx.provider_id,
@@ -179,7 +118,6 @@ class RetrievalStreamCoordinator:
             message_id,
             truncate_text(response_text, 160),
         )
-        yield event_builder.build_cot_answer_complete_event()
 
         await self._persistence.save_messages(
             auth_ctx=auth_ctx,
@@ -200,135 +138,72 @@ class RetrievalStreamCoordinator:
         payload: RetrievalQueryRequest,
         auth_ctx: AuthContext,
         tool_ctx: ToolContext,
-        query_ctx: QueryContext,
         conversation_ctx: ConversationContext,
         message_repo,
     ) -> AsyncIterator[AnyStreamEvent]:
         response_text = ""
         message_id = f"msg-{uuid4_str()}"
         text_id = "text-1"
-
-        yield event_builder.build_start_event(message_id)
-        yield event_builder.build_conversation_event(conversation_ctx, tool_ctx)
-        yield event_builder.build_cot_reset_event()
-        yield event_builder.build_cot_query_complete_event(query_ctx)
-        yield event_builder.build_cot_search_active_event()
-
-        retrieval_ctx = await self._execution.retrieve_results(
+        longform_state = build_longform_pipeline_state(
             payload=payload,
+            auth_ctx=auth_ctx,
             tool_ctx=tool_ctx,
-            query_ctx=query_ctx,
-        )
-        response_ctx = self._execution.build_response_context(
-            payload=payload,
-            tool_ctx=tool_ctx,
-            query_ctx=query_ctx,
-            results=retrieval_ctx.results,
+            conversation_ctx=conversation_ctx,
+            message_repo=message_repo,
             message_id=message_id,
             text_id=text_id,
         )
+        state_dict = await self._longform_graph.ainvoke(longform_state.model_dump(mode="python"))
+        graph_state = LongformPipelineState.model_validate(state_dict)
+        response_ctx = graph_state.response_ctx
+        longform_results = graph_state.longform_state
+        if response_ctx is None or graph_state.answer_stream is None:
+            raise RuntimeError("longform graph did not produce expected output")
 
-        model_event = event_builder.build_model_event(message_id, response_ctx.selected_model)
-        if model_event:
-            yield model_event
-        yield event_builder.build_rag_event(response_ctx)
-        yield event_builder.build_sources_event(response_ctx)
-        for source_event in event_builder.build_source_url_events(response_ctx):
-            yield source_event
-        yield event_builder.build_cot_search_complete_event(
-            result_count=len(retrieval_ctx.results),
-            result_titles=response_ctx.result_titles,
-        )
+        for event in graph_state.events:
+            yield event
 
-        generated_title = await self._persistence.maybe_generate_title(
-            auth_ctx=auth_ctx,
-            tool_ctx=tool_ctx,
-            conversation_ctx=conversation_ctx,
-            response_ctx=response_ctx,
-        )
-        if generated_title:
-            yield event_builder.build_title_event(generated_title)
-
-        yield event_builder.build_cot_answer_active_event()
-        yield event_builder.build_text_start_event(text_id)
-
-        model_id = response_ctx.selected_model
-        proofread_prompt = payload.proofread_prompt or (
-            tool_ctx.tool.proofread_prompt if tool_ctx.tool else None
-        )
-
-        longform_state = build_longform_state(
-            payload=payload,
-            tool_ctx=tool_ctx,
-            query_ctx=query_ctx,
-            results=retrieval_ctx.results,
-            model_id=model_id,
-        )
-        state_dict = await self._longform_graph.ainvoke(longform_state.model_dump())
-        graph_state = LongformGraphState.model_validate(state_dict)
-
-        template_text = graph_state.template_text
-        template_payload = graph_state.template_payload
-        await self._persistence.record_usage_entry(
-            auth_ctx=auth_ctx,
-            conversation_ctx=conversation_ctx,
-            message_id=f"msg-{uuid4_str()}",
-            model_id=model_id,
-            request_payload=template_payload,
-            response_text=template_text,
-        )
-        for chapter in graph_state.chapter_results:
+        if longform_results is not None:
+            model_id = response_ctx.selected_model
             await self._persistence.record_usage_entry(
                 auth_ctx=auth_ctx,
                 conversation_ctx=conversation_ctx,
                 message_id=f"msg-{uuid4_str()}",
                 model_id=model_id,
-                request_payload=chapter.request_payload,
-                response_text=chapter.text,
+                request_payload=longform_results.template_payload,
+                response_text=longform_results.template_text,
+            )
+            for chapter in longform_results.chapter_results:
+                await self._persistence.record_usage_entry(
+                    auth_ctx=auth_ctx,
+                    conversation_ctx=conversation_ctx,
+                    message_id=f"msg-{uuid4_str()}",
+                    model_id=model_id,
+                    request_payload=chapter.request_payload,
+                    response_text=chapter.text,
+                )
+            await self._persistence.record_usage_entry(
+                auth_ctx=auth_ctx,
+                conversation_ctx=conversation_ctx,
+                message_id=f"msg-{uuid4_str()}",
+                model_id=model_id,
+                request_payload=longform_results.merge_payload,
+                response_text=longform_results.merged_text,
             )
 
-        merged_text = graph_state.merged_text
-        merge_payload = graph_state.merge_payload
-        await self._persistence.record_usage_entry(
-            auth_ctx=auth_ctx,
-            conversation_ctx=conversation_ctx,
-            message_id=f"msg-{uuid4_str()}",
-            model_id=model_id,
-            request_payload=merge_payload,
-            response_text=merged_text,
-        )
-
-        session_id = build_session_id(
-            HistoryKey(
-                tenant_id=auth_ctx.tenant_id,
-                user_id=auth_ctx.user_id,
-                conversation_id=conversation_ctx.conversation_id,
-            )
-        )
-        async for delta in self._execution.stream_proofread(
-            prompt=proofread_prompt,
-            draft_text=merged_text,
-            session_id=session_id,
-            message_repo=message_repo,
-            model_id=model_id,
-            follow_up_questions_prompt=(
-                tool_ctx.tool.follow_up_questions_prompt if tool_ctx.tool else ""
-            ),
-            injected_prompt=payload.injected_prompt,
-        ):
-            yield event_builder.build_text_delta_event(text_id, delta)
-            response_text += delta
+        async for event in graph_state.answer_stream:
+            if isinstance(event, TextDeltaEvent):
+                response_text += event.delta
+            yield event
 
         await self._persistence.record_usage_entry(
             auth_ctx=auth_ctx,
             conversation_ctx=conversation_ctx,
             message_id=message_id,
-            model_id=model_id,
+            model_id=response_ctx.selected_model,
             request_payload=None,
             response_text=response_text,
         )
-
-        yield event_builder.build_text_end_event(text_id)
         logger.debug(
             "rag.longform.response_raw provider=%s data_source=%s message_id=%s text=%s",
             tool_ctx.provider_id,
@@ -336,7 +211,6 @@ class RetrievalStreamCoordinator:
             message_id,
             truncate_text(response_text, 160),
         )
-        yield event_builder.build_cot_answer_complete_event()
 
         await self._persistence.save_messages(
             auth_ctx=auth_ctx,
@@ -344,25 +218,3 @@ class RetrievalStreamCoordinator:
             response_ctx=response_ctx,
             response_text=response_text,
         )
-
-    @staticmethod
-    def _resolve_chapter_titles(
-        raw_titles: list[str],
-        template_text: str,
-        chapter_count: int,
-    ) -> list[str]:
-        titles = [title.strip() for title in raw_titles if title.strip()]
-        if not titles and template_text:
-            for line in template_text.splitlines():
-                stripped = line.strip()
-                if not stripped:
-                    continue
-                cleaned = stripped.lstrip("-*0123456789. )\t").strip()
-                if not cleaned:
-                    continue
-                titles.append(cleaned)
-                if len(titles) >= chapter_count:
-                    break
-        if not titles:
-            titles = [f"Section {index}" for index in range(1, chapter_count + 1)]
-        return titles[:chapter_count]

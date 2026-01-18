@@ -4,7 +4,6 @@ from app.features.messages.ports import MessageRepository
 from app.features.retrieval.run.models import (
     AuthContext,
     ConversationContext,
-    QueryContext,
     ResponseContext,
     ToolContext,
 )
@@ -38,7 +37,7 @@ class RetrievalPersistenceService:
         auth_ctx: AuthContext,
         payload: RetrievalQueryRequest,
         tool_ctx: ToolContext,
-        query_ctx: QueryContext,
+        user_message_text: str,
     ) -> ConversationContext:
         conversation_id = resolve_conversation_id(payload)
         existing = await self._conversation_repo.get_conversation(
@@ -55,7 +54,6 @@ class RetrievalPersistenceService:
             title or DEFAULT_CHAT_TITLE,
             tool_id=tool_ctx.tool_id_for_conversation,
         )
-        user_message_text = query_ctx.last_user_message or payload.query.strip()
         return ConversationContext(
             conversation_id=conversation_id,
             title=title or DEFAULT_CHAT_TITLE,

@@ -20,9 +20,7 @@ class CosmosJobRepository(JobRepository):
     async def upsert_job(self, record: JobRecord) -> JobRecord:
         updated = record.model_copy(update={"updated_at": now_datetime()})
         doc = job_record_to_doc(updated)
-        await self._container.upsert_item(
-            doc.model_dump(by_alias=True, exclude_none=True)
-        )
+        await self._container.upsert_item(doc.model_dump(by_alias=True, exclude_none=True))
         return updated
 
     async def list_jobs(
@@ -33,10 +31,7 @@ class CosmosJobRepository(JobRepository):
         continuation_token: str | None = None,
     ) -> tuple[list[JobRecord], str | None]:
         pk = job_partition(tenant_id)
-        query = (
-            "SELECT * FROM c WHERE c.userId = @userId "
-            "ORDER BY c.updatedAt DESC"
-        )
+        query = "SELECT * FROM c WHERE c.userId = @userId " "ORDER BY c.updatedAt DESC"
         parameters = [{"name": "@userId", "value": user_id}]
         results: list[JobRecord] = []
         next_token: str | None = None

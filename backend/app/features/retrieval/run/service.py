@@ -14,7 +14,7 @@ from app.features.retrieval.run.execution_service import RetrievalExecutionServi
 from app.features.retrieval.run.persistence_service import RetrievalPersistenceService
 from app.features.retrieval.run.query_planner import QueryPlanner
 from app.features.retrieval.run.stream_coordinator import RetrievalStreamCoordinator
-from app.features.retrieval.run.utils import truncate_text
+from app.features.retrieval.run.utils import extract_last_user_message, truncate_text
 from app.features.retrieval.schemas import RetrievalQueryRequest
 from app.features.usage.ports import UsageRepository
 
@@ -66,12 +66,15 @@ def build_rag_stream(
             auth_ctx = planner.require_auth_context()
             tool_ctx = planner.resolve_tool_context(payload, auth_ctx)
             log_context["tool_id"] = tool_ctx.tool_id_for_conversation
-            query_ctx = await planner.resolve_query_context(payload, tool_ctx.tool)
+            mode = payload.mode or (tool_ctx.tool.mode if tool_ctx.tool else "simple")
+            last_user_message = extract_last_user_message(payload.messages)
+            user_query = last_user_message or payload.query.strip()
+            search_query_len = -1
             conversation_ctx = await persistence.ensure_conversation(
                 auth_ctx=auth_ctx,
                 payload=payload,
                 tool_ctx=tool_ctx,
-                query_ctx=query_ctx,
+                user_message_text=user_query,
             )
             log_context["conversation_id"] = conversation_ctx.conversation_id
             injected_prompt_len = len(payload.injected_prompt) if payload.injected_prompt else 0
@@ -82,7 +85,7 @@ def build_rag_stream(
                 tool_ctx.tool_id_for_conversation,
                 tool_ctx.provider_id,
                 tool_ctx.data_source,
-                query_ctx.mode,
+                mode,
                 payload.pipeline,
                 payload.top_k,
                 payload.hyde_enabled,
@@ -90,7 +93,7 @@ def build_rag_stream(
                 bool(
                     tool_ctx.tool
                     and tool_ctx.tool.query_prompt
-                    and query_ctx.mode == "chat"
+                    and mode == "chat"
                     and not payload.hyde_enabled
                 ),
                 bool(tool_ctx.tool and tool_ctx.tool.hyde_prompt),
@@ -100,16 +103,15 @@ def build_rag_stream(
                 payload.chapter_count,
                 chapter_titles_len,
                 len(payload.messages),
-                len(query_ctx.user_query) if query_ctx.user_query else 0,
-                len(query_ctx.last_user_message) if query_ctx.last_user_message else 0,
-                len(query_ctx.search_query) if query_ctx.search_query else 0,
+                len(user_query) if user_query else 0,
+                len(last_user_message) if last_user_message else 0,
+                search_query_len,
             )
 
             async for event in coordinator.stream(
                 payload=payload,
                 auth_ctx=auth_ctx,
                 tool_ctx=tool_ctx,
-                query_ctx=query_ctx,
                 conversation_ctx=conversation_ctx,
                 message_repo=message_repo,
             ):

@@ -4,13 +4,7 @@ from collections.abc import AsyncIterator
 from logging import getLogger
 from typing import Any
 
-from fastapi_ai_sdk.models import (
-    AnyStreamEvent,
-    DataEvent,
-    ReasoningDeltaEvent,
-    ReasoningEndEvent,
-    ReasoningStartEvent,
-)
+from fastapi_ai_sdk.models import AnyStreamEvent, DataEvent
 from langchain_core.messages import BaseMessage
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -19,6 +13,11 @@ from app.features.authz.request_context import (
     get_current_user_id,
 )
 from app.features.chat.run.chat_execution_service import ChatExecutionService
+from app.features.chat.run.chat_graph import (
+    ChatGraphState,
+    build_chat_graph,
+    build_chat_state,
+)
 from app.features.chat.run.errors import RunServiceError
 from app.features.chat.run.message_utils import (
     extract_messages,
@@ -79,6 +78,7 @@ class StreamCoordinator:
         self._title_generator = title_generator
         self._execution = execution
         self._persistence = persistence
+        self._graph = build_chat_graph(execution=execution)
 
     async def stream(self, payload: RunRequest) -> AsyncIterator[AnyStreamEvent]:
         """Prepare context and return the streaming iterator."""
@@ -222,21 +222,29 @@ class StreamCoordinator:
         failed = False
         try:
             self._ensure_runtime()
-            if not context.tool_id:
-                async for event in self._stream_chat_branch(
-                    context=context,
-                    response_buffer=response_buffer,
-                    usage_state=usage_state,
-                ):
-                    yield event
-            else:
-                async for event in self._stream_tool_branch(
-                    context=context,
-                    response_buffer=response_buffer,
-                    usage_state=usage_state,
-                    title_state=title_state,
-                ):
-                    yield event
+            graph_state = await self._graph.ainvoke(
+                build_chat_state(context=context).model_dump(mode="python")
+            )
+            parsed_state = ChatGraphState.model_validate(graph_state)
+            usage_state.payload = parsed_state.usage_payload
+            if parsed_state.delta_stream is None:
+                raise RunServiceError("Chat graph did not produce a stream.")
+
+            for event in parsed_state.events:
+                yield event
+
+            async for delta in parsed_state.delta_stream:
+                response_buffer.text += delta
+                async for chunk in self._streamer.stream_text_delta(delta, context.message_id):
+                    yield chunk
+                if context.tool_id:
+                    title_event = await self._maybe_emit_title_update(
+                        context=context,
+                        title_state=title_state,
+                        force=False,
+                    )
+                    if title_event:
+                        yield title_event
         except Exception as exc:
             failed = True
             async for event in self._stream_error(exc, context):
@@ -309,91 +317,6 @@ class StreamCoordinator:
         error_text = f"{exc}"
         async for chunk in self._streamer.error_stream(error_text):
             yield chunk
-
-    async def _stream_chat_branch(
-        self,
-        *,
-        context: StreamContext,
-        response_buffer: ResponseBuffer,
-        usage_state: UsagePayloadState,
-    ) -> AsyncIterator[AnyStreamEvent]:
-        user_text = self._execution.extract_user_text(context.messages)
-        if not user_text:
-            raise RunServiceError("Missing user input.")
-
-        usage_state.payload = self._execution.build_chat_request_payload(user_text)
-        async for delta in self._execution.stream_chat(
-            context=context,
-            user_text=user_text,
-        ):
-            response_buffer.text += delta
-            async for chunk in self._streamer.stream_text_delta(delta, context.message_id):
-                yield chunk
-
-    async def _stream_tool_branch(
-        self,
-        *,
-        context: StreamContext,
-        response_buffer: ResponseBuffer,
-        usage_state: UsagePayloadState,
-        title_state: TitleState,
-    ) -> AsyncIterator[AnyStreamEvent]:
-        retrieval_context = await self._execution.build_retrieval_context(context)
-        reasoning_id = f"reasoning_{uuid.uuid4()}"
-        yield ReasoningStartEvent(id=reasoning_id)
-        yield ReasoningDeltaEvent(
-            id=reasoning_id,
-            delta=f"Retrieval tool: {context.tool_id}\n",
-        )
-        if retrieval_context:
-            logger.debug(
-                "run.retrieval.context tool_id=%s results=%s",
-                context.tool_id,
-                len(retrieval_context.results),
-            )
-            query_preview = retrieval_context.query
-            if len(query_preview) > 120:
-                query_preview = query_preview[:117].rstrip() + "..."
-            yield ReasoningDeltaEvent(
-                id=reasoning_id,
-                delta=f"Query: {query_preview}\n",
-            )
-            yield ReasoningDeltaEvent(
-                id=reasoning_id,
-                delta=(f"Retrieved {len(retrieval_context.results)} results.\n"),
-            )
-        else:
-            yield ReasoningDeltaEvent(
-                id=reasoning_id,
-                delta="No retrieval context was added.\n",
-            )
-        yield ReasoningEndEvent(id=reasoning_id)
-
-        user_text = self._execution.extract_user_text(context.messages)
-        if not user_text:
-            raise RunServiceError("Missing user input.")
-
-        plan = self._execution.build_tool_execution_plan(
-            context,
-            retrieval_context,
-        )
-        usage_state.payload = plan.request_payload
-        async for delta in self._execution.stream_tool(
-            context=context,
-            user_text=user_text,
-            system_prompt=plan.system_prompt,
-        ):
-            response_buffer.text += delta
-            async for chunk in self._streamer.stream_text_delta(delta, context.message_id):
-                yield chunk
-
-            title_event = await self._maybe_emit_title_update(
-                context=context,
-                title_state=title_state,
-                force=False,
-            )
-            if title_event:
-                yield title_event
 
     async def _finalize_success(
         self,

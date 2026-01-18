@@ -8,6 +8,11 @@ from app.ai.history.factory import build_session_id
 from app.ai.models import HistoryKey
 from app.features.retrieval.run import event_builder
 from app.features.retrieval.run.execution_service import RetrievalExecutionService
+from app.features.retrieval.run.longform_graph import (
+    LongformGraphState,
+    build_longform_graph,
+    build_longform_state,
+)
 from app.features.retrieval.run.models import (
     AuthContext,
     ConversationContext,
@@ -21,8 +26,8 @@ from app.features.retrieval.run.utils import extract_last_user_message
 from app.features.retrieval.schemas import RetrievalQueryRequest
 
 
-class RetrievalPipelineState(BaseModel):
-    """State shared across the default RAG pipeline graph."""
+class LongformPipelineState(BaseModel):
+    """State shared across the longform RAG pipeline graph."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -36,22 +41,28 @@ class RetrievalPipelineState(BaseModel):
     query_ctx: QueryContext | None = None
     retrieval_ctx: RetrievalContext | None = None
     response_ctx: ResponseContext | None = None
+    longform_state: LongformGraphState | None = None
     events: list[AnyStreamEvent] = Field(default_factory=list)
     answer_stream: AsyncIterator[AnyStreamEvent] | None = None
 
 
-def _coerce_state(state) -> RetrievalPipelineState:
-    if isinstance(state, RetrievalPipelineState):
+def _coerce_state(state) -> LongformPipelineState:
+    if isinstance(state, LongformPipelineState):
         return state
-    return RetrievalPipelineState.model_validate(state)
+    return LongformPipelineState.model_validate(state)
 
 
-def build_retrieval_graph(
+def build_longform_pipeline_graph(
     *,
     execution: RetrievalExecutionService,
     persistence: RetrievalPersistenceService,
+    chapter_concurrency: int,
 ):
-    """Build the default RAG pipeline graph (planning -> retrieval -> answer)."""
+    """Build the longform RAG pipeline graph (planning -> longform -> proofread)."""
+    steps_graph = build_longform_graph(
+        execution=execution,
+        chapter_concurrency=chapter_concurrency,
+    )
 
     async def _plan_query(state):
         parsed = _coerce_state(state)
@@ -175,71 +186,71 @@ def build_retrieval_graph(
             events.append(event_builder.build_title_event(generated_title))
         return {"events": events}
 
-    async def _build_answer_stream(state):
+    async def _run_longform_steps(state):
         parsed = _coerce_state(state)
         if parsed.query_ctx is None:
             raise RuntimeError("query_ctx is missing")
         if parsed.retrieval_ctx is None:
             raise RuntimeError("retrieval_ctx is missing")
+        model_id = parsed.response_ctx.selected_model if parsed.response_ctx else None
+        longform_state = build_longform_state(
+            payload=parsed.payload,
+            tool_ctx=parsed.tool_ctx,
+            query_ctx=parsed.query_ctx,
+            results=parsed.retrieval_ctx.results,
+            model_id=model_id,
+        )
+        state_dict = await steps_graph.ainvoke(longform_state.model_dump(mode="python"))
+        return {"longform_state": LongformGraphState.model_validate(state_dict)}
+
+    async def _build_answer_stream(state):
+        parsed = _coerce_state(state)
         if parsed.response_ctx is None:
             raise RuntimeError("response_ctx is missing")
+        if parsed.longform_state is None:
+            raise RuntimeError("longform_state is missing")
+
+        proofread_prompt = parsed.payload.proofread_prompt or (
+            parsed.tool_ctx.tool.proofread_prompt if parsed.tool_ctx.tool else None
+        )
 
         async def _answer_stream() -> AsyncIterator[AnyStreamEvent]:
             yield event_builder.build_cot_answer_active_event()
             yield event_builder.build_text_start_event(parsed.text_id)
-            if parsed.query_ctx.mode == "answer" and parsed.retrieval_ctx.documents:
-                answer_doc = next(
-                    (
-                        doc
-                        for doc in parsed.retrieval_ctx.documents
-                        if doc.metadata.get("type") == "answer"
-                    ),
-                    None,
+            session_id = build_session_id(
+                HistoryKey(
+                    tenant_id=parsed.auth_ctx.tenant_id,
+                    user_id=parsed.auth_ctx.user_id,
+                    conversation_id=parsed.conversation_ctx.conversation_id,
                 )
-                if answer_doc:
-                    yield event_builder.build_text_delta_event(
-                        parsed.text_id,
-                        answer_doc.page_content,
-                    )
-                else:
-                    yield event_builder.build_text_delta_event(
-                        parsed.text_id,
-                        "No answer generated.",
-                    )
-            else:
-                session_id = build_session_id(
-                    HistoryKey(
-                        tenant_id=parsed.auth_ctx.tenant_id,
-                        user_id=parsed.auth_ctx.user_id,
-                        conversation_id=parsed.conversation_ctx.conversation_id,
-                    )
-                )
-                async for delta in execution.stream_answer(
-                    documents=parsed.retrieval_ctx.documents,
-                    system_prompt=parsed.response_ctx.system_prompt,
-                    question=parsed.response_ctx.question,
-                    session_id=session_id,
-                    message_repo=parsed.message_repo,
-                    follow_up_questions_prompt=(
-                        parsed.tool_ctx.tool.follow_up_questions_prompt
-                        if parsed.tool_ctx.tool
-                        else ""
-                    ),
-                    injected_prompt=parsed.payload.injected_prompt,
-                ):
-                    yield event_builder.build_text_delta_event(parsed.text_id, delta)
+            )
+            async for delta in execution.stream_proofread(
+                prompt=proofread_prompt,
+                draft_text=parsed.longform_state.merged_text,
+                session_id=session_id,
+                message_repo=parsed.message_repo,
+                model_id=parsed.response_ctx.selected_model,
+                follow_up_questions_prompt=(
+                    parsed.tool_ctx.tool.follow_up_questions_prompt
+                    if parsed.tool_ctx.tool
+                    else ""
+                ),
+                injected_prompt=parsed.payload.injected_prompt,
+            ):
+                yield event_builder.build_text_delta_event(parsed.text_id, delta)
             yield event_builder.build_text_end_event(parsed.text_id)
             yield event_builder.build_cot_answer_complete_event()
 
         return {"answer_stream": _answer_stream()}
 
-    graph = StateGraph(RetrievalPipelineState)
+    graph = StateGraph(LongformPipelineState)
     graph.add_node("plan_query", _plan_query)
     graph.add_node("emit_search_start", _emit_search_start)
     graph.add_node("retrieve", _retrieve)
     graph.add_node("response", _build_response)
     graph.add_node("emit_search_results", _emit_search_results)
     graph.add_node("title", _maybe_title)
+    graph.add_node("longform_steps", _run_longform_steps)
     graph.add_node("answer", _build_answer_stream)
     graph.set_entry_point("plan_query")
     graph.add_edge("plan_query", "emit_search_start")
@@ -247,12 +258,13 @@ def build_retrieval_graph(
     graph.add_edge("retrieve", "response")
     graph.add_edge("response", "emit_search_results")
     graph.add_edge("emit_search_results", "title")
-    graph.add_edge("title", "answer")
+    graph.add_edge("title", "longform_steps")
+    graph.add_edge("longform_steps", "answer")
     graph.add_edge("answer", END)
     return graph.compile()
 
 
-def build_retrieval_state(
+def build_longform_pipeline_state(
     *,
     payload: RetrievalQueryRequest,
     auth_ctx: AuthContext,
@@ -261,9 +273,9 @@ def build_retrieval_state(
     message_repo: object,
     message_id: str,
     text_id: str,
-) -> RetrievalPipelineState:
-    """Initialize the default RAG pipeline state."""
-    return RetrievalPipelineState(
+) -> LongformPipelineState:
+    """Initialize the longform pipeline state."""
+    return LongformPipelineState(
         payload=payload,
         auth_ctx=auth_ctx,
         tool_ctx=tool_ctx,

@@ -21,24 +21,24 @@ from app.infra.repository.cosmos.cosmos_authz_repository import CosmosAuthzRepos
 from app.infra.repository.cosmos.cosmos_conversations_repository import (
     CosmosConversationRepository,
 )
+from app.infra.repository.cosmos.cosmos_jobs_repository import CosmosJobRepository
 from app.infra.repository.cosmos.cosmos_messages_repository import (
     CosmosMessageRepository,
 )
-from app.infra.repository.cosmos.cosmos_jobs_repository import CosmosJobRepository
 from app.infra.repository.local.local_authz_repository import LocalAuthzRepository
 from app.infra.repository.local.local_conversations_repository import (
     LocalConversationRepository,
 )
-from app.infra.repository.local.local_messages_repository import LocalMessageRepository
 from app.infra.repository.local.local_jobs_repository import LocalJobRepository
+from app.infra.repository.local.local_messages_repository import LocalMessageRepository
 from app.infra.repository.memory.memory_authz_repository import MemoryAuthzRepository
 from app.infra.repository.memory.memory_conversations_repository import (
     MemoryConversationRepository,
 )
+from app.infra.repository.memory.memory_jobs_repository import MemoryJobRepository
 from app.infra.repository.memory.memory_messages_repository import (
     MemoryMessageRepository,
 )
-from app.infra.repository.memory.memory_jobs_repository import MemoryJobRepository
 from app.infra.storage.usage_buffer import create_usage_repository
 
 logger = getLogger(__name__)
@@ -207,11 +207,11 @@ class _FirestoreRepositoryFactory:
         from app.infra.repository.firestore.firestore_conversations_repository import (
             FirestoreConversationRepository,
         )
-        from app.infra.repository.firestore.firestore_messages_repository import (
-            FirestoreMessageRepository,
-        )
         from app.infra.repository.firestore.firestore_jobs_repository import (
             FirestoreJobRepository,
+        )
+        from app.infra.repository.firestore.firestore_messages_repository import (
+            FirestoreMessageRepository,
         )
 
         self._authz_repo = FirestoreAuthzRepository
