@@ -105,6 +105,24 @@ def build_answer_payload(
     ]
 
 
+def build_prompt_payload(
+    *,
+    system_prompt: str,
+    messages: list[RetrievalMessage],
+    user_text: str,
+) -> list[dict[str, str]]:
+    history = [
+        {"role": message.role, "content": message.content}
+        for message in messages
+        if message.content
+    ]
+    return [
+        {"role": "system", "content": system_prompt},
+        *history,
+        {"role": "user", "content": user_text},
+    ]
+
+
 def extract_delta(chunk: BaseMessage | AIMessageChunk) -> str:
     content = getattr(chunk, "content", "")
     if isinstance(content, str):

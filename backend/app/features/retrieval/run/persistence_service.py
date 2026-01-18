@@ -160,6 +160,31 @@ class RetrievalPersistenceService:
             )
         )
 
+    async def record_usage_entry(
+        self,
+        *,
+        auth_ctx: AuthContext,
+        conversation_ctx: ConversationContext,
+        message_id: str,
+        model_id: str | None,
+        request_payload: list[dict[str, str]] | None,
+        response_text: str | None,
+    ) -> None:
+        await self._usage_repo.record_usage(
+            UsageRecord(
+                tenant_id=auth_ctx.tenant_id,
+                user_id=auth_ctx.user_id,
+                conversation_id=conversation_ctx.conversation_id,
+                message_id=message_id,
+                model_id=model_id,
+                tokens_in=None,
+                tokens_out=None,
+                bytes_in=compute_bytes_in(request_payload),
+                bytes_out=compute_bytes_out(response_text),
+                requests=1,
+            )
+        )
+
 
 def uuid4_str() -> str:
     from uuid import uuid4

@@ -43,6 +43,10 @@ class RetrievalQueryRequest(BaseModel):
         description="User query for retrieval.",
         examples=["Employee onboarding steps"],
     )
+    pipeline: Literal["default", "longform"] = Field(
+        default="default",
+        description="Execution pipeline.",
+    )
     chat_id: str | None = Field(
         default=None,
         alias="chatId",
@@ -62,6 +66,26 @@ class RetrievalQueryRequest(BaseModel):
         default=None,
         alias="injectedPrompt",
         description="Optional injected prompt for system templates.",
+    )
+    template_prompt: str | None = Field(
+        default=None,
+        alias="templatePrompt",
+        description="Prompt for longform template generation.",
+    )
+    chapter_prompt: str | None = Field(
+        default=None,
+        alias="chapterPrompt",
+        description="Prompt for longform chapter generation.",
+    )
+    merge_prompt: str | None = Field(
+        default=None,
+        alias="mergePrompt",
+        description="Prompt for longform merge step.",
+    )
+    proofread_prompt: str | None = Field(
+        default=None,
+        alias="proofreadPrompt",
+        description="Prompt for longform proofreading step.",
     )
     hyde_enabled: bool = Field(
         default=False,
@@ -92,6 +116,18 @@ class RetrievalQueryRequest(BaseModel):
         ge=1,
         le=50,
         description="Max number of results to return.",
+    )
+    chapter_count: int = Field(
+        default=3,
+        alias="chapterCount",
+        ge=1,
+        le=12,
+        description="Number of chapters for longform output.",
+    )
+    chapter_titles: list[str] = Field(
+        default_factory=list,
+        alias="chapterTitles",
+        description="Explicit chapter titles for longform output.",
     )
     query_embedding: list[float] | None = Field(
         default=None,

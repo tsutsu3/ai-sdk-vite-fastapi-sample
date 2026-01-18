@@ -17,7 +17,7 @@ from app.ai.ports import RetrieverBuilder
 from app.ai.retrievers.factory import build_retriever_for_provider
 from app.ai.runtime import ChatRuntime
 from app.core.bootstrap_logging import log_app_configuration
-from app.core.config import AppConfig, ChatCapabilities, Settings, StorageCapabilities
+from app.core.config import AppConfig, ChatCapabilities, ServiceRole, Settings, StorageCapabilities
 from app.core.logging_config import build_logging_config
 from app.core.middleware import AuthzContextMiddleware, RequestIdMiddleware
 from app.core.request_id import get_current_request_id
@@ -37,6 +37,7 @@ from app.features.retrieval import routes as rag_api
 from app.features.retrieval.tools import initialize_tool_specs
 from app.features.spa import routes as spa_api
 from app.features.title.title_generator import TitleGenerator
+from app.features.worker import routes as worker_api
 from app.infra.cache.cache_factory import CacheProviderFactory
 from app.infra.cache.cached_authz_repository import CachedAuthzRepository
 from app.infra.cache.cached_message_repository import CachedMessageRepository
@@ -381,24 +382,27 @@ def create_app() -> FastAPI:
             allow_methods=["*"],
             allow_headers=["*"],
         )
-    app.add_middleware(
-        AuthzContextMiddleware,
-        exclude_paths={"/api/capabilities", "/api/file"},
-        exclude_prefixes=("/api/file/",),
-    )
+    include_api_routes = app_config.service_role in {ServiceRole.api, ServiceRole.all}
+    include_worker_routes = app_config.service_role in {ServiceRole.worker, ServiceRole.all}
+    if include_api_routes:
+        app.add_middleware(
+            AuthzContextMiddleware,
+            exclude_paths={"/api/capabilities", "/api/file"},
+            exclude_prefixes=("/api/file/",),
+        )
     app.add_middleware(RequestIdMiddleware)
     app.add_exception_handler(HTTPException, http_exception_handler)
     app.add_exception_handler(RunServiceError, run_service_error_handler)
     app.add_exception_handler(Exception, unhandled_exception_handler)
 
-    if frontend_dist_path.exists():
+    if include_api_routes and frontend_dist_path.exists():
         app.mount(
             "/assets",
             StaticFiles(directory=frontend_dist_path / "assets"),
             name="assets",
         )
         logger.info("Serving static files from %s", frontend_dist_path / "assets")
-    else:
+    elif include_api_routes:
         logger.warning("Frontend dist directory not found at %s", frontend_dist_path)
 
     common_error_responses: dict[int | str, dict[str, Any]] = {
@@ -413,17 +417,22 @@ def create_app() -> FastAPI:
     }
 
     # ===== routers =====
-    app.include_router(authz_api.router, prefix="/api", responses=common_error_responses)
-    app.include_router(capabilities_api.router, prefix="/api", responses=common_error_responses)
-    app.include_router(conversations_api.router, prefix="/api", responses=common_error_responses)
-    app.include_router(messages_api.router, prefix="/api", responses=common_error_responses)
-    app.include_router(chat_api.router, prefix="/api", responses=common_error_responses)
-    app.include_router(file_api.router, prefix="/api", responses=common_error_responses)
-    app.include_router(rag_api.router, prefix="/api", responses=common_error_responses)
+    if include_api_routes:
+        app.include_router(authz_api.router, prefix="/api", responses=common_error_responses)
+        app.include_router(capabilities_api.router, prefix="/api", responses=common_error_responses)
+        app.include_router(conversations_api.router, prefix="/api", responses=common_error_responses)
+        app.include_router(messages_api.router, prefix="/api", responses=common_error_responses)
+        app.include_router(chat_api.router, prefix="/api", responses=common_error_responses)
+        app.include_router(file_api.router, prefix="/api", responses=common_error_responses)
+        app.include_router(rag_api.router, prefix="/api", responses=common_error_responses)
+        app.include_router(
+            spa_api.create_spa_router(frontend_dist_path),
+            responses=common_error_responses,
+        )
+
+    if include_worker_routes:
+        app.include_router(worker_api.router, responses=common_error_responses)
+
     app.include_router(health_api.router, responses=common_error_responses)
-    app.include_router(
-        spa_api.create_spa_router(frontend_dist_path),
-        responses=common_error_responses,
-    )
 
     return app

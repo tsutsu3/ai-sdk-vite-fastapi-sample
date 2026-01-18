@@ -32,6 +32,10 @@ class RetrievalToolSpec(BaseModel):
     query_prompt: str | None = None
     hyde_prompt: str | None = None
     follow_up_questions_prompt: str | None = None
+    template_prompt: str | None = None
+    chapter_prompt: str | None = None
+    merge_prompt: str | None = None
+    proofread_prompt: str | None = None
     top_k: int = Field(default=5, ge=1)
     provider: ProviderEnum
     mode: RetrievalToolModeEnum = RetrievalToolModeEnum.SIMPLE

@@ -74,13 +74,15 @@ def build_rag_stream(
             )
             log_context["conversation_id"] = conversation_ctx.conversation_id
             injected_prompt_len = len(payload.injected_prompt) if payload.injected_prompt else 0
+            chapter_titles_len = len(payload.chapter_titles) if payload.chapter_titles else 0
             logger.info(
-                "rag.query.start conversation_id=%s tool_id=%s provider=%s data_source=%s mode=%s top_k=%s hyde_enabled=%s query_prompt_set=%s query_prompt_used=%s hyde_prompt_set=%s follow_up_prompt_set=%s injected_prompt_set=%s injected_prompt_len=%s history_len=%s user_query_len=%s last_user_message_len=%s search_query_len=%s",
+                "rag.query.start conversation_id=%s tool_id=%s provider=%s data_source=%s mode=%s pipeline=%s top_k=%s hyde_enabled=%s query_prompt_set=%s query_prompt_used=%s hyde_prompt_set=%s follow_up_prompt_set=%s injected_prompt_set=%s injected_prompt_len=%s chapter_count=%s chapter_titles_len=%s history_len=%s user_query_len=%s last_user_message_len=%s search_query_len=%s",
                 conversation_ctx.conversation_id,
                 tool_ctx.tool_id_for_conversation,
                 tool_ctx.provider_id,
                 tool_ctx.data_source,
                 query_ctx.mode,
+                payload.pipeline,
                 payload.top_k,
                 payload.hyde_enabled,
                 bool(tool_ctx.tool and tool_ctx.tool.query_prompt),
@@ -94,6 +96,8 @@ def build_rag_stream(
                 bool(tool_ctx.tool and tool_ctx.tool.follow_up_questions_prompt),
                 bool(payload.injected_prompt),
                 injected_prompt_len,
+                payload.chapter_count,
+                chapter_titles_len,
                 len(payload.messages),
                 len(query_ctx.user_query) if query_ctx.user_query else 0,
                 len(query_ctx.last_user_message) if query_ctx.last_user_message else 0,

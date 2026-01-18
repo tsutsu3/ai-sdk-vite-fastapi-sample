@@ -78,6 +78,14 @@ class OpenTelemetryExporter(str, Enum):
     azure = "azure"
 
 
+class ServiceRole(str, Enum):
+    """Supported service roles for router registration."""
+
+    api = "api"
+    worker = "worker"
+    all = "all"
+
+
 class AppConfig(BaseModel):
     """Resolved application configuration values."""
 
@@ -86,6 +94,9 @@ class AppConfig(BaseModel):
     log_level: LogLevelEnum = LogLevelEnum.info
     log_format: LogFormat = LogFormat.json
     app_env: str = "local"
+    service_role: ServiceRole = ServiceRole.all
+    worker_auth_header: str = "X-Worker-Token"
+    worker_auth_token: str = ""
 
     # Azure Cosmos DB
     cosmos_endpoint: str = ""
@@ -284,6 +295,9 @@ class Settings(BaseSettings):
     log_level: LogLevelEnum = LogLevelEnum.info
     log_format: LogFormat = LogFormat.json
     app_env: str = "local"
+    service_role: ServiceRole = ServiceRole.all
+    worker_auth_header: str = "X-Worker-Token"
+    worker_auth_token: str = ""
 
     # Storage capabilities
     db_backend: StorageBackend = StorageBackend.memory
@@ -703,6 +717,9 @@ class Settings(BaseSettings):
             log_level=self.log_level,
             log_format=self.log_format,
             app_env=self.app_env,
+            service_role=self.service_role,
+            worker_auth_header=self.worker_auth_header,
+            worker_auth_token=self.worker_auth_token,
             cosmos_endpoint=self.cosmos_endpoint,
             cosmos_key=self.cosmos_key,
             database=self.database,
