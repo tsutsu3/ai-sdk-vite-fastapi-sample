@@ -9,10 +9,7 @@ from app.features.retrieval.schemas import RetrievalMessage
 
 def is_authorized_for_source(data_source: str, tools: list[str]) -> bool:
     data_source = data_source.strip()
-    for tool in tools:
-        if data_source == tool or data_source.startswith(tool):
-            return True
-    return False
+    return data_source in tools
 
 
 def resolve_conversation_id(payload) -> str:

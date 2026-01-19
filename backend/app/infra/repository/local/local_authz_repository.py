@@ -1,16 +1,16 @@
 from pathlib import Path
 
 from app.features.authz.models import (
-    ProvisioningRecord,
-    ProvisioningStatus,
+    MembershipRecord,
+    MembershipStatus,
     TenantRecord,
     UserIdentityRecord,
     UserRecord,
 )
 from app.features.authz.ports import AuthzRepository
 from app.infra.mapper.authz_mapper import (
-    provisioning_doc_to_record,
-    provisioning_record_to_doc,
+    membership_doc_to_record,
+    membership_record_to_doc,
     tenant_doc_to_record,
     tenant_record_to_doc,
     user_doc_to_record,
@@ -19,7 +19,7 @@ from app.infra.mapper.authz_mapper import (
     user_record_to_doc,
 )
 from app.infra.model.authz_model import (
-    ProvisioningDoc,
+    MembershipDoc,
     TenantDoc,
     UserDoc,
     UserIdentityDoc,
@@ -33,7 +33,7 @@ class LocalAuthzRepository(AuthzRepository):
         tenants: dict[str, TenantRecord] | None = None,
         users: dict[str, UserRecord] | None = None,
         user_identities: dict[str, UserIdentityRecord] | None = None,
-        provisioning: dict[str, ProvisioningRecord] | None = None,
+        memberships: dict[str, MembershipRecord] | None = None,
     ) -> None:
         self._base_path = base_path
         if tenants and not self._tenant_dir().exists():
@@ -45,9 +45,9 @@ class LocalAuthzRepository(AuthzRepository):
         if user_identities and not self._user_identity_dir().exists():
             for identity_id, identity in user_identities.items():
                 self._write_user_identity(identity_id, identity)
-        if provisioning and not self._provisioning_dir().exists():
-            for provisioning_id, record in provisioning.items():
-                self._write_provisioning(provisioning_id, record)
+        if memberships and not self._membership_dir().exists():
+            for membership_id, record in memberships.items():
+                self._write_membership(membership_id, record)
 
     async def get_user(self, user_id: str) -> UserRecord | None:
         return self._read_user_item(user_id)
@@ -58,14 +58,29 @@ class LocalAuthzRepository(AuthzRepository):
     async def get_user_identity(self, identity_id: str) -> UserIdentityRecord | None:
         return self._read_user_identity_item(identity_id)
 
-    async def list_provisioning_by_email(
-        self, email: str, status: ProvisioningStatus
-    ) -> list[ProvisioningRecord]:
+    async def list_memberships_by_email(
+        self, email: str, status: MembershipStatus
+    ) -> list[MembershipRecord]:
         return [
             record
-            for record in self._read_all_provisioning()
-            if record.email == email and record.status == status
+            for record in self._read_all_memberships()
+            if record.invite_email == email and record.status == status
         ]
+
+    async def list_memberships_by_user(self, user_id: str) -> list[MembershipRecord]:
+        return [
+            record
+            for record in self._read_all_memberships()
+            if record.user_id == user_id
+        ]
+
+    async def get_membership_for_user(
+        self, tenant_id: str, user_id: str
+    ) -> MembershipRecord | None:
+        for record in self._read_all_memberships():
+            if record.tenant_id == tenant_id and record.user_id == user_id:
+                return record
+        return None
 
     async def save_user(self, record: UserRecord) -> None:
         if not record.id:
@@ -75,8 +90,8 @@ class LocalAuthzRepository(AuthzRepository):
     async def save_user_identity(self, record: UserIdentityRecord) -> None:
         self._write_user_identity(record.id, record)
 
-    async def save_provisioning(self, record: ProvisioningRecord) -> None:
-        self._write_provisioning(record.id, record)
+    async def save_membership(self, record: MembershipRecord) -> None:
+        self._write_membership(record.id, record)
 
     async def save_tenant(self, record: TenantRecord) -> None:
         self._write_tenant(record.id, record)
@@ -90,8 +105,8 @@ class LocalAuthzRepository(AuthzRepository):
     def _user_identity_dir(self) -> Path:
         return self._base_path / "useridentities"
 
-    def _provisioning_dir(self) -> Path:
-        return self._base_path / "provisioning"
+    def _membership_dir(self) -> Path:
+        return self._base_path / "memberships"
 
     def _write_tenant(self, tenant_id: str, tenant_record: TenantRecord) -> None:
         tenant_dir = self._tenant_dir()
@@ -114,14 +129,14 @@ class LocalAuthzRepository(AuthzRepository):
         doc = user_identity_record_to_doc(identity_record)
         identity_path.write_text(doc.model_dump_json(ensure_ascii=False), encoding="utf-8")
 
-    def _write_provisioning(
-        self, provisioning_id: str, provisioning_record: ProvisioningRecord
+    def _write_membership(
+        self, membership_id: str, membership_record: MembershipRecord
     ) -> None:
-        provisioning_dir = self._provisioning_dir()
-        provisioning_dir.mkdir(parents=True, exist_ok=True)
-        provisioning_path = provisioning_dir / f"{provisioning_id}.json"
-        doc = provisioning_record_to_doc(provisioning_record)
-        provisioning_path.write_text(doc.model_dump_json(ensure_ascii=False), encoding="utf-8")
+        membership_dir = self._membership_dir()
+        membership_dir.mkdir(parents=True, exist_ok=True)
+        membership_path = membership_dir / f"{membership_id}.json"
+        doc = membership_record_to_doc(membership_record)
+        membership_path.write_text(doc.model_dump_json(ensure_ascii=False), encoding="utf-8")
 
     def _read_user_item(self, user_id: str) -> UserRecord | None:
         user_path = self._user_dir() / f"{user_id}.json"
@@ -156,17 +171,17 @@ class LocalAuthzRepository(AuthzRepository):
             return None
         return user_identity_doc_to_record(doc)
 
-    def _read_all_provisioning(self) -> list[ProvisioningRecord]:
-        provisioning_dir = self._provisioning_dir()
-        if not provisioning_dir.exists():
+    def _read_all_memberships(self) -> list[MembershipRecord]:
+        membership_dir = self._membership_dir()
+        if not membership_dir.exists():
             return []
 
-        records: list[ProvisioningRecord] = []
-        for path in provisioning_dir.glob("*.json"):
+        records: list[MembershipRecord] = []
+        for path in membership_dir.glob("*.json"):
             try:
                 content = path.read_text(encoding="utf-8")
-                doc = ProvisioningDoc.model_validate_json(content)
+                doc = MembershipDoc.model_validate_json(content)
             except Exception:
                 continue
-            records.append(provisioning_doc_to_record(doc))
+            records.append(membership_doc_to_record(doc))
         return records

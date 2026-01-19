@@ -3,7 +3,7 @@ def test_rag_query_stream_shape(client):
         "/api/rag/query",
         json={
             "query": "hello",
-            "dataSource": "tool01",
+            "toolId": "tool0101",
             "provider": "memory",
             "model": "fake-static",
             "topK": 1,
@@ -20,7 +20,7 @@ def test_rag_query_missing_query(client):
     response = client.post(
         "/api/rag/query",
         json={
-            "dataSource": "tool01",
+            "toolId": "tool0101",
             "provider": "memory",
             "model": "fake-static",
         },
@@ -33,7 +33,7 @@ def test_rag_query_invalid_provider(client):
         "/api/rag/query",
         json={
             "query": "hello",
-            "dataSource": "tool01",
+            "toolId": "tool0101",
             "provider": "unknown-provider",
             "model": "fake-static",
             "topK": 1,
@@ -47,7 +47,7 @@ def test_rag_job_create_returns_worker_payload(client):
         "/api/rag/jobs",
         json={
             "query": "Create a longform outline.",
-            "dataSource": "tool0101",
+            "toolId": "tool0101",
         },
     )
     assert response.status_code == 200
@@ -58,7 +58,7 @@ def test_rag_job_create_returns_worker_payload(client):
     assert worker_request["jobId"] == body["jobId"]
     assert worker_request["request"]["pipeline"] == "longform"
     assert worker_request["request"]["chatId"] == body["conversationId"]
-    assert worker_request["request"]["dataSource"] == "tool0101"
+    assert worker_request["request"]["toolId"] == "tool0101"
     assert worker_request["user"] is not None
 
 
@@ -72,14 +72,14 @@ def test_rag_job_list_returns_items(client):
         "/api/rag/jobs",
         json={
             "query": "First longform job.",
-            "dataSource": "tool0101",
+            "toolId": "tool0101",
         },
     )
     second = client.post(
         "/api/rag/jobs",
         json={
             "query": "Second longform job.",
-            "dataSource": "tool0101",
+            "toolId": "tool0101",
         },
     )
     assert first.status_code == 200

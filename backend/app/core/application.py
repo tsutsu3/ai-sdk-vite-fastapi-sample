@@ -41,7 +41,7 @@ from app.features.file import routes as file_api
 from app.features.health import routes as health_api
 from app.features.messages import routes as messages_api
 from app.features.retrieval import routes as rag_api
-from app.features.retrieval.tools import ToolRegistry, initialize_tool_specs
+from app.features.retrieval.tools import ToolRegistry
 from app.features.spa import routes as spa_api
 from app.features.title.title_generator import TitleGenerator
 from app.features.worker import routes as worker_api
@@ -50,11 +50,10 @@ from app.infra.cache.cached_authz_repository import CachedAuthzRepository
 from app.infra.cache.cached_message_repository import CachedMessageRepository
 from app.infra.client.cosmos_client import CosmosClientProvider, ensure_cosmos_resources
 from app.infra.client.firestore_client import FirestoreClientProvider
-from app.infra.fixtures.authz.local_data import (
-    PROVISIONING,
-    TENANTS,
-    USER_IDENTITIES,
-    USERS,
+from app.infra.fixtures.authz.local_data import MEMBERSHIPS, TENANTS, USER_IDENTITIES, USERS
+from app.infra.fixtures.tool_catalog.local_data import (
+    build_data_sources_for_tenant,
+    build_tools_for_tenant,
 )
 from app.infra.persistence.factory_selector import create_repository_factory
 from app.infra.storage import (
@@ -182,12 +181,13 @@ async def run_service_error_handler(request: Request, exc: RunServiceError) -> J
 async def _resolve_repositories(
     repository,
     storage_caps: StorageCapabilities,
-) -> tuple[object, object, object, object]:
+) -> tuple[object, object, object, object, object]:
     authz_repo = await repository.authz()
+    tool_catalog_repo = await repository.tool_catalog()
     conversation_repo = await repository.conversations()
     message_repo = await repository.messages()
     job_repo = await repository.jobs()
-    return authz_repo, conversation_repo, message_repo, job_repo
+    return authz_repo, tool_catalog_repo, conversation_repo, message_repo, job_repo
 
 
 @asynccontextmanager
@@ -217,12 +217,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.app_config.auth_provider,
         app.state.app_config.cache_backend,
     )
-    app.state.tool_registry = ToolRegistry()
-    initialize_tool_specs(
-        app.state.tool_registry,
-        app.state.app_config.retrieval_tools_config_path,
-    )
-
     app.state.cosmos_client_provider = None
     app.state.firestore_client_provider = None
 
@@ -238,7 +232,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             users_container=app.state.app_config.users_container,
             tenants_container=app.state.app_config.tenants_container,
             useridentities_container=app.state.app_config.useridentities_container,
-            provisioning_container=app.state.app_config.provisioning_container,
+            memberships_container=app.state.app_config.memberships_container,
         )
 
     elif app.state.storage_capabilities.db_backend == "gcp":
@@ -253,10 +247,23 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         init_tenants=TENANTS,
         init_users=USERS,
         init_user_identities=USER_IDENTITIES,
-        init_provisioning=PROVISIONING,
+        init_memberships=MEMBERSHIPS,
+        init_tools={
+            tenant_id: build_tools_for_tenant(tenant_id) for tenant_id in TENANTS.keys()
+        },
+        init_data_sources={
+            tenant_id: build_data_sources_for_tenant(tenant_id)
+            for tenant_id in TENANTS.keys()
+        },
     )
 
-    authz_repo, conversation_repo, message_repo, job_repo = await _resolve_repositories(
+    (
+        authz_repo,
+        tool_catalog_repo,
+        conversation_repo,
+        message_repo,
+        job_repo,
+    ) = await _resolve_repositories(
         repository,
         app.state.storage_capabilities,
     )
@@ -280,6 +287,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         ttl_seconds=authz_cache_config.ttl_seconds,
     )
     app.state.authz_service = AuthzService(app.state.authz_repository)
+    app.state.tool_catalog_repository = tool_catalog_repo
+    app.state.tool_registry = ToolRegistry(tool_catalog_repo)
     app.state.conversation_repository = conversation_repo
     app.state.message_repository = CachedMessageRepository(
         message_repo,

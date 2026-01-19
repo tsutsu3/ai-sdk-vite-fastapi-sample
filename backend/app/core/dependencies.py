@@ -10,6 +10,7 @@ from app.features.conversations.ports import ConversationRepository
 from app.features.jobs.ports import JobRepository
 from app.features.messages.ports import MessageRepository
 from app.features.retrieval.tools import ToolRegistry
+from app.features.tool_catalog.ports import ToolCatalogRepository
 from app.features.usage.ports import UsageRepository
 from app.infra.client.cosmos_client import CosmosClientProvider
 from app.infra.client.firestore_client import FirestoreClientProvider
@@ -80,6 +81,11 @@ def get_usage_repository(request: Request) -> UsageRepository:
 def get_tool_registry(request: Request) -> ToolRegistry:
     """Resolve the retrieval tool registry from app state."""
     return cast(ToolRegistry, request.app.state.tool_registry)
+
+
+def get_tool_catalog_repository(request: Request) -> ToolCatalogRepository:
+    """Resolve the tool catalog repository from app state."""
+    return cast(ToolCatalogRepository, request.app.state.tool_catalog_repository)
 
 
 def get_blob_storage(request: Request) -> BlobStorage:

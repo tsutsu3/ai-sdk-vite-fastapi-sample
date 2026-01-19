@@ -7,6 +7,7 @@ from app.ai.ports import RetrieverBuilder
 from app.ai.retrievers.factory import build_retriever_for_provider
 from app.core.config import AppConfig
 from app.features.authz.request_context import (
+    get_current_membership,
     get_current_tenant_record,
     get_current_user_record,
 )
@@ -16,6 +17,8 @@ from app.features.messages.models import MessageRecord
 from app.features.retrieval.langchain_adapters import documents_to_results
 from app.features.retrieval.schemas import RetrievalResult
 from app.features.retrieval.tools import RetrievalToolSpec, ToolRegistry
+
+MAX_RESULT_CHARS = 1000
 
 
 @dataclass(frozen=True)
@@ -27,10 +30,7 @@ class RetrievalContextResult:
 
 
 def _is_authorized(tool_id: str, tools: list[str]) -> bool:
-    for tool in tools:
-        if tool_id == tool or tool_id.startswith(tool):
-            return True
-    return False
+    return tool_id in tools
 
 
 def _extract_user_query(messages: list[MessageRecord]) -> str:
@@ -68,7 +68,7 @@ async def build_retrieval_context(
     retriever_builder: RetrieverBuilder | None = None,
 ) -> RetrievalContextResult | None:
     """Build a retrieval context block for the requested tool."""
-    tool = tool_registry.resolve(tool_id, tenant_id)
+    tool = await tool_registry.resolve(tool_id, tenant_id)
     if not tool:
         if tool_id:
             raise RunServiceError(f"Unknown tool id: {tool_id}")
@@ -76,11 +76,15 @@ async def build_retrieval_context(
 
     user_record = get_current_user_record()
     tenant_record = get_current_tenant_record()
-    if not user_record or not tenant_record:
+    membership = get_current_membership()
+    if not user_record or not tenant_record or not membership:
         raise RunServiceError("User is not authorized for retrieval tools.")
 
-    overrides = user_record.tool_overrides_by_tenant.get(tenant_id)
-    tools = merge_tools(tenant_record.default_tools, overrides)
+    tools = merge_tools(
+        tenant_record.default_tool_ids,
+        membership.tool_overrides,
+        available_tool_ids={tool.id},
+    )
     if not _is_authorized(tool.id, tools):
         raise RunServiceError("Not authorized for the requested tool.")
 
@@ -105,7 +109,7 @@ async def build_retrieval_context(
         raise RunServiceError(str(exc)) from exc
     documents = await retriever.ainvoke(query)
     results = documents_to_results(documents)
-    formatted = _format_results(results, tool.max_result_chars)
+    formatted = _format_results(results, MAX_RESULT_CHARS)
     if formatted:
         prompt = PromptTemplate.from_template("{system_prompt}\n\nSources:\n{sources}")
         system_message = prompt.format(system_prompt=tool.system_prompt, sources=formatted)

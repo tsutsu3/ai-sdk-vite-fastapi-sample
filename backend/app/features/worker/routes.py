@@ -79,6 +79,7 @@ async def run_job(
                 user_record=resolution.user_record,
                 tenant_record=resolution.tenant_record,
                 user_identity=resolution.user_identity,
+                membership=resolution.membership,
             )
         else:
             context = await resolve_request_context(request)

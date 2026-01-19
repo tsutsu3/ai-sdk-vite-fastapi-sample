@@ -4,12 +4,7 @@ from fastapi.testclient import TestClient
 from app.core.application import create_app
 from app.core.dependencies import get_chat_capabilities
 from app.features.authz.service import AuthzService
-from app.infra.fixtures.authz.local_data import (
-    PROVISIONING,
-    TENANTS,
-    USER_IDENTITIES,
-    USERS,
-)
+from app.infra.fixtures.authz.local_data import MEMBERSHIPS, TENANTS, USER_IDENTITIES, USERS
 from app.infra.repository.memory.memory_authz_repository import MemoryAuthzRepository
 from app.infra.repository.memory.memory_conversations_repository import (
     MemoryConversationRepository,
@@ -29,7 +24,7 @@ def _initialize_state(app) -> None:
         tenants=TENANTS,
         users=USERS,
         user_identities=USER_IDENTITIES,
-        provisioning=PROVISIONING,
+        memberships=MEMBERSHIPS,
         delay_max_seconds=0.0,
     )
     app.state.authz_service = AuthzService(app.state.authz_repository)
@@ -41,7 +36,7 @@ def _initialize_state(app) -> None:
 def _rag_payload():
     return {
         "query": "hello",
-        "dataSource": "tool01",
+        "toolId": "tool0101",
         "provider": "memory",
         "model": "fake-static",
         "topK": 1,

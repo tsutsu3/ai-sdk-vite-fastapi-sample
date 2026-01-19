@@ -3,7 +3,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.dependencies import get_authz_repository
-from app.features.authz.models import UserInfo
+from app.features.authz.models import MembershipStatus, UserInfo
 from app.features.authz.ports import AuthzRepository
 from app.features.authz.request_context import (
     get_current_user_identity,
@@ -20,6 +20,10 @@ router = APIRouter()
 def _normalize_tenant_ids(tenant_ids: list[str]) -> list[str]:
     normalized = [tenant_id.strip() for tenant_id in tenant_ids if tenant_id.strip()]
     return list(dict.fromkeys(normalized))
+
+
+def _active_tenant_ids(memberships) -> list[str]:
+    return [record.tenant_id for record in memberships if record.status == MembershipStatus.ACTIVE]
 
 
 async def _load_user_record(
@@ -75,7 +79,8 @@ async def get_config(
         raise RuntimeError("User info is not set in request context")
 
     user_record = await _load_user_record(user, repo)
-    tenant_ids = _normalize_tenant_ids(user_record.tenant_ids)
+    memberships = await repo.list_memberships_by_user(user_record.id)
+    tenant_ids = _normalize_tenant_ids(_active_tenant_ids(memberships))
     active_tenant_id = user_record.active_tenant_id
     if not active_tenant_id or active_tenant_id not in tenant_ids:
         raise HTTPException(status_code=403, detail="Active tenant is not authorized")
@@ -115,7 +120,8 @@ async def update_config(
         raise RuntimeError("User info is not set in request context")
 
     user_record = await _load_user_record(user, repo)
-    tenant_ids = _normalize_tenant_ids(user_record.tenant_ids)
+    memberships = await repo.list_memberships_by_user(user_record.id)
+    tenant_ids = _normalize_tenant_ids(_active_tenant_ids(memberships))
     if payload.active_tenant_id not in tenant_ids:
         raise HTTPException(status_code=403, detail="Tenant is not authorized")
 

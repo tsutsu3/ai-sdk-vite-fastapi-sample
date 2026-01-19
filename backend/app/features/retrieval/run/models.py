@@ -3,7 +3,7 @@ from typing import Any
 from langchain_core.documents import Document
 from pydantic import BaseModel, ConfigDict
 
-from app.features.authz.models import TenantRecord, UserRecord
+from app.features.authz.models import MembershipRecord, TenantRecord, UserRecord
 from app.features.retrieval.schemas import RetrievalQueryResponse
 from app.features.retrieval.tools import RetrievalToolSpec
 
@@ -15,6 +15,7 @@ class AuthContext(BaseModel):
     user_id: str
     user_record: UserRecord
     tenant_record: TenantRecord
+    membership: MembershipRecord
 
 
 class ToolContext(BaseModel):

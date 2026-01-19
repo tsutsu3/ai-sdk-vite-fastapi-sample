@@ -62,11 +62,11 @@ def build_rag_stream(
         log_context = {
             "conversation_id": payload.chat_id or "",
             "message_id": "",
-            "tool_id": payload.tool_id or payload.data_source,
+            "tool_id": payload.tool_id,
         }
         try:
             auth_ctx = planner.require_auth_context()
-            tool_ctx = planner.resolve_tool_context(payload, auth_ctx)
+            tool_ctx = await planner.resolve_tool_context(payload, auth_ctx)
             log_context["tool_id"] = tool_ctx.tool_id_for_conversation
             mode = payload.mode or (tool_ctx.tool.mode if tool_ctx.tool else "simple")
             last_user_message = extract_last_user_message(payload.messages)

@@ -4,6 +4,7 @@ from app.features.authz.ports import AuthzRepository
 from app.features.conversations.ports import ConversationRepository
 from app.features.jobs.ports import JobRepository
 from app.features.messages.ports import MessageRepository
+from app.features.tool_catalog.ports import ToolCatalogRepository
 from app.features.usage.ports import UsageRepository
 
 
@@ -20,6 +21,10 @@ class RepositoryFactory(Protocol):
 
     async def conversations(self) -> ConversationRepository:
         """Return a conversation repository."""
+        raise NotImplementedError
+
+    async def tool_catalog(self) -> ToolCatalogRepository:
+        """Return a tool catalog repository."""
         raise NotImplementedError
 
     async def messages(self) -> MessageRepository:

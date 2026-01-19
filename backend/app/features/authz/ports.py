@@ -1,8 +1,8 @@
 from typing import Protocol
 
 from app.features.authz.models import (
-    ProvisioningRecord,
-    ProvisioningStatus,
+    MembershipRecord,
+    MembershipStatus,
     TenantRecord,
     UserIdentityRecord,
     UserRecord,
@@ -50,18 +50,20 @@ class AuthzRepository(Protocol):
         """
         raise NotImplementedError
 
-    async def list_provisioning_by_email(
-        self, email: str, status: ProvisioningStatus
-    ) -> list[ProvisioningRecord]:
-        """List provisioning records by email and status.
+    async def list_memberships_by_email(
+        self, email: str, status: MembershipStatus
+    ) -> list[MembershipRecord]:
+        """List membership records by invite email and status."""
+        raise NotImplementedError
 
-        Args:
-            email: User email address.
-            status: Provisioning status to match.
+    async def list_memberships_by_user(self, user_id: str) -> list[MembershipRecord]:
+        """List membership records by user id."""
+        raise NotImplementedError
 
-        Returns:
-            list[ProvisioningRecord]: Matching provisioning records.
-        """
+    async def get_membership_for_user(
+        self, tenant_id: str, user_id: str
+    ) -> MembershipRecord | None:
+        """Fetch membership record for a tenant/user pair."""
         raise NotImplementedError
 
     async def save_user(self, record: UserRecord) -> None:
@@ -72,8 +74,8 @@ class AuthzRepository(Protocol):
         """Persist a user identity record."""
         raise NotImplementedError
 
-    async def save_provisioning(self, record: ProvisioningRecord) -> None:
-        """Persist a provisioning record."""
+    async def save_membership(self, record: MembershipRecord) -> None:
+        """Persist a membership record."""
         raise NotImplementedError
 
     async def save_tenant(self, record: TenantRecord) -> None:

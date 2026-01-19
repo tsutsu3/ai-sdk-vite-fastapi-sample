@@ -1,6 +1,7 @@
 from fastapi import HTTPException
 
 from app.features.authz.request_context import (
+    get_current_membership,
     get_current_tenant_id,
     get_current_tenant_record,
     get_current_user_id,
@@ -26,44 +27,44 @@ class QueryPlanner:
     def require_auth_context(self) -> AuthContext:
         user_record = get_current_user_record()
         tenant_record = get_current_tenant_record()
-        if user_record is None or tenant_record is None:
+        membership = get_current_membership()
+        if user_record is None or tenant_record is None or membership is None:
             raise HTTPException(status_code=403, detail="User is not authorized")
         return AuthContext(
             tenant_id=get_current_tenant_id(),
             user_id=get_current_user_id(),
             user_record=user_record,
             tenant_record=tenant_record,
+            membership=membership,
         )
 
-    def resolve_tool_context(
+    async def resolve_tool_context(
         self,
         payload: RetrievalQueryRequest,
         auth_ctx: AuthContext,
     ) -> ToolContext:
-        tool = self._tool_registry.resolve(payload.tool_id, auth_ctx.tenant_id)
-        data_source = tool.data_source if tool else payload.data_source
-        overrides = auth_ctx.user_record.tool_overrides_by_tenant.get(
-            auth_ctx.tenant_id
-        )
+        if not payload.tool_id:
+            raise HTTPException(status_code=400, detail="toolId is required.")
+        tool = await self._tool_registry.resolve(payload.tool_id, auth_ctx.tenant_id)
+        if not tool:
+            raise HTTPException(status_code=400, detail="Unknown tool id.")
         tools = merge_tools(
-            auth_ctx.tenant_record.default_tools,
-            overrides,
+            auth_ctx.tenant_record.default_tool_ids,
+            auth_ctx.membership.tool_overrides,
+            available_tool_ids={tool.id},
         )
-        authorize_target = tool.id if tool else data_source
-        if not is_authorized_for_source(authorize_target, tools):
-            raise HTTPException(status_code=403, detail="Not authorized for this data source.")
+        if not is_authorized_for_source(tool.id, tools):
+            raise HTTPException(status_code=403, detail="Not authorized for this tool.")
 
         provider_id = (tool.provider if tool and tool.provider else payload.provider) or ""
         provider_id = provider_id.strip().lower()
         if not provider_id:
             raise HTTPException(status_code=400, detail="Retrieval provider is required.")
 
-        tool_id_for_conversation = (
-            tool.id if tool else payload.tool_id if payload.tool_id else data_source or "rag"
-        )
+        tool_id_for_conversation = tool.id
         return ToolContext(
             tool=tool,
-            data_source=data_source,
+            data_source=tool.data_source,
             provider_id=provider_id,
             tool_id_for_conversation=tool_id_for_conversation,
             tenant_id=auth_ctx.tenant_id,

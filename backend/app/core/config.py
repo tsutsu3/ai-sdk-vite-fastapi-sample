@@ -110,7 +110,7 @@ class AppConfig(BaseModel):
     users_container: str = "users"
     tenants_container: str = "tenants"
     useridentities_container: str = "useridentities"
-    provisioning_container: str = "provisioning"
+    memberships_container: str = "memberships"
 
     # Azure OpenAI
     azure_openai_endpoint: str = ""
@@ -332,7 +332,7 @@ class Settings(BaseSettings):
     users_container: str = "users"
     tenants_container: str = "tenants"
     useridentities_container: str = "useridentities"
-    provisioning_container: str = "provisioning"
+    memberships_container: str = "memberships"
 
     # Azure OpenAI
     azure_openai_endpoint: str = ""
@@ -735,7 +735,7 @@ class Settings(BaseSettings):
             users_container=self.users_container,
             tenants_container=self.tenants_container,
             useridentities_container=self.useridentities_container,
-            provisioning_container=self.provisioning_container,
+            memberships_container=self.memberships_container,
             azure_openai_endpoint=self.azure_openai_endpoint,
             azure_openai_api_key=self.azure_openai_api_key,
             azure_openai_api_version=self.azure_openai_api_version,

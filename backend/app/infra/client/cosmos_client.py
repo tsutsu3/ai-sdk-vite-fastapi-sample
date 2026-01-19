@@ -9,7 +9,7 @@ JOBS_PARTITION_KEY = "/tenantId"
 USERS_PARTITION_KEY = "/id"
 TENANTS_PARTITION_KEY = "/id"
 USERIDENTITIES_PARTITION_KEY = "/id"
-PROVISIONING_PARTITION_KEY = "/email"
+MEMBERSHIPS_PARTITION_KEY = "/tenant_id"
 
 
 class CosmosClientProvider:
@@ -73,7 +73,7 @@ async def ensure_cosmos_resources(
     users_container: str,
     tenants_container: str,
     useridentities_container: str,
-    provisioning_container: str,
+    memberships_container: str,
 ) -> None:
     """Ensure that the Cosmos DB database and required containers exist.
 
@@ -88,7 +88,7 @@ async def ensure_cosmos_resources(
         users_container: Container name for users data.
         tenants_container: Container name for tenants data.
         useridentities_container: Container name for user identity data.
-        provisioning_container: Container name for provisioning data.
+        memberships_container: Container name for membership data.
     """
     database = await provider.client.create_database_if_not_exists(id=provider._database_name)
 
@@ -117,6 +117,6 @@ async def ensure_cosmos_resources(
         partition_key=PartitionKey(path=USERIDENTITIES_PARTITION_KEY),
     )
     await database.create_container_if_not_exists(
-        id=provisioning_container,
-        partition_key=PartitionKey(path=PROVISIONING_PARTITION_KEY),
+        id=memberships_container,
+        partition_key=PartitionKey(path=MEMBERSHIPS_PARTITION_KEY),
     )

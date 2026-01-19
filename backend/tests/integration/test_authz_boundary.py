@@ -2,8 +2,8 @@ from fastapi.testclient import TestClient
 
 from app.core.application import create_app
 from app.features.authz.models import (
-    ProvisioningRecord,
-    ProvisioningStatus,
+    MembershipRecord,
+    MembershipStatus,
     TenantRecord,
     UserIdentityRecord,
     UserRecord,
@@ -22,10 +22,18 @@ class DenyAuthzRepository(AuthzRepository):
     async def get_user_identity(self, identity_id: str) -> UserIdentityRecord | None:
         return None
 
-    async def list_provisioning_by_email(
-        self, email: str, status: ProvisioningStatus
-    ) -> list[ProvisioningRecord]:
+    async def list_memberships_by_email(
+        self, email: str, status: MembershipStatus
+    ) -> list[MembershipRecord]:
         return []
+
+    async def list_memberships_by_user(self, user_id: str) -> list[MembershipRecord]:
+        return []
+
+    async def get_membership_for_user(
+        self, tenant_id: str, user_id: str
+    ) -> MembershipRecord | None:
+        return None
 
     async def save_user(self, record: UserRecord) -> None:
         return None
@@ -33,7 +41,10 @@ class DenyAuthzRepository(AuthzRepository):
     async def save_user_identity(self, record: UserIdentityRecord) -> None:
         return None
 
-    async def save_provisioning(self, record: ProvisioningRecord) -> None:
+    async def save_membership(self, record: MembershipRecord) -> None:
+        return None
+
+    async def save_tenant(self, record: TenantRecord) -> None:
         return None
 
 

@@ -80,7 +80,7 @@ async def query_rag(
         examples=[
             {
                 "query": "Summarize the steps",
-                "dataSource": "tool01",
+                "toolId": "tool0101",
                 "provider": "memory",
                 "model": "gpt-4o",
                 "topK": 5,

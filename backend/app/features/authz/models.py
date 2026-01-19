@@ -4,13 +4,12 @@ from enum import Enum
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class ProvisioningStatus(str, Enum):
-    """Provisioning status enumeration."""
+class MembershipStatus(str, Enum):
+    """Membership status enumeration."""
 
     PENDING = "pending"
     ACTIVE = "active"
-    DEACTIVATED = "deactivated"
-    FAILED = "failed"
+    DISABLED = "disabled"
 
 
 class ToolItem(BaseModel):
@@ -65,7 +64,7 @@ class TenantRecord(BaseModel):
     id: str  # pk
     key: str | None = None
     name: str
-    default_tools: list[str] = Field(default_factory=list)
+    default_tool_ids: list[str] = Field(default_factory=list)
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -78,7 +77,6 @@ class UserIdentityRecord(BaseModel):
     id: str  # pk: IAP, EasyAuth, etc. identity ID
     provider: str | None = None
     user_id: str
-    tenant_id: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -88,31 +86,27 @@ class UserRecord(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    tenant_ids: list[str] = Field(default_factory=list)
     active_tenant_id: str
     id: str | None = None
     email: str | None = None
     first_name: str | None = None
     last_name: str | None = None
-    tool_overrides_by_tenant: dict[str, ToolOverridesRecord] = Field(
-        default_factory=dict
-    )
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
 
-class ProvisioningRecord(BaseModel):
-    """Provisioning record stored in the repository."""
+class MembershipRecord(BaseModel):
+    """Membership record stored in the repository."""
 
     model_config = ConfigDict(frozen=True)
 
-    id: str
-    email: str  # pk
+    id: str  # pk
     tenant_id: str
-    first_name: str
-    last_name: str
+    user_id: str | None = None
+    invite_email: str | None = None
+    role: str | None = None
     tool_overrides: ToolOverridesRecord = Field(default_factory=ToolOverridesRecord)
-    status: ProvisioningStatus = ProvisioningStatus.PENDING
+    status: MembershipStatus = MembershipStatus.PENDING
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -122,9 +116,8 @@ class AuthzRecord(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    tenant_ids: list[str]
-    active_tenant_id: str
-    tools: list[str]
+    tenant_id: str
+    tool_ids: list[str]
     first_name: str | None
     last_name: str | None
     email: str | None

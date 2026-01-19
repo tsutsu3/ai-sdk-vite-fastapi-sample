@@ -1,16 +1,16 @@
 from azure.cosmos.aio import ContainerProxy
 
 from app.features.authz.models import (
-    ProvisioningRecord,
-    ProvisioningStatus,
+    MembershipRecord,
+    MembershipStatus,
     TenantRecord,
     UserIdentityRecord,
     UserRecord,
 )
 from app.features.authz.ports import AuthzRepository
 from app.infra.mapper.authz_mapper import (
-    provisioning_doc_to_record,
-    provisioning_record_to_doc,
+    membership_doc_to_record,
+    membership_record_to_doc,
     tenant_doc_to_record,
     user_doc_to_record,
     user_identity_doc_to_record,
@@ -18,7 +18,7 @@ from app.infra.mapper.authz_mapper import (
     user_record_to_doc,
 )
 from app.infra.model.authz_model import (
-    ProvisioningDoc,
+    MembershipDoc,
     TenantDoc,
     UserDoc,
     UserIdentityDoc,
@@ -44,12 +44,12 @@ class CosmosAuthzRepository(AuthzRepository):
         users_container: ContainerProxy,
         tenants_container: ContainerProxy,
         identities_container: ContainerProxy,
-        provisioning_container: ContainerProxy,
+        memberships_container: ContainerProxy,
     ) -> None:
         self._users_container = users_container
         self._tenants_container = tenants_container
         self._identities_container = identities_container
-        self._provisioning_container = provisioning_container
+        self._memberships_container = memberships_container
 
     async def get_user(self, user_id: str) -> UserRecord | None:
         return await self._read_user_item(user_id)
@@ -60,25 +60,63 @@ class CosmosAuthzRepository(AuthzRepository):
     async def get_user_identity(self, identity_id: str) -> UserIdentityRecord | None:
         return await self._read_user_identity_item(identity_id)
 
-    async def list_provisioning_by_email(
-        self, email: str, status: ProvisioningStatus
-    ) -> list[ProvisioningRecord]:
-        items = self._provisioning_container.query_items(
-            query=("SELECT * FROM c WHERE c.email = @email AND c.status = @status"),
+    async def list_memberships_by_email(
+        self, email: str, status: MembershipStatus
+    ) -> list[MembershipRecord]:
+        items = self._memberships_container.query_items(
+            query=(
+                "SELECT * FROM c WHERE c.invite_email = @email AND c.status = @status"
+            ),
             parameters=[
                 {"name": "@email", "value": email},
                 {"name": "@status", "value": status.value},
             ],
             partition_key=email,
         )
-        records: list[ProvisioningRecord] = []
+        records: list[MembershipRecord] = []
         async for item in items:
             try:
-                doc = ProvisioningDoc.model_validate(item)
+                doc = MembershipDoc.model_validate(item)
             except Exception:
                 continue
-            records.append(provisioning_doc_to_record(doc))
+            records.append(membership_doc_to_record(doc))
         return records
+
+    async def list_memberships_by_user(self, user_id: str) -> list[MembershipRecord]:
+        items = self._memberships_container.query_items(
+            query=("SELECT * FROM c WHERE c.user_id = @user_id"),
+            parameters=[{"name": "@user_id", "value": user_id}],
+            partition_key=user_id,
+        )
+        records: list[MembershipRecord] = []
+        async for item in items:
+            try:
+                doc = MembershipDoc.model_validate(item)
+            except Exception:
+                continue
+            records.append(membership_doc_to_record(doc))
+        return records
+
+    async def get_membership_for_user(
+        self, tenant_id: str, user_id: str
+    ) -> MembershipRecord | None:
+        items = self._memberships_container.query_items(
+            query=(
+                "SELECT * FROM c WHERE c.tenant_id = @tenant_id AND c.user_id = @user_id"
+            ),
+            parameters=[
+                {"name": "@tenant_id", "value": tenant_id},
+                {"name": "@user_id", "value": user_id},
+            ],
+            partition_key=tenant_id,
+        )
+        async for item in items:
+            try:
+                doc = MembershipDoc.model_validate(item)
+            except Exception:
+                return None
+            return membership_doc_to_record(doc)
+        return None
 
     async def save_user(self, record: UserRecord) -> None:
         if not record.id:
@@ -96,9 +134,9 @@ class CosmosAuthzRepository(AuthzRepository):
             doc.model_dump(by_alias=True, exclude_none=True)
         )
 
-    async def save_provisioning(self, record: ProvisioningRecord) -> None:
-        doc = provisioning_record_to_doc(record)
-        await self._provisioning_container.upsert_item(
+    async def save_membership(self, record: MembershipRecord) -> None:
+        doc = membership_record_to_doc(record)
+        await self._memberships_container.upsert_item(
             doc.model_dump(by_alias=True, exclude_none=True)
         )
 

@@ -91,7 +91,6 @@ export const buildToolsRequestBody = ({
   const query = findLastUserMessage(retrievalMessages);
   return {
     query,
-    dataSource: toolId || "default",
     ...(chatId ? { chatId } : {}),
     ...(toolId ? { toolId } : {}),
     ...(typeof maxDocuments === "number" ? { topK: maxDocuments } : {}),

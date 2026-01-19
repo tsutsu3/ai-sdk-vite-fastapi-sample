@@ -30,7 +30,7 @@ class RetrievalQueryRequest(BaseModel):
             "examples": [
                 {
                     "query": "Employee onboarding steps",
-                    "dataSource": "tool01",
+                    "toolId": "tool0101",
                     "provider": "memory",
                     "model": "gpt-4o",
                     "topK": 5,
@@ -52,9 +52,10 @@ class RetrievalQueryRequest(BaseModel):
         alias="chatId",
         description="Conversation id (optional).",
     )
-    data_source: str = Field(
+    data_source: str | None = Field(
+        default=None,
         alias="dataSource",
-        description="Data source identifier.",
+        description="Data source identifier (deprecated; resolved by toolId).",
         examples=["tool01"],
     )
     provider: ProviderEnum = Field(
@@ -92,10 +93,9 @@ class RetrievalQueryRequest(BaseModel):
         alias="hydeEnabled",
         description="Toggle HyDE query generation.",
     )
-    tool_id: str | None = Field(
-        default=None,
+    tool_id: str = Field(
         alias="toolId",
-        description="Retrieval tool id override.",
+        description="Retrieval tool id.",
     )
     mode: RetrievalToolModeEnum | None = Field(
         default=None,

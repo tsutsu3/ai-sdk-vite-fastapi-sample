@@ -1,5 +1,6 @@
 from app.features.authz.models import (
-    ProvisioningRecord,
+    MembershipRecord,
+    MembershipStatus,
     TenantRecord,
     ToolOverridesRecord,
     UserIdentityRecord,
@@ -10,38 +11,47 @@ TENANTS: dict[str, TenantRecord] = {
     "id-tenant001": TenantRecord(
         id="id-tenant001",
         name="Tenant 001",
-        default_tools=["tool01", "tool02", "tool03"],
+        default_tool_ids=[
+            "tool0101",
+            "tool0102",
+            "tool0201",
+            "tool0202",
+            "tool0301",
+            "tool0302",
+        ],
     ),
     "id-tenant002": TenantRecord(
         id="id-tenant002",
         name="Tenant 002",
-        default_tools=["tool01", "tool03"],
+        default_tool_ids=[
+            "tool0101",
+            "tool0301",
+            "tool0302",
+        ],
     ),
     "id-tenant003": TenantRecord(
         id="id-tenant003",
         name="Tenant 003",
-        default_tools=["tool02", "tool03"],
+        default_tool_ids=[
+            "tool0201",
+            "tool0202",
+            "tool0301",
+        ],
     ),
     "id-tenant004": TenantRecord(
         id="id-tenant004",
         name="Tenant 004",
-        default_tools=[],
+        default_tool_ids=[],
     ),
 }
 
 USERS: dict[str, UserRecord] = {
     "user-local-001": UserRecord(
         id="user-local-001",
-        tenant_ids=["id-tenant001", "id-tenant002", "id-tenant003"],
         active_tenant_id="id-tenant001",
         email="local.user001@example.com",
         first_name="Taro",
         last_name="Ichiro",
-        tool_overrides_by_tenant={
-            "id-tenant001": ToolOverridesRecord(),
-            "id-tenant002": ToolOverridesRecord(),
-            "id-tenant003": ToolOverridesRecord(),
-        },
     )
 }
 
@@ -50,119 +60,127 @@ USER_IDENTITIES: dict[str, UserIdentityRecord] = {
         id="local-user-001-01",
         provider="local",
         user_id="user-local-001",
-        tenant_id="id-tenant001",
     )
 }
 
-PROVISIONING: dict[str, ProvisioningRecord] = {
-    "prov-local-001-001": ProvisioningRecord(
+MEMBERSHIPS: dict[str, MembershipRecord] = {
+    "member-user-local-001-tenant001": MembershipRecord(
+        id="member-user-local-001-tenant001",
+        tenant_id="id-tenant001",
+        user_id="user-local-001",
+        status=MembershipStatus.ACTIVE,
+        tool_overrides=ToolOverridesRecord(),
+    ),
+    "member-user-local-001-tenant002": MembershipRecord(
+        id="member-user-local-001-tenant002",
+        tenant_id="id-tenant002",
+        user_id="user-local-001",
+        status=MembershipStatus.ACTIVE,
+        tool_overrides=ToolOverridesRecord(),
+    ),
+    "member-user-local-001-tenant003": MembershipRecord(
+        id="member-user-local-001-tenant003",
+        tenant_id="id-tenant003",
+        user_id="user-local-001",
+        status=MembershipStatus.ACTIVE,
+        tool_overrides=ToolOverridesRecord(),
+    ),
+    "prov-local-001-001": MembershipRecord(
         id="prov-local-001-001",
-        email="local.user001@example.com",
         tenant_id="id-tenant001",
-        first_name="Taro",
-        last_name="Ichiro",
+        invite_email="local.user001@example.com",
+        status=MembershipStatus.PENDING,
         tool_overrides=ToolOverridesRecord(),
     ),
-    "prov-local-001-002": ProvisioningRecord(
+    "prov-local-001-002": MembershipRecord(
         id="prov-local-001-002",
-        email="local.user002@example.com",
         tenant_id="id-tenant001",
-        first_name="Keiko",
-        last_name="Tanaka",
+        invite_email="local.user002@example.com",
+        status=MembershipStatus.PENDING,
         tool_overrides=ToolOverridesRecord(
-            deny=["tool02"],
+            deny=["tool0201", "tool0202"],
         ),
     ),
-    "prov-local-002-001": ProvisioningRecord(
+    "prov-local-002-001": MembershipRecord(
         id="prov-local-002-001",
-        email="yamada.ichiro@example.com",
         tenant_id="id-tenant002",
-        first_name="Ichiro",
-        last_name="Yamada",
+        invite_email="yamada.ichiro@example.com",
+        status=MembershipStatus.PENDING,
         tool_overrides=ToolOverridesRecord(),
     ),
-    "prov-local-002-002": ProvisioningRecord(
+    "prov-local-002-002": MembershipRecord(
         id="prov-local-002-002",
-        email="yamada.jiro@example.com",
         tenant_id="id-tenant002",
-        first_name="Jiro",
-        last_name="Yamada",
+        invite_email="yamada.jiro@example.com",
+        status=MembershipStatus.PENDING,
         tool_overrides=ToolOverridesRecord(
-            allow=["tool02", "tool03"],
+            allow=["tool0201", "tool0202"],
         ),
     ),
-    "prov-local-002-003": ProvisioningRecord(
+    "prov-local-002-003": MembershipRecord(
         id="prov-local-002-003",
-        email="yamada.saburo@example.com",
         tenant_id="id-tenant002",
-        first_name="Saburo",
-        last_name="Yamada",
+        invite_email="yamada.saburo@example.com",
+        status=MembershipStatus.PENDING,
         tool_overrides=ToolOverridesRecord(
-            deny=["tool01"],
+            deny=["tool0101", "tool0102"],
         ),
     ),
-    "prov-local-003-001": ProvisioningRecord(
+    "prov-local-003-001": MembershipRecord(
         id="prov-local-003-001",
-        email="suzuki.ichiro@example.com",
         tenant_id="id-tenant003",
-        first_name="Ichiro",
-        last_name="Suzuki",
+        invite_email="suzuki.ichiro@example.com",
+        status=MembershipStatus.PENDING,
         tool_overrides=ToolOverridesRecord(),
     ),
-    "prov-local-003-002": ProvisioningRecord(
+    "prov-local-003-002": MembershipRecord(
         id="prov-local-003-002",
-        email="suzuki.jiro@example.com",
         tenant_id="id-tenant003",
-        first_name="Jiro",
-        last_name="Suzuki",
+        invite_email="suzuki.jiro@example.com",
+        status=MembershipStatus.PENDING,
         tool_overrides=ToolOverridesRecord(
-            allow=["tool01"],
+            allow=["tool0101"],
         ),
     ),
-    "prov-local-003-003": ProvisioningRecord(
+    "prov-local-003-003": MembershipRecord(
         id="prov-local-003-003",
-        email="suzuki.saburo@example.com",
         tenant_id="id-tenant003",
-        first_name="Saburo",
-        last_name="Suzuki",
+        invite_email="suzuki.saburo@example.com",
+        status=MembershipStatus.PENDING,
         tool_overrides=ToolOverridesRecord(
-            deny=["tool02"],
+            deny=["tool0201", "tool0202"],
         ),
     ),
-    "prov-local-004-001": ProvisioningRecord(
+    "prov-local-004-001": MembershipRecord(
         id="prov-local-004-001",
-        email="kobayashi.ichiro@example.com",
         tenant_id="id-tenant004",
-        first_name="Ichiro",
-        last_name="Kobayashi",
+        invite_email="kobayashi.ichiro@example.com",
+        status=MembershipStatus.PENDING,
         tool_overrides=ToolOverridesRecord(),
     ),
-    "prov-local-004-002": ProvisioningRecord(
+    "prov-local-004-002": MembershipRecord(
         id="prov-local-004-002",
-        email="kobayashi.jiro@example.com",
         tenant_id="id-tenant004",
-        first_name="Jiro",
-        last_name="Kobayashi",
+        invite_email="kobayashi.jiro@example.com",
+        status=MembershipStatus.PENDING,
         tool_overrides=ToolOverridesRecord(
-            allow=["tool02", "tool03"],
+            allow=["tool0201", "tool0202", "tool0301"],
         ),
     ),
-    "prov-local-004-003": ProvisioningRecord(
+    "prov-local-004-003": MembershipRecord(
         id="prov-local-004-003",
-        email="kobayashi.saburo@example.com",
         tenant_id="id-tenant004",
-        first_name="Saburo",
-        last_name="Kobayashi",
+        invite_email="kobayashi.saburo@example.com",
+        status=MembershipStatus.PENDING,
         tool_overrides=ToolOverridesRecord(
-            allow=["tool01", "tool02", "tool03"],
+            allow=["tool0101", "tool0201", "tool0301"],
         ),
     ),
-    "prov-local-1234567890": ProvisioningRecord(
-        id="1234567890",
-        email="tsutsumi.toshio@minebea-ss.com",
+    "prov-local-1234567890": MembershipRecord(
+        id="prov-local-1234567890",
         tenant_id="id-tenant001",
-        first_name="Tsutsumi",
-        last_name="Toshio",
+        invite_email="tsutsumi.toshio@minebea-ss.com",
+        status=MembershipStatus.PENDING,
         tool_overrides=ToolOverridesRecord(),
     ),
 }

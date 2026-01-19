@@ -1,8 +1,8 @@
 from logging import getLogger
 
 from app.features.authz.models import (
-    ProvisioningRecord,
-    ProvisioningStatus,
+    MembershipRecord,
+    MembershipStatus,
     TenantRecord,
     UserIdentityRecord,
     UserRecord,
@@ -96,11 +96,21 @@ class CachedAuthzRepository(AuthzRepository):
 
         return value
 
-    async def list_provisioning_by_email(
-        self, email: str, status: ProvisioningStatus
-    ) -> list[ProvisioningRecord]:
-        """List provisioning records by email (not cached)."""
-        return await self._repo.list_provisioning_by_email(email, status)
+    async def list_memberships_by_email(
+        self, email: str, status: MembershipStatus
+    ) -> list[MembershipRecord]:
+        """List memberships by email (not cached)."""
+        return await self._repo.list_memberships_by_email(email, status)
+
+    async def list_memberships_by_user(self, user_id: str) -> list[MembershipRecord]:
+        """List memberships by user id (not cached)."""
+        return await self._repo.list_memberships_by_user(user_id)
+
+    async def get_membership_for_user(
+        self, tenant_id: str, user_id: str
+    ) -> MembershipRecord | None:
+        """Get membership by tenant/user (not cached)."""
+        return await self._repo.get_membership_for_user(tenant_id, user_id)
 
     async def save_user(self, record: UserRecord) -> None:
         """Save user record and invalidate cache."""
@@ -116,9 +126,9 @@ class CachedAuthzRepository(AuthzRepository):
             cache_key = self._identity_key(record.id)
             await self._cache.delete(cache_key)
 
-    async def save_provisioning(self, record: ProvisioningRecord) -> None:
-        """Save provisioning record (not cached)."""
-        await self._repo.save_provisioning(record)
+    async def save_membership(self, record: MembershipRecord) -> None:
+        """Save membership record (not cached)."""
+        await self._repo.save_membership(record)
 
     async def save_tenant(self, record: TenantRecord) -> None:
         """Save tenant record and invalidate cache."""
@@ -127,6 +137,3 @@ class CachedAuthzRepository(AuthzRepository):
             cache_key = self._tenant_key(record.id)
             await self._cache.delete(cache_key)
 
-    async def list_users_by_email(self, email: str) -> list[UserRecord]:
-        """List users by email (not cached)."""
-        return await self._repo.list_users_by_email(email)

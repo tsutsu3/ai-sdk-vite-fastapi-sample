@@ -3,18 +3,18 @@ from pathlib import Path
 
 from app.core.config import AppConfig, StorageCapabilities
 from app.features.authz.models import (
-    ProvisioningRecord,
+    MembershipRecord,
     TenantRecord,
     UserIdentityRecord,
     UserRecord,
 )
+from app.features.tool_catalog.models import DataSourceRecord, ToolRecord
 from app.infra.client.cosmos_client import CosmosClientProvider
 from app.infra.client.firestore_client import FirestoreClientProvider
-from app.infra.fixtures.authz.local_data import (
-    PROVISIONING,
-    TENANTS,
-    USER_IDENTITIES,
-    USERS,
+from app.infra.fixtures.authz.local_data import MEMBERSHIPS, TENANTS, USER_IDENTITIES, USERS
+from app.infra.fixtures.tool_catalog.local_data import (
+    build_data_sources_for_tenant,
+    build_tools_for_tenant,
 )
 from app.infra.persistence.repository_factory import RepositoryFactory
 from app.infra.repository.cosmos.cosmos_authz_repository import CosmosAuthzRepository
@@ -25,12 +25,18 @@ from app.infra.repository.cosmos.cosmos_jobs_repository import CosmosJobReposito
 from app.infra.repository.cosmos.cosmos_messages_repository import (
     CosmosMessageRepository,
 )
+from app.infra.repository.firestore.firestore_tool_catalog_repository import (
+    FirestoreToolCatalogRepository,
+)
 from app.infra.repository.local.local_authz_repository import LocalAuthzRepository
 from app.infra.repository.local.local_conversations_repository import (
     LocalConversationRepository,
 )
 from app.infra.repository.local.local_jobs_repository import LocalJobRepository
 from app.infra.repository.local.local_messages_repository import LocalMessageRepository
+from app.infra.repository.local.local_tool_catalog_repository import (
+    LocalToolCatalogRepository,
+)
 from app.infra.repository.memory.memory_authz_repository import MemoryAuthzRepository
 from app.infra.repository.memory.memory_conversations_repository import (
     MemoryConversationRepository,
@@ -38,6 +44,9 @@ from app.infra.repository.memory.memory_conversations_repository import (
 from app.infra.repository.memory.memory_jobs_repository import MemoryJobRepository
 from app.infra.repository.memory.memory_messages_repository import (
     MemoryMessageRepository,
+)
+from app.infra.repository.memory.memory_tool_catalog_repository import (
+    MemoryToolCatalogRepository,
 )
 from app.infra.storage.usage_buffer import create_usage_repository
 
@@ -62,10 +71,13 @@ class _CosmosRepositoryFactory:
             identities_container=self._provider.get_container(
                 self._config.useridentities_container
             ),
-            provisioning_container=self._provider.get_container(
-                self._config.provisioning_container
+            memberships_container=self._provider.get_container(
+                self._config.memberships_container
             ),
         )
+
+    async def tool_catalog(self):
+        raise RuntimeError("Tool catalog repository is not configured for Cosmos DB.")
 
     async def conversations(self):
         return CosmosConversationRepository(
@@ -93,20 +105,24 @@ class _MemoryRepositoryFactory:
         tenants: dict[str, TenantRecord] | None = None,
         users: dict[str, UserRecord] | None = None,
         user_identities: dict[str, UserIdentityRecord] | None = None,
-        provisioning: dict[str, ProvisioningRecord] | None = None,
+        memberships: dict[str, MembershipRecord] | None = None,
+        tools: dict[str, dict[str, ToolRecord]] | None = None,
+        data_sources: dict[str, dict[str, DataSourceRecord]] | None = None,
     ) -> None:
         self._config = config
         self._tenants = tenants
         self._users = users
         self._user_identities = user_identities
-        self._provisioning = provisioning
+        self._memberships = memberships
+        self._tools = tools
+        self._data_sources = data_sources
 
     async def authz(self):
         logger.debug("Using memory authz repository")
         logger.debug("Initial tenants: %s", list(self._tenants.keys()) if self._tenants else [])
         logger.debug(
-            "Initial provisioning records: %s",
-            list(self._provisioning.keys()) if self._provisioning else [],
+            "Initial memberships: %s",
+            list(self._memberships.keys()) if self._memberships else [],
         )
         logger.debug(
             "Initial user identities: %s",
@@ -117,7 +133,13 @@ class _MemoryRepositoryFactory:
             tenants=self._tenants,
             users=self._users,
             user_identities=self._user_identities,
-            provisioning=self._provisioning,
+            memberships=self._memberships,
+        )
+
+    async def tool_catalog(self):
+        return MemoryToolCatalogRepository(
+            tools=self._tools,
+            data_sources=self._data_sources,
         )
 
     async def conversations(self):
@@ -142,7 +164,9 @@ class _LocalRepositoryFactory:
         tenants: dict[str, TenantRecord] | None = None,
         users: dict[str, UserRecord] | None = None,
         user_identities: dict[str, UserIdentityRecord] | None = None,
-        provisioning: dict[str, ProvisioningRecord] | None = None,
+        memberships: dict[str, MembershipRecord] | None = None,
+        tools: dict[str, dict[str, ToolRecord]] | None = None,
+        data_sources: dict[str, dict[str, DataSourceRecord]] | None = None,
     ) -> None:
         self._config = config
         self._path = Path(config.local_storage_path)
@@ -150,14 +174,16 @@ class _LocalRepositoryFactory:
         self._tenants = tenants
         self._users = users
         self._user_identities = user_identities
-        self._provisioning = provisioning
+        self._memberships = memberships
+        self._tools = tools
+        self._data_sources = data_sources
 
     async def authz(self):
         logger.debug("Using local authz repository at %s", self._path)
         logger.debug("Initial tenants: %s", list(self._tenants.keys()) if self._tenants else [])
         logger.debug(
-            "Initial provisioning records: %s",
-            list(self._provisioning.keys()) if self._provisioning else [],
+            "Initial memberships: %s",
+            list(self._memberships.keys()) if self._memberships else [],
         )
         logger.debug(
             "Initial user identities: %s",
@@ -169,7 +195,14 @@ class _LocalRepositoryFactory:
             tenants=self._tenants,
             users=self._users,
             user_identities=self._user_identities,
-            provisioning=self._provisioning,
+            memberships=self._memberships,
+        )
+
+    async def tool_catalog(self):
+        return LocalToolCatalogRepository(
+            self._path,
+            tools=self._tools,
+            data_sources=self._data_sources,
         )
 
     async def conversations(self):
@@ -213,11 +246,15 @@ class _FirestoreRepositoryFactory:
         from app.infra.repository.firestore.firestore_messages_repository import (
             FirestoreMessageRepository,
         )
+        from app.infra.repository.firestore.firestore_tool_catalog_repository import (
+            FirestoreToolCatalogRepository,
+        )
 
         self._authz_repo = FirestoreAuthzRepository
         self._conversation_repo = FirestoreConversationRepository
         self._message_repo = FirestoreMessageRepository
         self._job_repo = FirestoreJobRepository
+        self._tool_catalog_repo = FirestoreToolCatalogRepository
 
     async def _get_client(self):
         """Get Firestore client asynchronously."""
@@ -231,8 +268,12 @@ class _FirestoreRepositoryFactory:
             tenants_collection=client.collection(self._config.tenants_container),
             users_collection=client.collection(self._config.users_container),
             identities_collection=client.collection(self._config.useridentities_container),
-            provisioning_collection=client.collection(self._config.provisioning_container),
+            memberships_collection=client.collection(self._config.memberships_container),
         )
+
+    async def tool_catalog(self):
+        client = await self._get_client()
+        return self._tool_catalog_repo(client.collection(self._config.tenants_container))
 
     async def conversations(self):
         client = await self._get_client()
@@ -259,7 +300,9 @@ def create_repository_factory(
     init_tenants: dict[str, TenantRecord] | None = None,
     init_users: dict[str, UserRecord] | None = None,
     init_user_identities: dict[str, UserIdentityRecord] | None = None,
-    init_provisioning: dict[str, ProvisioningRecord] | None = None,
+    init_memberships: dict[str, MembershipRecord] | None = None,
+    init_tools: dict[str, dict[str, ToolRecord]] | None = None,
+    init_data_sources: dict[str, dict[str, DataSourceRecord]] | None = None,
 ) -> RepositoryFactory:
     """Create a repository factory for the configured storage backend.
 
@@ -284,7 +327,14 @@ def create_repository_factory(
                 tenants=init_tenants or TENANTS,
                 users=init_users or USERS,
                 user_identities=init_user_identities or USER_IDENTITIES,
-                provisioning=init_provisioning or PROVISIONING,
+                memberships=init_memberships or MEMBERSHIPS,
+                tools=init_tools
+                or {tenant_id: build_tools_for_tenant(tenant_id) for tenant_id in TENANTS},
+                data_sources=init_data_sources
+                or {
+                    tenant_id: build_data_sources_for_tenant(tenant_id)
+                    for tenant_id in TENANTS
+                },
             )
 
         case "local":
@@ -296,7 +346,14 @@ def create_repository_factory(
                 tenants=init_tenants or TENANTS,
                 users=init_users or USERS,
                 user_identities=init_user_identities or USER_IDENTITIES,
-                provisioning=init_provisioning or PROVISIONING,
+                memberships=init_memberships or MEMBERSHIPS,
+                tools=init_tools
+                or {tenant_id: build_tools_for_tenant(tenant_id) for tenant_id in TENANTS},
+                data_sources=init_data_sources
+                or {
+                    tenant_id: build_data_sources_for_tenant(tenant_id)
+                    for tenant_id in TENANTS
+                },
             )
 
         case "azure":

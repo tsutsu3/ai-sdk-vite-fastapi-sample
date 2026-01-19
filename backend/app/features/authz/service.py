@@ -3,7 +3,8 @@ from dataclasses import dataclass
 from logging import getLogger
 
 from app.features.authz.models import (
-    ProvisioningStatus,
+    MembershipRecord,
+    MembershipStatus,
     TenantRecord,
     UserIdentityRecord,
     UserInfo,
@@ -24,6 +25,7 @@ class AuthzResolution:
     user_record: UserRecord
     tenant_record: TenantRecord
     user_identity: UserIdentityRecord
+    membership: MembershipRecord
 
 
 class AuthzService:
@@ -43,12 +45,36 @@ class AuthzService:
                 logger.warning("Authz records missing user_id=%s", user.id)
                 raise AuthzError("User is not authorized for any tenant")
             active_tenant_id = user_record.active_tenant_id
-            if not active_tenant_id or active_tenant_id not in user_record.tenant_ids:
-                logger.warning("Authz tenant mismatch user_id=%s", user.id)
-                raise AuthzError("User is not authorized for any tenant")
+            if not active_tenant_id:
+                memberships = await self._repo.list_memberships_by_user(user_record.id)
+                active = next(
+                    (record for record in memberships if record.status == MembershipStatus.ACTIVE),
+                    None,
+                )
+                if not active:
+                    logger.warning("Authz tenant missing user_id=%s", user.id)
+                    raise AuthzError("User is not authorized for any tenant")
+                active_tenant_id = active.tenant_id
+                user_record = user_record.model_copy(
+                    update={
+                        "active_tenant_id": active_tenant_id,
+                        "updated_at": now_datetime(),
+                    }
+                )
+                await self._repo.save_user(user_record)
             tenant_record = await self._repo.get_tenant(active_tenant_id)
             if not tenant_record:
                 logger.warning("Authz tenant missing user_id=%s", user.id)
+                raise AuthzError("User is not authorized for any tenant")
+            membership = await self._repo.get_membership_for_user(
+                active_tenant_id, user_record.id
+            )
+            if not membership or membership.status != MembershipStatus.ACTIVE:
+                logger.warning(
+                    "Authz membership missing user_id=%s tenant_id=%s",
+                    user_record.id,
+                    active_tenant_id,
+                )
                 raise AuthzError("User is not authorized for any tenant")
             logger.debug(
                 "Authz resolved from cache user_id=%s tenant_id=%s",
@@ -59,39 +85,36 @@ class AuthzService:
                 user_record=user_record,
                 tenant_record=tenant_record,
                 user_identity=user_identity,
+                membership=membership,
             )
 
         if not user.email:
             logger.warning("Authz email missing user_id=%s", user.id)
-            raise AuthzError("User email is required for provisioning")
+            raise AuthzError("User email is required for membership")
 
-        provisioning_matches = await self._repo.list_provisioning_by_email(
-            user.email, ProvisioningStatus.PENDING
+        membership_matches = await self._repo.list_memberships_by_email(
+            user.email, MembershipStatus.PENDING
         )
-        if len(provisioning_matches) != 1:
+        if len(membership_matches) != 1:
             logger.warning(
-                "Authz provisioning unavailable user_id=%s matches=%d",
+                "Authz membership unavailable user_id=%s matches=%d",
                 user.id,
-                len(provisioning_matches),
+                len(membership_matches),
             )
-            raise AuthzError("User provisioning is not available")
-        provisioning = provisioning_matches[0]
+            raise AuthzError("User membership is not available")
+        membership = membership_matches[0]
 
         logger.info(
-            "Authz provisioning started user_id=%s tenant_id=%s",
+            "Authz membership activation started user_id=%s tenant_id=%s",
             user.id,
-            provisioning.tenant_id,
+            membership.tenant_id,
         )
         user_record = UserRecord(
             id=str(uuid.uuid4()),
-            tenant_ids=[provisioning.tenant_id],
-            active_tenant_id=provisioning.tenant_id,
+            active_tenant_id=membership.tenant_id,
             email=user.email,
-            first_name=provisioning.first_name,
-            last_name=provisioning.last_name,
-            tool_overrides_by_tenant={
-                provisioning.tenant_id: provisioning.tool_overrides
-            },
+            first_name=user.first_name,
+            last_name=user.last_name,
             created_at=now_datetime(),
             updated_at=now_datetime(),
         )
@@ -101,19 +124,19 @@ class AuthzService:
             id=user.id,
             provider=user.provider,
             user_id=user_record.id,
-            tenant_id=user_record.active_tenant_id,
             created_at=now_datetime(),
             updated_at=now_datetime(),
         )
         await self._repo.save_user_identity(user_identity)
 
-        provisioning = provisioning.model_copy(
+        membership = membership.model_copy(
             update={
-                "status": ProvisioningStatus.ACTIVE,
+                "status": MembershipStatus.ACTIVE,
+                "user_id": user_record.id,
                 "updated_at": now_datetime(),
             }
         )
-        await self._repo.save_provisioning(provisioning)
+        await self._repo.save_membership(membership)
 
         tenant_record = await self._repo.get_tenant(user_record.active_tenant_id)
         if not tenant_record:
@@ -125,7 +148,7 @@ class AuthzService:
             raise AuthzError("Tenant is not authorized")
 
         logger.info(
-            "Authz provisioning complete user_id=%s tenant_id=%s",
+            "Authz membership activation complete user_id=%s tenant_id=%s",
             user_record.id,
             user_record.active_tenant_id,
         )
@@ -133,4 +156,5 @@ class AuthzService:
             user_record=user_record,
             tenant_record=tenant_record,
             user_identity=user_identity,
+            membership=membership,
         )
