@@ -15,9 +15,9 @@ from app.core.config import AppConfig, ChatCapabilities
 from app.features.chat.run.errors import RunServiceError
 from app.features.chat.run.models import StreamContext
 from app.features.chat.run.retrieval_context import build_retrieval_context
-from app.features.retrieval.tools import ToolRegistry
 from app.features.messages.models import MessageRecord
 from app.features.messages.ports import MessageRepository
+from app.features.retrieval.tools import ToolRegistry
 from app.shared.llm_resolver import resolve_chat_model_spec
 
 logger = getLogger(__name__)

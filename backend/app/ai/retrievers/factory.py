@@ -106,9 +106,7 @@ def _build_azure_ai_search_retriever(
         raise RuntimeError("langchain-community is required for Azure AI Search.") from exc
     if not app_config.retrieval_ai_search_url or not app_config.retrieval_ai_search_api_key:
         raise RuntimeError("Azure AI Search settings are not configured.")
-    filter_expression = _build_ai_search_filter_expression(
-        app_config, spec, tenant_id=tenant_id
-    )
+    filter_expression = _build_ai_search_filter_expression(app_config, spec, tenant_id=tenant_id)
     if spec.embeddings is None:
         raise RuntimeError("Embeddings are required for Azure AI Search.")
     embeddings = build_embeddings(app_config, spec.embeddings)

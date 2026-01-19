@@ -148,10 +148,7 @@ _BASE_DATA_SOURCES: list[DataSourceRecord] = [
 
 
 def build_tools_for_tenant(tenant_id: str) -> dict[str, ToolRecord]:
-    return {
-        tool.id: tool.model_copy(update={"tenant_id": tenant_id})
-        for tool in _BASE_TOOLS
-    }
+    return {tool.id: tool.model_copy(update={"tenant_id": tenant_id}) for tool in _BASE_TOOLS}
 
 
 def build_data_sources_for_tenant(tenant_id: str) -> dict[str, DataSourceRecord]:

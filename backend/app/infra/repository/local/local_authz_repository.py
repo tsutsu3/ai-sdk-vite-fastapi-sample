@@ -68,11 +68,7 @@ class LocalAuthzRepository(AuthzRepository):
         ]
 
     async def list_memberships_by_user(self, user_id: str) -> list[MembershipRecord]:
-        return [
-            record
-            for record in self._read_all_memberships()
-            if record.user_id == user_id
-        ]
+        return [record for record in self._read_all_memberships() if record.user_id == user_id]
 
     async def get_membership_for_user(
         self, tenant_id: str, user_id: str
@@ -129,9 +125,7 @@ class LocalAuthzRepository(AuthzRepository):
         doc = user_identity_record_to_doc(identity_record)
         identity_path.write_text(doc.model_dump_json(ensure_ascii=False), encoding="utf-8")
 
-    def _write_membership(
-        self, membership_id: str, membership_record: MembershipRecord
-    ) -> None:
+    def _write_membership(self, membership_id: str, membership_record: MembershipRecord) -> None:
         membership_dir = self._membership_dir()
         membership_dir.mkdir(parents=True, exist_ok=True)
         membership_path = membership_dir / f"{membership_id}.json"

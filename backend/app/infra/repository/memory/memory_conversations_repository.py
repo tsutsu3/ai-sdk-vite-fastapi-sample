@@ -25,16 +25,12 @@ class MemoryConversationRepository(ConversationRepository):
                 createdAt=now,
             ),
         }
-        self._conversation_store: dict[
-            tuple[str, str], dict[str, ConversationRecord]
-        ] = {
+        self._conversation_store: dict[tuple[str, str], dict[str, ConversationRecord]] = {
             ("id-tenant001", "local-user-001"): dict(default_conversations),
             ("id-tenant001", "local-user-001-01"): dict(default_conversations),
         }
 
-    def _get_store(
-        self, tenant_id: str, user_id: str
-    ) -> dict[str, ConversationRecord]:
+    def _get_store(self, tenant_id: str, user_id: str) -> dict[str, ConversationRecord]:
         return self._conversation_store.get((tenant_id, user_id), {})
 
     def _set_store(

@@ -136,4 +136,3 @@ class CachedAuthzRepository(AuthzRepository):
         if self._cache.is_enabled():
             cache_key = self._tenant_key(record.id)
             await self._cache.delete(cache_key)
-

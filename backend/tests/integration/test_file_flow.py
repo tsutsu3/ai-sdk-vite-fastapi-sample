@@ -3,7 +3,12 @@ from fastapi.testclient import TestClient
 from app.core.application import create_app
 from app.core.config import Settings
 from app.features.authz.service import AuthzService
-from app.infra.fixtures.authz.local_data import MEMBERSHIPS, TENANTS, USER_IDENTITIES, USERS
+from app.infra.fixtures.authz.local_data import (
+    MEMBERSHIPS,
+    TENANTS,
+    USER_IDENTITIES,
+    USERS,
+)
 from app.infra.repository.memory.memory_authz_repository import MemoryAuthzRepository
 from app.infra.repository.memory.memory_conversations_repository import (
     MemoryConversationRepository,

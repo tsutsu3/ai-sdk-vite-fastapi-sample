@@ -10,7 +10,11 @@ from app.features.authz.request_context import (
     get_current_user_info,
     get_current_user_record,
 )
-from app.features.config.schemas import ConfigResponse, ConfigUpdateRequest, TenantSummary
+from app.features.config.schemas import (
+    ConfigResponse,
+    ConfigUpdateRequest,
+    TenantSummary,
+)
 from app.shared.time import now_datetime
 
 logger = logging.getLogger(__name__)
@@ -23,7 +27,9 @@ def _normalize_tenant_ids(tenant_ids: list[str]) -> list[str]:
 
 
 def _active_tenant_ids(memberships) -> list[str]:
-    return [record.tenant_id for record in memberships if record.status == MembershipStatus.ACTIVE]
+    return [
+        record.tenant_id for record in memberships if record.status == MembershipStatus.ACTIVE
+    ]
 
 
 async def _load_user_record(
@@ -140,9 +146,7 @@ async def update_config(
         )
 
     tenant_summaries = await _load_tenant_summaries(repo, tenant_ids)
-    if not any(
-        summary.id == user_record.active_tenant_id for summary in tenant_summaries
-    ):
+    if not any(summary.id == user_record.active_tenant_id for summary in tenant_summaries):
         raise HTTPException(status_code=403, detail="Active tenant is not authorized")
 
     return ConfigResponse(

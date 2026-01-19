@@ -35,8 +35,8 @@ from app.features.chat import routes as chat_api
 from app.features.chat.run.errors import RunServiceError
 from app.features.chat.run.service import RunService
 from app.features.chat.run.streamers import ChatStreamer, LangChainChatStreamer
-from app.features.conversations import routes as conversations_api
 from app.features.config import routes as config_api
+from app.features.conversations import routes as conversations_api
 from app.features.file import routes as file_api
 from app.features.health import routes as health_api
 from app.features.messages import routes as messages_api
@@ -50,7 +50,12 @@ from app.infra.cache.cached_authz_repository import CachedAuthzRepository
 from app.infra.cache.cached_message_repository import CachedMessageRepository
 from app.infra.client.cosmos_client import CosmosClientProvider, ensure_cosmos_resources
 from app.infra.client.firestore_client import FirestoreClientProvider
-from app.infra.fixtures.authz.local_data import MEMBERSHIPS, TENANTS, USER_IDENTITIES, USERS
+from app.infra.fixtures.authz.local_data import (
+    MEMBERSHIPS,
+    TENANTS,
+    USER_IDENTITIES,
+    USERS,
+)
 from app.infra.fixtures.tool_catalog.local_data import (
     build_data_sources_for_tenant,
     build_tools_for_tenant,
@@ -248,12 +253,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         init_users=USERS,
         init_user_identities=USER_IDENTITIES,
         init_memberships=MEMBERSHIPS,
-        init_tools={
-            tenant_id: build_tools_for_tenant(tenant_id) for tenant_id in TENANTS.keys()
-        },
+        init_tools={tenant_id: build_tools_for_tenant(tenant_id) for tenant_id in TENANTS.keys()},
         init_data_sources={
-            tenant_id: build_data_sources_for_tenant(tenant_id)
-            for tenant_id in TENANTS.keys()
+            tenant_id: build_data_sources_for_tenant(tenant_id) for tenant_id in TENANTS.keys()
         },
     )
 

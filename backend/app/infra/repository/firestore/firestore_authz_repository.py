@@ -92,7 +92,9 @@ class FirestoreAuthzRepository(AuthzRepository):
         results: list[MembershipRecord] = []
         async for doc in query.stream():
             try:
-                results.append(membership_doc_to_record(MembershipDoc.model_validate(doc.to_dict())))
+                results.append(
+                    membership_doc_to_record(MembershipDoc.model_validate(doc.to_dict()))
+                )
             except Exception:
                 continue
         return results
@@ -103,7 +105,9 @@ class FirestoreAuthzRepository(AuthzRepository):
         results: list[MembershipRecord] = []
         async for doc in query.stream():
             try:
-                results.append(membership_doc_to_record(MembershipDoc.model_validate(doc.to_dict())))
+                results.append(
+                    membership_doc_to_record(MembershipDoc.model_validate(doc.to_dict()))
+                )
             except Exception:
                 continue
         return results
@@ -111,9 +115,7 @@ class FirestoreAuthzRepository(AuthzRepository):
     async def get_membership_for_user(
         self, tenant_id: str, user_id: str
     ) -> MembershipRecord | None:
-        logger.debug(
-            "firestore.authz.get_membership tenant_id=%s user_id=%s", tenant_id, user_id
-        )
+        logger.debug("firestore.authz.get_membership tenant_id=%s user_id=%s", tenant_id, user_id)
         query = self._memberships.where("tenant_id", "==", tenant_id).where(
             "user_id", "==", user_id
         )

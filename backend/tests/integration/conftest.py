@@ -11,7 +11,12 @@ from app.features.authz.service import AuthzService
 from app.features.chat.run.service import RunService
 from app.features.chat.run.streamers.base import BaseStreamer
 from app.features.title.title_generator import TitleGenerator
-from app.infra.fixtures.authz.local_data import MEMBERSHIPS, TENANTS, USER_IDENTITIES, USERS
+from app.infra.fixtures.authz.local_data import (
+    MEMBERSHIPS,
+    TENANTS,
+    USER_IDENTITIES,
+    USERS,
+)
 from app.infra.repository.memory.memory_authz_repository import MemoryAuthzRepository
 from app.infra.repository.memory.memory_conversations_repository import (
     MemoryConversationRepository,

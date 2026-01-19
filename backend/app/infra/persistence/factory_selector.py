@@ -11,7 +11,12 @@ from app.features.authz.models import (
 from app.features.tool_catalog.models import DataSourceRecord, ToolRecord
 from app.infra.client.cosmos_client import CosmosClientProvider
 from app.infra.client.firestore_client import FirestoreClientProvider
-from app.infra.fixtures.authz.local_data import MEMBERSHIPS, TENANTS, USER_IDENTITIES, USERS
+from app.infra.fixtures.authz.local_data import (
+    MEMBERSHIPS,
+    TENANTS,
+    USER_IDENTITIES,
+    USERS,
+)
 from app.infra.fixtures.tool_catalog.local_data import (
     build_data_sources_for_tenant,
     build_tools_for_tenant,
@@ -331,10 +336,7 @@ def create_repository_factory(
                 tools=init_tools
                 or {tenant_id: build_tools_for_tenant(tenant_id) for tenant_id in TENANTS},
                 data_sources=init_data_sources
-                or {
-                    tenant_id: build_data_sources_for_tenant(tenant_id)
-                    for tenant_id in TENANTS
-                },
+                or {tenant_id: build_data_sources_for_tenant(tenant_id) for tenant_id in TENANTS},
             )
 
         case "local":
@@ -350,10 +352,7 @@ def create_repository_factory(
                 tools=init_tools
                 or {tenant_id: build_tools_for_tenant(tenant_id) for tenant_id in TENANTS},
                 data_sources=init_data_sources
-                or {
-                    tenant_id: build_data_sources_for_tenant(tenant_id)
-                    for tenant_id in TENANTS
-                },
+                or {tenant_id: build_data_sources_for_tenant(tenant_id) for tenant_id in TENANTS},
             )
 
         case "azure":

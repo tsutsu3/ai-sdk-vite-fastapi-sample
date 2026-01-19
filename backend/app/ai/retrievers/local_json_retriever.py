@@ -53,9 +53,7 @@ class LocalJSONRetriever(BaseRetriever):
                 documents = data["documents"]
             else:
                 return []
-            return [
-                doc for doc in documents if self._matches_tenant(doc, self.tenant_id)
-            ]
+            return [doc for doc in documents if self._matches_tenant(doc, self.tenant_id)]
         except (json.JSONDecodeError, OSError) as e:
             logger.warning("Failed to load or parse JSON file: %s - %s", resolved_path, e)
             return []

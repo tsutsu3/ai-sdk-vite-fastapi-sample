@@ -64,9 +64,7 @@ class CosmosAuthzRepository(AuthzRepository):
         self, email: str, status: MembershipStatus
     ) -> list[MembershipRecord]:
         items = self._memberships_container.query_items(
-            query=(
-                "SELECT * FROM c WHERE c.invite_email = @email AND c.status = @status"
-            ),
+            query=("SELECT * FROM c WHERE c.invite_email = @email AND c.status = @status"),
             parameters=[
                 {"name": "@email", "value": email},
                 {"name": "@status", "value": status.value},
@@ -101,9 +99,7 @@ class CosmosAuthzRepository(AuthzRepository):
         self, tenant_id: str, user_id: str
     ) -> MembershipRecord | None:
         items = self._memberships_container.query_items(
-            query=(
-                "SELECT * FROM c WHERE c.tenant_id = @tenant_id AND c.user_id = @user_id"
-            ),
+            query=("SELECT * FROM c WHERE c.tenant_id = @tenant_id AND c.user_id = @user_id"),
             parameters=[
                 {"name": "@tenant_id", "value": tenant_id},
                 {"name": "@user_id", "value": user_id},

@@ -22,9 +22,7 @@ _tenant_record_ctx: ContextVar[TenantRecord | None] = ContextVar("tenant_record"
 _user_identity_ctx: ContextVar[UserIdentityRecord | None] = ContextVar(
     "user_identity", default=None
 )
-_membership_ctx: ContextVar[MembershipRecord | None] = ContextVar(
-    "membership", default=None
-)
+_membership_ctx: ContextVar[MembershipRecord | None] = ContextVar("membership", default=None)
 
 logger = getLogger(__name__)
 

@@ -33,8 +33,8 @@ from app.features.messages.ports import MessageRepository
 from app.features.retrieval.run.service import build_rag_stream
 from app.features.retrieval.run.utils import resolve_conversation_id, uuid4_str
 from app.features.retrieval.schemas import RetrievalQueryRequest
-from app.features.usage.ports import UsageRepository
 from app.features.retrieval.tools import ToolRegistry
+from app.features.usage.ports import UsageRepository
 from app.features.worker.schemas import WorkerJobRunRequest
 from app.shared.streaming import stream_with_lifecycle
 from app.shared.time import now_datetime

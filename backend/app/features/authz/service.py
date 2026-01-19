@@ -48,7 +48,11 @@ class AuthzService:
             if not active_tenant_id:
                 memberships = await self._repo.list_memberships_by_user(user_record.id)
                 active = next(
-                    (record for record in memberships if record.status == MembershipStatus.ACTIVE),
+                    (
+                        record
+                        for record in memberships
+                        if record.status == MembershipStatus.ACTIVE
+                    ),
                     None,
                 )
                 if not active:
